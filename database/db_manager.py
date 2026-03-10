@@ -132,8 +132,33 @@ def initialize_db():
             calories     REAL,
             protein_g    REAL,
             carbs_g      REAL,
-            fat_g        REAL
+            fat_g        REAL,
+            fiber_g      REAL
         );
+
+        CREATE TABLE IF NOT EXISTS alimentos_db (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre_es       TEXT NOT NULL,
+            nombre_en       TEXT,
+            calorias        REAL NOT NULL DEFAULT 0,
+            proteinas_g     REAL NOT NULL DEFAULT 0,
+            carbohidratos_g REAL NOT NULL DEFAULT 0,
+            grasas_g        REAL NOT NULL DEFAULT 0,
+            fibra_g         REAL NOT NULL DEFAULT 0,
+            azucares_g      REAL,
+            sodio_mg        REAL,
+            calcio_mg       REAL,
+            hierro_mg       REAL,
+            vitamina_c_mg   REAL,
+            vitamina_a_mcg  REAL,
+            fuente          TEXT DEFAULT 'USDA',
+            es_personalizado INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_alimentos_es
+            ON alimentos_db(nombre_es COLLATE NOCASE);
+        CREATE INDEX IF NOT EXISTS idx_alimentos_en
+            ON alimentos_db(nombre_en COLLATE NOCASE);
     """)
 
     conn.commit()
@@ -204,6 +229,14 @@ def _migrate(conn):
     conn.execute(
         "UPDATE anthropometrics SET session_date = date WHERE session_date IS NULL"
     )
+
+    # Migrate meal_items table
+    meal_item_cols = [("fiber_g", "REAL")]
+    existing_mi = {row[1] for row in
+                   conn.execute("PRAGMA table_info(meal_items)").fetchall()}
+    for col, col_type in meal_item_cols:
+        if col not in existing_mi:
+            conn.execute(f"ALTER TABLE meal_items ADD COLUMN {col} {col_type}")
 
     # Migrate patients table
     patient_new_cols = [
@@ -505,13 +538,14 @@ def get_meal_plan(mid: int) -> Optional[dict]:
 # ── Meal Items ────────────────────────────────────────────────────────────────
 
 def insert_meal_item(data: dict) -> int:
+    data.setdefault("fiber_g", None)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO meal_items (plan_id, meal_type, food_name, quantity, unit,
-                                calories, protein_g, carbs_g, fat_g)
+                                calories, protein_g, carbs_g, fat_g, fiber_g)
         VALUES (:plan_id,:meal_type,:food_name,:quantity,:unit,
-                :calories,:protein_g,:carbs_g,:fat_g)
+                :calories,:protein_g,:carbs_g,:fat_g,:fiber_g)
     """, data)
     conn.commit()
     iid = cur.lastrowid
@@ -541,3 +575,68 @@ def delete_all_meal_items(plan_id: int):
     conn.execute("DELETE FROM meal_items WHERE plan_id=?", (plan_id,))
     conn.commit()
     conn.close()
+
+
+# ── Alimentos DB ──────────────────────────────────────────────────────────────
+
+def search_foods(query: str, limit: int = 15) -> list:
+    """Search alimentos_db by Spanish or English name (LIKE, case-insensitive)."""
+    conn = get_connection()
+    like = f"%{query}%"
+    rows = conn.execute(
+        """SELECT * FROM alimentos_db
+           WHERE nombre_es LIKE ? OR nombre_en LIKE ?
+           ORDER BY
+               CASE WHEN nombre_es LIKE ? THEN 0 ELSE 1 END,
+               nombre_es COLLATE NOCASE
+           LIMIT ?""",
+        (like, like, f"{query}%", limit)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def insert_food(data: dict) -> int:
+    defaults = {
+        "nombre_en": None, "azucares_g": None, "sodio_mg": None,
+        "calcio_mg": None, "hierro_mg": None, "vitamina_c_mg": None,
+        "vitamina_a_mcg": None, "fuente": "personalizado", "es_personalizado": 1,
+    }
+    row = {**defaults, **data}
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO alimentos_db
+            (nombre_es, nombre_en, calorias, proteinas_g, carbohidratos_g,
+             grasas_g, fibra_g, azucares_g, sodio_mg, calcio_mg, hierro_mg,
+             vitamina_c_mg, vitamina_a_mcg, fuente, es_personalizado)
+        VALUES
+            (:nombre_es, :nombre_en, :calorias, :proteinas_g, :carbohidratos_g,
+             :grasas_g, :fibra_g, :azucares_g, :sodio_mg, :calcio_mg, :hierro_mg,
+             :vitamina_c_mg, :vitamina_a_mcg, :fuente, :es_personalizado)
+    """, row)
+    conn.commit()
+    fid = cur.lastrowid
+    conn.close()
+    return fid
+
+
+def get_food(food_id: int) -> Optional[dict]:
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM alimentos_db WHERE id=?", (food_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_food(food_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM alimentos_db WHERE id=?", (food_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_foods_count() -> int:
+    conn = get_connection()
+    n = conn.execute("SELECT COUNT(*) FROM alimentos_db").fetchone()[0]
+    conn.close()
+    return n
