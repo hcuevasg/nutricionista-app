@@ -360,6 +360,45 @@ def get_anthropometrics(patient_id: int) -> list:
     return [dict(r) for r in rows]
 
 
+def update_anthropometric(data: dict):
+    """Update all fields of an existing anthropometric record. data must include 'id'."""
+    conn = get_connection()
+    conn.execute("""
+        UPDATE anthropometrics SET
+            session_date=:session_date, isak_level=:isak_level,
+            weight_kg=:weight_kg, height_cm=:height_cm, waist_cm=:waist_cm,
+            arm_relaxed_cm=:arm_relaxed_cm, arm_contracted_cm=:arm_contracted_cm,
+            hip_glute_cm=:hip_glute_cm, thigh_max_cm=:thigh_max_cm,
+            thigh_mid_cm=:thigh_mid_cm, calf_cm=:calf_cm,
+            triceps_mm=:triceps_mm, subscapular_mm=:subscapular_mm,
+            biceps_mm=:biceps_mm, iliac_crest_mm=:iliac_crest_mm,
+            supraspinal_mm=:supraspinal_mm, abdominal_mm=:abdominal_mm,
+            medial_thigh_mm=:medial_thigh_mm, max_calf_mm=:max_calf_mm,
+            pectoral_mm=:pectoral_mm, axillary_mm=:axillary_mm,
+            front_thigh_mm=:front_thigh_mm,
+            head_cm=:head_cm, neck_cm=:neck_cm, chest_cm=:chest_cm,
+            ankle_min_cm=:ankle_min_cm,
+            humerus_width_cm=:humerus_width_cm, femur_width_cm=:femur_width_cm,
+            biacromial_cm=:biacromial_cm, biiliocrestal_cm=:biiliocrestal_cm,
+            ap_chest_cm=:ap_chest_cm, transv_chest_cm=:transv_chest_cm,
+            foot_length_cm=:foot_length_cm, wrist_cm=:wrist_cm,
+            ankle_bimalleolar_cm=:ankle_bimalleolar_cm,
+            acromion_radial_cm=:acromion_radial_cm,
+            radial_styloid_cm=:radial_styloid_cm,
+            iliospinal_height_cm=:iliospinal_height_cm,
+            trochanter_tibial_cm=:trochanter_tibial_cm,
+            sum_6_skinfolds=:sum_6_skinfolds, body_density=:body_density,
+            fat_mass_pct=:fat_mass_pct, fat_mass_kg=:fat_mass_kg,
+            lean_mass_kg=:lean_mass_kg,
+            somatotype_endo=:somatotype_endo, somatotype_meso=:somatotype_meso,
+            somatotype_ecto=:somatotype_ecto,
+            waist_height_ratio=:waist_height_ratio, arm_muscle_area=:arm_muscle_area
+        WHERE id=:id
+    """, data)
+    conn.commit()
+    conn.close()
+
+
 def update_session_date(aid: int, session_date: str):
     conn = get_connection()
     conn.execute(
