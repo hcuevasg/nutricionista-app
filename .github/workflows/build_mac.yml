@@ -20,27 +20,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Rosetta 2
+        run: softwareupdate --install-rosetta --agree-to-license
+
       - name: Install Python 3.9 universal2
         run: |
           curl -LO https://www.python.org/ftp/python/3.9.13/python-3.9.13-macos11.pkg
           sudo installer -pkg python-3.9.13-macos11.pkg -target /
-          echo "/Library/Frameworks/Python.framework/Versions/3.9/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies
+      - name: Install dependencies (x86_64 via Rosetta)
         run: |
-          python3.9 -m pip install --upgrade pip
-          python3.9 -m pip install -r requirements.txt
-          python3.9 -m pip install pyinstaller
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9 -m pip install --upgrade pip
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9 -m pip install -r requirements.txt
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9 -m pip install pyinstaller
 
-      - name: Build app with PyInstaller
+      - name: Build app with PyInstaller (x86_64 via Rosetta)
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          python3.9 -m PyInstaller \
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9 -m PyInstaller \
             --name "NutriApp" \
             --windowed \
-            --onefile \
-            --target-arch x86_64 \
+            --onedir \
             --hidden-import customtkinter \
             --hidden-import PIL \
             --hidden-import PIL._tkinter_finder \
