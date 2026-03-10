@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-mac-intel:
-    runs-on: macos-13          # Intel x86_64
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
