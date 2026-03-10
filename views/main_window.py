@@ -6,6 +6,7 @@ from views.anthropometric_view import AnthropometricFrame
 from views.meal_plan_view import MealPlanFrame
 from views.reports_view import ReportsFrame
 from views.backup_view import BackupView
+from views.templates_view import TemplatesFrame
 import database.db_manager as db
 from utils.image_helpers import get_initials, make_circle_image
 
@@ -31,6 +32,7 @@ class App(ctk.CTk):
         self.minsize(1100, 680)
 
         self._selected_patient_id: Optional[int] = None
+        self._pending_plan_id: Optional[int] = None
         self._build_ui()
         self._show_frame("patients")
 
@@ -43,7 +45,7 @@ class App(ctk.CTk):
         sidebar = ctk.CTkFrame(self, width=240, corner_radius=0,
                                fg_color=_C_PRIMARY)
         sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_rowconfigure(8, weight=1)
+        sidebar.grid_rowconfigure(9, weight=1)
         sidebar.grid_columnconfigure(0, weight=1)
 
         # Logo
@@ -63,6 +65,7 @@ class App(ctk.CTk):
             ("patients",        "Pacientes",           "👤"),
             ("anthropometrics", "Antropometría",       "📏"),
             ("meal_plans",      "Planes Alimenticios", "🥗"),
+            ("templates",       "Plantillas",          "📋"),
             ("reports",         "Reportes",            "📄"),
             ("backup",          "Backup",              "💾"),
         ]
@@ -82,13 +85,13 @@ class App(ctk.CTk):
 
         # ── Active patient card ───────────────────────────────────────────────
         sep = ctk.CTkFrame(sidebar, height=1, fg_color=_C_ACCENT)
-        sep.grid(row=7, column=0, sticky="ew", padx=16, pady=(12, 0))
+        sep.grid(row=8, column=0, sticky="ew", padx=16, pady=(12, 0))
 
         self._patient_card = ctk.CTkFrame(
             sidebar, corner_radius=10,
             fg_color=_C_PRIMARY_DARK
         )
-        self._patient_card.grid(row=8, column=0, padx=12, pady=12, sticky="sew")
+        self._patient_card.grid(row=9, column=0, padx=12, pady=12, sticky="sew")
         self._patient_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
@@ -135,7 +138,7 @@ class App(ctk.CTk):
             fg_color=_C_PRIMARY_DEEP, hover_color="#053d2e",
             text_color=_C_TEXT_MUTED,
             command=self._toggle_theme
-        ).grid(row=9, column=0, padx=12, pady=(0, 16), sticky="ew")
+        ).grid(row=10, column=0, padx=12, pady=(0, 16), sticky="ew")
 
         # ── Content area ──────────────────────────────────────────────────────
         self._content = ctk.CTkFrame(
@@ -153,6 +156,7 @@ class App(ctk.CTk):
             ("patient_form",    PatientFormFrame),
             ("anthropometrics", AnthropometricFrame),
             ("meal_plans",      MealPlanFrame),
+            ("templates",       TemplatesFrame),
             ("reports",         ReportsFrame),
             ("backup",          BackupView),
         ]:

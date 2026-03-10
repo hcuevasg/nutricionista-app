@@ -5,6 +5,9 @@ from typing import Optional
 import database.db_manager as db
 import utils.calculations as calc
 from views.custom_food_dialog import CustomFoodDialog
+from views.templates_view import (
+    SaveAsTemplateDialog, TemplatePickerDialog, NewPlanChoiceDialog
+)
 
 
 MEAL_TYPES = ["Desayuno", "Media mañana", "Almuerzo",
@@ -212,12 +215,28 @@ class MealPlanFrame(ctk.CTkFrame):
             command=self._save_plan_header
         ).grid(row=6, column=2, columnspan=2, padx=8, pady=4, sticky="ew")
 
+        ctk.CTkButton(
+            tab, text="★  Guardar como plantilla", height=30,
+            fg_color="transparent", border_width=1,
+            text_color=("#059669", "#34d399"),
+            font=ctk.CTkFont(size=11),
+            command=self._save_as_template
+        ).grid(row=7, column=2, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
+
+        # Template source badge
+        self._template_badge = ctk.CTkLabel(
+            tab, text="", text_color="#059669",
+            font=ctk.CTkFont(size=11), anchor="w"
+        )
+        self._template_badge.grid(row=7, column=0, columnspan=2,
+                                   padx=8, pady=(0, 4), sticky="w")
+
         # Notes
         ctk.CTkLabel(tab, text="Notas", text_color="gray",
                      font=ctk.CTkFont(size=12)).grid(
-            row=7, column=0, columnspan=4, padx=8, pady=(8, 0), sticky="w")
+            row=8, column=0, columnspan=4, padx=8, pady=(8, 0), sticky="w")
         self._plan_notes = ctk.CTkTextbox(tab, height=80)
-        self._plan_notes.grid(row=8, column=0, columnspan=4,
+        self._plan_notes.grid(row=9, column=0, columnspan=4,
                                padx=8, pady=(0, 12), sticky="ew")
 
     # ── Tab: Alimentos ────────────────────────────────────────────────────────
@@ -346,6 +365,11 @@ class MealPlanFrame(ctk.CTkFrame):
             if p:
                 self._patient_lbl.configure(text=f"Paciente: {p['name']}")
                 self._load_plans()
+                # Handle plan pre-selected from template application
+                pending = getattr(self.app, "_pending_plan_id", None)
+                if pending:
+                    self.app._pending_plan_id = None
+                    self._select_plan(pending)
                 return
         # No patient selected
         self._patient_lbl.configure(text="Ningún paciente seleccionado")
@@ -440,10 +464,67 @@ class MealPlanFrame(ctk.CTkFrame):
             messagebox.showwarning("Sin paciente",
                                    "Selecciona un paciente primero.")
             return
+        NewPlanChoiceDialog(
+            self,
+            on_scratch=self._new_plan_from_scratch,
+            on_template=self._new_plan_pick_template,
+        )
+
+    def _new_plan_from_scratch(self):
         self._selected_plan_id = None
         self._clear_editor()
         self._show_tabs()
         self._tabs.set("  Información  ")
+
+    def _new_plan_pick_template(self):
+        TemplatePickerDialog(self, on_pick=self._new_plan_from_template)
+
+    def _new_plan_from_template(self, template_id: int):
+        pid = self.app.get_patient_id()
+        if not pid:
+            return
+        t = db.get_template(template_id)
+
+        self._selected_plan_id = None
+        self._clear_editor()
+
+        # Pre-fill from template
+        self._plan_vars["name"].set(t.get("name", ""))
+        self._plan_vars["date"].set(date.today().isoformat())
+        goal = t.get("goal") or GOALS[0]
+        if goal in GOALS:
+            self._goal_var.set(goal)
+        self._plan_vars["calories"].set(str(t.get("calories") or ""))
+        self._plan_vars["protein_g"].set(str(t.get("protein_g") or ""))
+        self._plan_vars["carbs_g"].set(str(t.get("carbs_g") or ""))
+        self._plan_vars["fat_g"].set(str(t.get("fat_g") or ""))
+        if t.get("notes"):
+            self._plan_notes.insert("1.0", t["notes"])
+
+        # Auto-save plan then import items
+        data = {
+            "patient_id": pid,
+            "name": t.get("name", "Plan desde plantilla"),
+            "date": date.today().isoformat(),
+            "goal": goal,
+            "calories": t.get("calories"),
+            "protein_g": t.get("protein_g"),
+            "carbs_g": t.get("carbs_g"),
+            "fat_g": t.get("fat_g"),
+            "notes": t.get("notes"),
+            "template_id": template_id,
+        }
+        plan_id = db.insert_meal_plan(data)
+        self._selected_plan_id = plan_id
+        db.apply_template_to_plan(template_id, plan_id)
+        db.record_template_usage(template_id, pid, plan_id)
+
+        self._show_tabs()
+        self._load_plans()
+        self._tabs.set("  Alimentos  ")
+        self._load_items()
+        self._update_template_badge(plan_id)
+        self.app.show_toast(f"Plan creado desde plantilla «{t['name']}».")
 
     def _select_plan(self, mid: int):
         self._selected_plan_id = mid
@@ -461,6 +542,7 @@ class MealPlanFrame(ctk.CTkFrame):
         notes = plan.get("notes") or ""
         self._plan_notes.delete("1.0", "end")
         self._plan_notes.insert("1.0", notes)
+        self._update_template_badge(mid)
         self._show_tabs()
         self._tabs.set("  Información  ")
         self._load_plans()  # refresh highlight
@@ -471,6 +553,7 @@ class MealPlanFrame(ctk.CTkFrame):
         self._plan_vars["date"].set(date.today().isoformat())
         self._goal_var.set(GOALS[0])
         self._plan_notes.delete("1.0", "end")
+        self._template_badge.configure(text="")
         for w in self._items_scroll.winfo_children():
             w.destroy()
         self._reset_totals_bar()
@@ -530,6 +613,31 @@ class MealPlanFrame(ctk.CTkFrame):
                 self._selected_plan_id = None
                 self._hide_tabs()
             self._load_plans()
+
+    def _save_as_template(self):
+        if self._selected_plan_id is None:
+            if not self._save_plan_header(silent=False):
+                return
+            if self._selected_plan_id is None:
+                return
+        plan = db.get_meal_plan(self._selected_plan_id)
+        plan_name = plan.get("name", "") if plan else ""
+
+        def _on_saved(tid: int):
+            t = db.get_template(tid)
+            self.app.show_toast(f"Plantilla «{t['name']}» guardada en la biblioteca.")
+
+        SaveAsTemplateDialog(self, self._selected_plan_id, plan_name, _on_saved)
+
+    def _update_template_badge(self, plan_id: int):
+        plan = db.get_meal_plan(plan_id)
+        tid = plan.get("template_id") if plan else None
+        if tid:
+            t = db.get_template(tid)
+            name = t["name"] if t else "plantilla eliminada"
+            self._template_badge.configure(text=f"★ Creado desde: «{name}»")
+        else:
+            self._template_badge.configure(text="")
 
     def _auto_macros(self):
         pid = self.app.get_patient_id()
