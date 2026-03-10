@@ -1,7 +1,9 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from datetime import date
+import shutil, os, time
 import database.db_manager as db
+from utils.image_helpers import ensure_fotos_dir, get_initials, make_circle_image, FOTOS_DIR
 
 
 SEX_OPTIONS = ["Masculino", "Femenino"]
@@ -22,6 +24,8 @@ class PatientFormFrame(ctk.CTkFrame):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.app = app
         self._patient_id: int | None = None
+        self._photo_path: str | None = None
+        self._photo_label = None
         self._build_ui()
 
     def _build_ui(self):
@@ -144,13 +148,97 @@ class PatientFormFrame(ctk.CTkFrame):
         self._notes_box.grid(row=14, column=0, columnspan=6,
                               padx=(8, 4), pady=(0, 16), sticky="ew")
 
+        # ── Photo section ─────────────────────────────────────────────────────
+        photo_section_lbl = ctk.CTkFrame(
+            scroll, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
+        photo_section_lbl.grid(row=15, column=0, columnspan=6,
+                                padx=8, pady=(4, 2), sticky="ew")
+        ctk.CTkLabel(
+            photo_section_lbl, text="Foto del paciente",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("#1a6b3c", "#4ade80")
+        ).pack(side="left", padx=10, pady=4)
+
+        photo_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        photo_row.grid(row=16, column=0, columnspan=6,
+                       padx=8, pady=(4, 8), sticky="w")
+
+        self._photo_label = ctk.CTkLabel(photo_row, text="", width=80, height=80)
+        self._photo_label.pack(side="left", padx=(0, 12))
+
+        photo_btns = ctk.CTkFrame(photo_row, fg_color="transparent")
+        photo_btns.pack(side="left")
+        ctk.CTkButton(
+            photo_btns, text="Subir foto", height=32, width=120,
+            command=self._upload_photo
+        ).pack(pady=(0, 4))
+        ctk.CTkButton(
+            photo_btns, text="Quitar foto", height=32, width=120,
+            fg_color="transparent", border_width=1,
+            text_color=("gray10", "gray90"),
+            command=self._remove_photo
+        ).pack()
+
+        # ── Goals section ─────────────────────────────────────────────────────
+        goals_section_lbl = ctk.CTkFrame(
+            scroll, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
+        goals_section_lbl.grid(row=17, column=0, columnspan=6,
+                                padx=8, pady=(4, 2), sticky="ew")
+        ctk.CTkLabel(
+            goals_section_lbl, text="Metas del paciente",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("#1a6b3c", "#4ade80")
+        ).pack(side="left", padx=10, pady=4)
+
+        goal_fields = [
+            ("Meta de peso (kg)",   "goal_weight_kg", 0),
+            ("Meta % grasa",        "goal_fat_pct",   2),
+            ("Meta grasa (kg)",     "goal_fat_kg",    4),
+        ]
+        for label, key, col in goal_fields:
+            ctk.CTkLabel(
+                scroll, text=label,
+                font=ctk.CTkFont(size=12), text_color="gray", anchor="w"
+            ).grid(row=18, column=col, columnspan=2,
+                   padx=(8, 4), pady=(12, 0), sticky="w")
+            self._vars[key] = ctk.StringVar()
+            ctk.CTkEntry(scroll, textvariable=self._vars[key], height=36).grid(
+                row=19, column=col, columnspan=2,
+                padx=(8, 4), pady=(0, 2), sticky="ew")
+
+        goal_fields2 = [
+            ("Meta masa magra (kg)", "goal_lean_kg", 0),
+        ]
+        for label, key, col in goal_fields2:
+            ctk.CTkLabel(
+                scroll, text=label,
+                font=ctk.CTkFont(size=12), text_color="gray", anchor="w"
+            ).grid(row=20, column=col, columnspan=2,
+                   padx=(8, 4), pady=(12, 0), sticky="w")
+            self._vars[key] = ctk.StringVar()
+            ctk.CTkEntry(scroll, textvariable=self._vars[key], height=36).grid(
+                row=21, column=col, columnspan=2,
+                padx=(8, 4), pady=(0, 2), sticky="ew")
+
+        ctk.CTkLabel(
+            scroll, text="Fecha meta (YYYY-MM-DD)",
+            font=ctk.CTkFont(size=12), text_color="gray", anchor="w"
+        ).grid(row=20, column=2, columnspan=2,
+               padx=(8, 4), pady=(12, 0), sticky="w")
+        self._vars["goal_date"] = ctk.StringVar()
+        ctk.CTkEntry(
+            scroll, textvariable=self._vars["goal_date"],
+            height=36, placeholder_text="YYYY-MM-DD"
+        ).grid(row=21, column=2, columnspan=2,
+               padx=(8, 4), pady=(0, 2), sticky="ew")
+
         # Save button
         self._save_btn = ctk.CTkButton(
             scroll, text="Guardar Paciente", height=42,
             font=ctk.CTkFont(size=14, weight="bold"),
             command=self._save
         )
-        self._save_btn.grid(row=15, column=0, columnspan=3,
+        self._save_btn.grid(row=23, column=0, columnspan=3,
                             padx=(8, 4), pady=(8, 4), sticky="ew")
 
         ctk.CTkButton(
@@ -158,8 +246,40 @@ class PatientFormFrame(ctk.CTkFrame):
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=lambda: self.app._show_frame("patients")
-        ).grid(row=15, column=3, columnspan=3,
+        ).grid(row=23, column=3, columnspan=3,
                padx=(4, 8), pady=(8, 4), sticky="ew")
+
+    # ── Photo helpers ─────────────────────────────────────────────────────────
+    def _upload_photo(self):
+        path = filedialog.askopenfilename(
+            title="Seleccionar foto",
+            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.webp"), ("Todos", "*.*")]
+        )
+        if not path:
+            return
+        ensure_fotos_dir()
+        ext = os.path.splitext(path)[1].lower()
+        pid = self._patient_id or "new"
+        dest = FOTOS_DIR / f"patient_{pid}_{int(time.time())}{ext}"
+        shutil.copy2(path, dest)
+        self._photo_path = str(dest)
+        self._refresh_photo_preview()
+
+    def _remove_photo(self):
+        self._photo_path = None
+        self._refresh_photo_preview()
+
+    def _refresh_photo_preview(self):
+        if self._photo_label is None:
+            return
+        name = self._vars.get("name", ctk.StringVar()).get() or "?"
+        initials = get_initials(name)
+        img = make_circle_image(self._photo_path, 80, initials)
+        if img:
+            self._photo_label.configure(image=img, text="")
+        else:
+            self._photo_label.configure(image=None, text=initials[:2],
+                                        font=ctk.CTkFont(size=22, weight="bold"))
 
     # ── Age auto-calculation ──────────────────────────────────────────────────
     def _on_birth_date_change(self, *_):
@@ -185,7 +305,10 @@ class PatientFormFrame(ctk.CTkFrame):
             "name": "name", "birth_date": "birth_date", "age": "age",
             "phone": "phone", "email": "email", "address": "address",
             "occupation": "occupation", "height_cm": "height_cm",
-            "weight_kg": "weight_kg"
+            "weight_kg": "weight_kg",
+            "goal_weight_kg": "goal_weight_kg", "goal_fat_pct": "goal_fat_pct",
+            "goal_fat_kg": "goal_fat_kg", "goal_lean_kg": "goal_lean_kg",
+            "goal_date": "goal_date",
         }
         for var_key, db_key in mapping.items():
             val = p.get(db_key)
@@ -198,11 +321,16 @@ class PatientFormFrame(ctk.CTkFrame):
         self._notes_box.delete("1.0", "end")
         self._notes_box.insert("1.0", notes)
 
+        self._photo_path = p.get("photo_path") or None
+        self._refresh_photo_preview()
+
     def _clear(self):
         for v in self._vars.values():
             v.set("")
         self._sex_var.set(SEX_OPTIONS[0])
         self._notes_box.delete("1.0", "end")
+        self._photo_path = None
+        self._refresh_photo_preview()
 
     def _save(self):
         name = self._vars["name"].get().strip()
@@ -223,17 +351,23 @@ class PatientFormFrame(ctk.CTkFrame):
                 return None
 
         data = {
-            "name":        name,
-            "birth_date":  self._vars["birth_date"].get().strip() or None,
-            "age":         _calc_age(self._vars["birth_date"].get()) or _int("age"),
-            "sex":         self._sex_var.get(),
-            "height_cm":   _float("height_cm"),
-            "weight_kg":   _float("weight_kg"),
-            "phone":       self._vars["phone"].get().strip() or None,
-            "email":       self._vars["email"].get().strip() or None,
-            "address":     self._vars["address"].get().strip() or None,
-            "occupation":  self._vars["occupation"].get().strip() or None,
-            "notes":       self._notes_box.get("1.0", "end").strip() or None,
+            "name":          name,
+            "birth_date":    self._vars["birth_date"].get().strip() or None,
+            "age":           _calc_age(self._vars["birth_date"].get()) or _int("age"),
+            "sex":           self._sex_var.get(),
+            "height_cm":     _float("height_cm"),
+            "weight_kg":     _float("weight_kg"),
+            "phone":         self._vars["phone"].get().strip() or None,
+            "email":         self._vars["email"].get().strip() or None,
+            "address":       self._vars["address"].get().strip() or None,
+            "occupation":    self._vars["occupation"].get().strip() or None,
+            "notes":         self._notes_box.get("1.0", "end").strip() or None,
+            "photo_path":    self._photo_path,
+            "goal_weight_kg": _float("goal_weight_kg"),
+            "goal_fat_pct":  _float("goal_fat_pct"),
+            "goal_fat_kg":   _float("goal_fat_kg"),
+            "goal_lean_kg":  _float("goal_lean_kg"),
+            "goal_date":     self._vars.get("goal_date", ctk.StringVar()).get().strip() or None,
         }
 
         if self._patient_id is None:

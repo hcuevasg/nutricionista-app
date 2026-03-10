@@ -5,6 +5,7 @@ from views.anthropometric_view import AnthropometricFrame
 from views.meal_plan_view import MealPlanFrame
 from views.reports_view import ReportsFrame
 import database.db_manager as db
+from utils.image_helpers import get_initials, make_circle_image
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
@@ -83,20 +84,25 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=10), text_color="#a7f3c8"
         ).grid(row=0, column=0, padx=12, pady=(10, 2), sticky="w")
 
+        self._card_photo_lbl = ctk.CTkLabel(
+            self._patient_card, text="", width=64, height=64
+        )
+        self._card_photo_lbl.grid(row=1, column=0, padx=12, pady=(4, 2))
+
         self._card_name = ctk.CTkLabel(
             self._patient_card,
             text="Ninguno seleccionado",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="white", wraplength=180, justify="left"
         )
-        self._card_name.grid(row=1, column=0, padx=12, pady=(0, 2), sticky="w")
+        self._card_name.grid(row=2, column=0, padx=12, pady=(0, 2), sticky="w")
 
         self._card_info = ctk.CTkLabel(
             self._patient_card,
             text="",
             font=ctk.CTkFont(size=11), text_color="#a7f3c8"
         )
-        self._card_info.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="w")
+        self._card_info.grid(row=3, column=0, padx=12, pady=(0, 8), sticky="w")
 
         ctk.CTkButton(
             self._patient_card,
@@ -106,7 +112,7 @@ class App(ctk.CTk):
             fg_color="#1a6b3c", hover_color="#0d3d20",
             text_color="white",
             command=lambda: self._show_frame("patients")
-        ).grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        ).grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
 
         # Theme toggle
         ctk.CTkButton(
@@ -160,16 +166,28 @@ class App(ctk.CTk):
         if not pid:
             self._card_name.configure(text="Ninguno seleccionado")
             self._card_info.configure(text="")
+            self._card_photo_lbl.configure(image=None, text="")
             return
         p = db.get_patient(pid)
         if not p:
             self._card_name.configure(text="Ninguno seleccionado")
             self._card_info.configure(text="")
+            self._card_photo_lbl.configure(image=None, text="")
             return
         self._card_name.configure(text=p["name"])
         age = f"{p['age']} años" if p.get("age") else "—"
         sex = p.get("sex") or "—"
         self._card_info.configure(text=f"{age}  ·  {sex}")
+        # Update photo
+        initials = get_initials(p["name"])
+        img = make_circle_image(p.get("photo_path"), 64, initials)
+        if img:
+            self._card_photo_lbl.configure(image=img, text="")
+            self._card_photo_lbl._photo_img = img  # prevent GC
+        else:
+            self._card_photo_lbl.configure(image=None, text=initials,
+                                            font=ctk.CTkFont(size=20, weight="bold"),
+                                            text_color="white")
 
     def open_patient_form(self, patient_id: int | None = None):
         self._frames["patient_form"].load_patient(patient_id)

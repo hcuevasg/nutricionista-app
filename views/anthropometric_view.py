@@ -4,6 +4,7 @@ from datetime import date
 import database.db_manager as db
 import utils.calculations as calc
 from views.edit_evaluation_dialog import EditEvaluationDialog
+from views.compare_sessions_dialog import CompareSessionsDialog
 
 try:
     from matplotlib.figure import Figure
@@ -59,6 +60,8 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._isak2_frame = None
         self._evo_figures: list = []
         self._date_entry = None  # tkcalendar DateEntry widget (if available)
+        self._compare_vars: dict[int, ctk.BooleanVar] = {}
+        self._compare_btn = None
         self._build_ui()
 
     # ── Layout ────────────────────────────────────────────────────────────────
@@ -657,7 +660,32 @@ class AnthropometricFrame(ctk.CTkFrame):
             sd = r.get("session_date") or ""
             return not sd or " " in sd  # NULL or datetime-format (not user-set)
 
-        # Header
+        # ── Compare row (row 0) ──────────────────────────────────────────────
+        self._compare_vars = {}
+        sel_frm = ctk.CTkFrame(self._history_scroll, fg_color="transparent")
+        sel_frm.grid(row=0, column=0, columnspan=total_cols,
+                     padx=6, pady=(4, 2), sticky="w")
+        ctk.CTkLabel(
+            sel_frm, text="Seleccionar para comparar:",
+            font=ctk.CTkFont(size=10), text_color="gray"
+        ).pack(side="left", padx=(0, 8))
+        for rec in records:
+            var = ctk.BooleanVar()
+            self._compare_vars[rec["id"]] = var
+            ctk.CTkCheckBox(
+                sel_frm, text=_rec_date(rec), variable=var,
+                font=ctk.CTkFont(size=10), width=20,
+                command=self._update_compare_btn
+            ).pack(side="left", padx=4)
+        self._compare_btn = ctk.CTkButton(
+            sel_frm, text="Comparar sesiones", height=28, width=160,
+            state="disabled",
+            fg_color="#0d6efd", hover_color="#0a58ca",
+            command=self._open_comparison
+        )
+        self._compare_btn.pack(side="left", padx=8)
+
+        # Header (row 1)
         headers = ["Variable"]
         for r in records:
             lvl = r.get("isak_level") or "ISAK 1"
@@ -669,7 +697,7 @@ class AnthropometricFrame(ctk.CTkFrame):
                 self._history_scroll, text=h,
                 font=ctk.CTkFont(size=10, weight="bold"),
                 text_color="gray", justify="center"
-            ).grid(row=0, column=c, padx=6, pady=(4, 8), sticky="w")
+            ).grid(row=1, column=c, padx=6, pady=(4, 8), sticky="w")
 
         # Sections
         sections = [
@@ -752,7 +780,7 @@ class AnthropometricFrame(ctk.CTkFrame):
                 ]),
             ]
 
-        row_idx = 1
+        row_idx = 2
         # Compute BMI for history (for classification display)
         bmi_by_id = {}
         for r in records:
@@ -873,6 +901,30 @@ class AnthropometricFrame(ctk.CTkFrame):
             db.delete_anthropometric(rid)
             self._load_history()
 
+    def _update_compare_btn(self):
+        """Enable compare button only when exactly 2 sessions are checked."""
+        if self._compare_btn is None:
+            return
+        checked = [rid for rid, var in self._compare_vars.items() if var.get()]
+        self._compare_btn.configure(
+            state="normal" if len(checked) == 2 else "disabled"
+        )
+
+    def _open_comparison(self):
+        """Open CompareSessionsDialog for the 2 selected sessions."""
+        checked = [rid for rid, var in self._compare_vars.items() if var.get()]
+        if len(checked) != 2:
+            return
+        pid = self.app.get_patient_id()
+        patient = db.get_patient(pid) or {} if pid else {}
+        # Get the full records
+        all_records = db.get_anthropometrics(pid) if pid else []
+        by_id = {r["id"]: r for r in all_records}
+        rec_a = by_id.get(checked[0])
+        rec_b = by_id.get(checked[1])
+        if rec_a and rec_b:
+            CompareSessionsDialog(self, rec_a, rec_b, patient)
+
     def _edit_evaluation(self, rec: dict):
         """Open the full edit dialog for an existing evaluation."""
         pid = self.app.get_patient_id()
@@ -910,6 +962,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         if not pid:
             return
 
+        patient = db.get_patient(pid) or {}
         records = db.get_anthropometrics(pid)
         if len(records) < 2:
             ctk.CTkLabel(
@@ -941,6 +994,13 @@ class AnthropometricFrame(ctk.CTkFrame):
             ("Cintura (cm)",       [r.get("waist_cm")        for r in records], "#ca8a04"),
             ("IMC (kg/m²)",        bmi_vals,                                    "#0891b2"),
         ]
+
+        goal_map = {
+            "Peso (kg)":       "goal_weight_kg",
+            "% Masa grasa":    "goal_fat_pct",
+            "Masa grasa (kg)": "goal_fat_kg",
+            "Masa magra (kg)": "goal_lean_kg",
+        }
 
         self._evo_scroll.grid_columnconfigure((0, 1), weight=1)
         dark = ctk.get_appearance_mode() == "Dark"
@@ -1005,6 +1065,18 @@ class AnthropometricFrame(ctk.CTkFrame):
             # Pad y so annotations don't clip
             y_pad = y_range * 0.15
             ax.set_ylim(min(vs) - y_pad, max(vs) + y_pad * 2)
+
+            # Goal line
+            goal_key = goal_map.get(title)
+            if goal_key:
+                goal_val = patient.get(goal_key)
+                if goal_val is not None:
+                    ax.axhline(goal_val, color="#dc2626", linestyle="--",
+                               linewidth=1.5, alpha=0.8, zorder=2)
+                    ax.text(xs[-1], goal_val, f" Meta: {goal_val}",
+                            va="bottom", ha="right", fontsize=8,
+                            color="#dc2626", fontweight="bold")
+
             fig.tight_layout(pad=0.8)
 
             canvas = FigureCanvasTkAgg(fig, master=card)

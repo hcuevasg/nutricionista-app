@@ -25,6 +25,12 @@ try:
 except ImportError:
     _MPL_OK = False
 
+try:
+    from utils.image_helpers import make_circle_pil as _make_circle_pil
+    _IMG_HELPERS_OK = True
+except Exception:
+    _IMG_HELPERS_OK = False
+
 # ── Palette ───────────────────────────────────────────────────────────────────
 PRIMARY   = colors.HexColor("#1a6b3c")
 SECONDARY = colors.HexColor("#2ecc71")
@@ -42,6 +48,23 @@ GREEN_POS = colors.HexColor("#16a34a")
 def _rec_date(r: dict) -> str:
     """Return session date for display, falling back to system date."""
     return r.get("session_date") or r.get("date", "—") or "—"
+
+
+def _patient_photo_rl(photo_path, size_cm: float = 2.5):
+    """Return ReportLab Image from patient photo (circular crop), or None."""
+    if not _IMG_HELPERS_OK or not photo_path:
+        return None
+    try:
+        pil_img = _make_circle_pil(photo_path, 200)
+        if pil_img is None:
+            return None
+        buf = _io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        buf.seek(0)
+        size = size_cm * cm
+        return RLImage(buf, width=size, height=size)
+    except Exception:
+        return None
 
 
 LEVEL_PDF_COLOR = {
@@ -198,11 +221,19 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
     age   = patient.get("age") or "—"
     dates = [_rec_date(r) for r in records]
     age_str = f"{age} años" if age != "—" else "edad no registrada"
-    story.append(Paragraph(
+    subtitle_para = Paragraph(
         f"{patient.get('name', '—')}  |  {sex}  |  {age_str}  |  "
         f"Sesiones: {len(records)}",
         S["subtitle"]
-    ))
+    )
+    photo_rl = _patient_photo_rl(patient.get("photo_path"), size_cm=2.0)
+    if photo_rl:
+        hdr_tbl = Table([[subtitle_para, photo_rl]],
+                        colWidths=[22.5 * cm, 2.5 * cm])
+        hdr_tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        story.append(hdr_tbl)
+    else:
+        story.append(subtitle_para)
     story.append(HRFlowable(width="100%", thickness=2, color=SECONDARY,
                              spaceAfter=8))
 
@@ -609,11 +640,19 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
     age = patient.get("age") or "—"
     dates = [_rec_date(r) for r in records]
     age_str = f"{age} años" if age != "—" else "edad no registrada"
-    story.append(Paragraph(
+    subtitle_para2 = Paragraph(
         f"{patient.get('name', '—')}  |  {sex}  |  {age_str}  |  "
         f"Sesiones: {len(records)}",
         S["subtitle"]
-    ))
+    )
+    photo_rl2 = _patient_photo_rl(patient.get("photo_path"), size_cm=2.0)
+    if photo_rl2:
+        hdr_tbl2 = Table([[subtitle_para2, photo_rl2]],
+                         colWidths=[22.5 * cm, 2.5 * cm])
+        hdr_tbl2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        story.append(hdr_tbl2)
+    else:
+        story.append(subtitle_para2)
     story.append(HRFlowable(width="100%", thickness=2, color=SECONDARY, spaceAfter=8))
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -1079,7 +1118,20 @@ def generate_patient_report(patient: dict, anthropometrics: list,
         ("Notas",           patient.get("notes") or "—"),
         ("Registro",        patient.get("created_at", "—")),
     ]
-    story.append(_info_table(pairs))
+    photo_rl = _patient_photo_rl(patient.get("photo_path"), size_cm=2.5)
+    if photo_rl:
+        info_tbl = _info_table(pairs, col_widths=[4.5 * cm, 9 * cm])
+        combined = Table(
+            [[info_tbl, photo_rl]],
+            colWidths=[14 * cm, 3 * cm]
+        )
+        combined.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(combined)
+    else:
+        story.append(_info_table(pairs))
     story.append(Spacer(1, 10))
 
     if anthropometrics:

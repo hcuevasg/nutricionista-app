@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox
 import database.db_manager as db
+from utils.image_helpers import get_initials, make_circle_image
 
 
 class PatientListFrame(ctk.CTkFrame):
@@ -56,9 +57,14 @@ class PatientListFrame(ctk.CTkFrame):
             w.destroy()
 
         if not patients:
+            search_text = self._search_var.get().strip()
+            if search_text:
+                empty_msg = "No se encontraron pacientes con ese criterio de búsqueda."
+            else:
+                empty_msg = "No hay pacientes registrados.\nHaz clic en '+ Nuevo Paciente' para agregar uno."
             ctk.CTkLabel(
                 self._scroll,
-                text="No hay pacientes registrados.\nHaz clic en '+ Nuevo Paciente' para agregar uno.",
+                text=empty_msg,
                 font=ctk.CTkFont(size=14), text_color="gray"
             ).pack(pady=60)
             return
@@ -82,7 +88,7 @@ class PatientListFrame(ctk.CTkFrame):
             border_color="#16a34a"
         )
         card.pack(fill="x", padx=4, pady=4)
-        card.grid_columnconfigure(1, weight=1)
+        card.grid_columnconfigure(2, weight=1)
 
         # Active badge
         if is_active:
@@ -94,9 +100,22 @@ class PatientListFrame(ctk.CTkFrame):
             ctk.CTkFrame(card, width=6, fg_color="transparent"
                          ).grid(row=0, column=0, rowspan=2, padx=(10, 0), pady=12)
 
+        # Photo avatar
+        initials = get_initials(p.get("name", "?"))
+        avatar_img = make_circle_image(p.get("photo_path"), 44, initials)
+        avatar_lbl = ctk.CTkLabel(card, text="", width=44, height=44)
+        if avatar_img:
+            avatar_lbl.configure(image=avatar_img)
+        else:
+            avatar_lbl.configure(text=initials[:2],
+                                  font=ctk.CTkFont(size=14, weight="bold"))
+        avatar_lbl.grid(row=0, column=1, rowspan=2, padx=(8, 0), pady=8)
+        # Keep reference to prevent GC
+        avatar_lbl._avatar_img = avatar_img
+
         # Name + active label
         name_frame = ctk.CTkFrame(card, fg_color="transparent")
-        name_frame.grid(row=0, column=1, padx=12, pady=(12, 2), sticky="w")
+        name_frame.grid(row=0, column=2, padx=12, pady=(12, 2), sticky="w")
 
         ctk.CTkLabel(
             name_frame,
@@ -122,11 +141,11 @@ class PatientListFrame(ctk.CTkFrame):
             card,
             text=f"{age_str}  ·  {sex_str}  ·  {contact}",
             font=ctk.CTkFont(size=12), text_color="gray"
-        ).grid(row=1, column=1, padx=12, pady=(0, 12), sticky="w")
+        ).grid(row=1, column=2, padx=12, pady=(0, 12), sticky="w")
 
         # Action buttons
         btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-        btn_frame.grid(row=0, column=2, rowspan=2, padx=12, pady=8)
+        btn_frame.grid(row=0, column=3, rowspan=2, padx=12, pady=8)
 
         # Seleccionar button — only shown when NOT active
         if not is_active:

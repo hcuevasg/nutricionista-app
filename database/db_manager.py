@@ -203,6 +203,21 @@ def _migrate(conn):
     conn.execute(
         "UPDATE anthropometrics SET session_date = date WHERE session_date IS NULL"
     )
+
+    # Migrate patients table
+    patient_new_cols = [
+        ("photo_path",     "TEXT"),
+        ("goal_weight_kg", "REAL"),
+        ("goal_fat_pct",   "REAL"),
+        ("goal_fat_kg",    "REAL"),
+        ("goal_lean_kg",   "REAL"),
+        ("goal_date",      "TEXT"),
+    ]
+    existing_p = {row[1] for row in
+                  conn.execute("PRAGMA table_info(patients)").fetchall()}
+    for col, col_type in patient_new_cols:
+        if col not in existing_p:
+            conn.execute(f"ALTER TABLE patients ADD COLUMN {col} {col_type}")
     conn.commit()
 
 
@@ -211,12 +226,21 @@ def _migrate(conn):
 def insert_patient(data: dict) -> int:
     conn = get_connection()
     cur = conn.cursor()
+    row = {
+        "photo_path": None, "goal_weight_kg": None, "goal_fat_pct": None,
+        "goal_fat_kg": None, "goal_lean_kg": None, "goal_date": None,
+        **data
+    }
     cur.execute("""
         INSERT INTO patients (name, birth_date, age, sex, height_cm, weight_kg,
-                              phone, email, address, occupation, notes)
+                              phone, email, address, occupation, notes,
+                              photo_path, goal_weight_kg, goal_fat_pct,
+                              goal_fat_kg, goal_lean_kg, goal_date)
         VALUES (:name,:birth_date,:age,:sex,:height_cm,:weight_kg,
-                :phone,:email,:address,:occupation,:notes)
-    """, data)
+                :phone,:email,:address,:occupation,:notes,
+                :photo_path,:goal_weight_kg,:goal_fat_pct,
+                :goal_fat_kg,:goal_lean_kg,:goal_date)
+    """, row)
     conn.commit()
     pid = cur.lastrowid
     conn.close()
@@ -226,12 +250,22 @@ def insert_patient(data: dict) -> int:
 def update_patient(pid: int, data: dict):
     data["id"] = pid
     data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Ensure new fields have defaults
+    data.setdefault("photo_path", None)
+    data.setdefault("goal_weight_kg", None)
+    data.setdefault("goal_fat_pct", None)
+    data.setdefault("goal_fat_kg", None)
+    data.setdefault("goal_lean_kg", None)
+    data.setdefault("goal_date", None)
     conn = get_connection()
     conn.execute("""
         UPDATE patients SET name=:name, birth_date=:birth_date, age=:age,
             sex=:sex, height_cm=:height_cm, weight_kg=:weight_kg,
             phone=:phone, email=:email, address=:address,
-            occupation=:occupation, notes=:notes, updated_at=:updated_at
+            occupation=:occupation, notes=:notes, updated_at=:updated_at,
+            photo_path=:photo_path, goal_weight_kg=:goal_weight_kg,
+            goal_fat_pct=:goal_fat_pct, goal_fat_kg=:goal_fat_kg,
+            goal_lean_kg=:goal_lean_kg, goal_date=:goal_date
         WHERE id=:id
     """, data)
     conn.commit()
