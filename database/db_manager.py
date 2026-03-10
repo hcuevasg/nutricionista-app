@@ -38,6 +38,7 @@ def initialize_db():
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_id          INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
             date                TEXT    NOT NULL,
+            session_date        TEXT,
             -- Datos básicos
             weight_kg           REAL,
             height_cm           REAL,
@@ -189,6 +190,7 @@ def _migrate(conn):
         ("somatotype_ecto",      "REAL"),
         ("waist_height_ratio",   "REAL"),
         ("arm_muscle_area",      "REAL"),
+        ("session_date",         "TEXT"),
     ]
     existing = {row[1] for row in
                 conn.execute("PRAGMA table_info(anthropometrics)").fetchall()}
@@ -197,6 +199,10 @@ def _migrate(conn):
             conn.execute(
                 f"ALTER TABLE anthropometrics ADD COLUMN {col} {col_type}"
             )
+    # Populate session_date from date for existing records
+    conn.execute(
+        "UPDATE anthropometrics SET session_date = date WHERE session_date IS NULL"
+    )
     conn.commit()
 
 
@@ -270,6 +276,7 @@ def search_patients(query: str) -> list:
 
 _ANTHRO_DEFAULTS = {
     "isak_level": "ISAK 1",
+    "session_date": None,
     # ISAK 1 core fields
     "weight_kg": None, "height_cm": None, "waist_cm": None,
     "arm_relaxed_cm": None, "arm_contracted_cm": None, "hip_glute_cm": None,
@@ -299,11 +306,16 @@ _ANTHRO_DEFAULTS = {
 
 def insert_anthropometric(data: dict) -> int:
     row = {**_ANTHRO_DEFAULTS, **data}
+    # date = system timestamp (fecha_registro); session_date = real session date
+    if not row.get("date"):
+        row["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if not row.get("session_date"):
+        row["session_date"] = row["date"]
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO anthropometrics (
-            patient_id, date, isak_level,
+            patient_id, date, session_date, isak_level,
             weight_kg, height_cm, waist_cm,
             arm_relaxed_cm, arm_contracted_cm, hip_glute_cm,
             thigh_max_cm, thigh_mid_cm, calf_cm,
@@ -317,7 +329,7 @@ def insert_anthropometric(data: dict) -> int:
             acromion_radial_cm, radial_styloid_cm, iliospinal_height_cm, trochanter_tibial_cm,
             somatotype_endo, somatotype_meso, somatotype_ecto, waist_height_ratio, arm_muscle_area
         ) VALUES (
-            :patient_id, :date, :isak_level,
+            :patient_id, :date, :session_date, :isak_level,
             :weight_kg, :height_cm, :waist_cm,
             :arm_relaxed_cm, :arm_contracted_cm, :hip_glute_cm,
             :thigh_max_cm, :thigh_mid_cm, :calf_cm,
@@ -341,7 +353,7 @@ def insert_anthropometric(data: dict) -> int:
 def get_anthropometrics(patient_id: int) -> list:
     conn = get_connection()
     rows = conn.execute(
-        "SELECT * FROM anthropometrics WHERE patient_id=? ORDER BY date ASC",
+        "SELECT * FROM anthropometrics WHERE patient_id=? ORDER BY COALESCE(session_date, date) ASC",
         (patient_id,)
     ).fetchall()
     conn.close()

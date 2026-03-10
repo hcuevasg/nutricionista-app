@@ -11,6 +11,17 @@ try:
 except ImportError:
     _MPL_OK = False
 
+try:
+    from tkcalendar import DateEntry as _DateEntry
+    _CAL_OK = True
+except ImportError:
+    _CAL_OK = False
+
+
+def _rec_date(r: dict) -> str:
+    """Return the session date for display (falls back to system date)."""
+    return r.get("session_date") or r.get("date", "—") or "—"
+
 
 def _section_label(parent, text, row, cols=4):
     frm = ctk.CTkFrame(parent, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
@@ -46,6 +57,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._isak_level = ctk.StringVar(value="ISAK 1")
         self._isak2_frame = None
         self._evo_figures: list = []
+        self._date_entry = None  # tkcalendar DateEntry widget (if available)
         self._build_ui()
 
     # ── Layout ────────────────────────────────────────────────────────────────
@@ -110,12 +122,24 @@ class AnthropometricFrame(ctk.CTkFrame):
 
         # ── DATOS BÁSICOS ──────────────────────────────────────────────────
         _section_label(f, "DATOS BÁSICOS", row=0, cols=4)
-        self._vars["date"] = ctk.StringVar(value=date.today().isoformat())
-        ctk.CTkLabel(f, text="Fecha sesión", text_color="gray",
-                     font=ctk.CTkFont(size=11), anchor="w"
+        ctk.CTkLabel(f, text="Fecha de la sesión *",
+                     text_color=("#1a6b3c", "#4ade80"),
+                     font=ctk.CTkFont(size=11, weight="bold"), anchor="w"
                      ).grid(row=1, column=0, padx=(10, 2), pady=(6, 0), sticky="w")
-        ctk.CTkEntry(f, textvariable=self._vars["date"], height=32
-                     ).grid(row=2, column=0, padx=(10, 2), pady=(0, 2), sticky="ew")
+        today = date.today()
+        if _CAL_OK:
+            self._date_entry = _DateEntry(
+                f, year=today.year, month=today.month, day=today.day,
+                date_pattern="yyyy-mm-dd", width=14,
+                background="#1a6b3c", foreground="white",
+                selectbackground="#16a34a", font=("Segoe UI", 11),
+            )
+            self._date_entry.grid(row=2, column=0, padx=(10, 2), pady=(0, 2), sticky="w")
+        else:
+            self._vars["session_date"] = ctk.StringVar(value=today.isoformat())
+            ctk.CTkEntry(f, textvariable=self._vars["session_date"], height=32,
+                         placeholder_text="YYYY-MM-DD"
+                         ).grid(row=2, column=0, padx=(10, 2), pady=(0, 2), sticky="ew")
         for label, key, col in [
             ("Peso (kg)",                 "weight_kg", 1),
             ("Talla (cm)",                "height_cm", 2),
@@ -381,6 +405,16 @@ class AnthropometricFrame(ctk.CTkFrame):
         except ValueError:
             return None
 
+    def _get_session_date(self) -> str:
+        """Return the session date as ISO string (YYYY-MM-DD)."""
+        if _CAL_OK and self._date_entry is not None:
+            try:
+                return self._date_entry.get_date().isoformat()
+            except Exception:
+                pass
+        v = self._vars.get("session_date")
+        return v.get().strip() if v else date.today().isoformat()
+
     def _update_sum(self):
         s = calc.sum_6_skinfolds(
             self._gf("triceps_mm"),     self._gf("subscapular_mm"),
@@ -532,7 +566,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         level = self._isak_level.get()
         data = {
             "patient_id":         pid,
-            "date":               self._vars["date"].get().strip(),
+            "session_date":       self._get_session_date(),
             "isak_level":         level,
             "weight_kg":          self._gf("weight_kg"),
             "height_cm":          self._gf("height_cm"),
@@ -580,11 +614,16 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._tabs.set("Historial")
 
     def _clear_form(self):
-        skip = {"date", "sum_6_skinfolds"}
+        skip = {"session_date", "sum_6_skinfolds"}
         for key, var in self._vars.items():
             if key not in skip:
                 var.set("")
         self._vars["sum_6_skinfolds"].set("—")
+        # Reset date picker to today
+        if _CAL_OK and self._date_entry is not None:
+            self._date_entry.set_date(date.today())
+        elif "session_date" in self._vars:
+            self._vars["session_date"].set(date.today().isoformat())
         for lbl in self._result_labels.values():
             lbl.configure(text="—")
         for lbl in self._class_labels.values():
@@ -617,7 +656,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         headers = ["Variable"]
         for r in records:
             lvl = r.get("isak_level") or "ISAK 1"
-            headers.append(f"{r['date']}\n[{lvl}]")
+            headers.append(f"{_rec_date(r)}\n[{lvl}]")
         headers.append("Cambios")
         for c, h in enumerate(headers):
             ctk.CTkLabel(
@@ -787,7 +826,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         for rec in records:
             rid = rec["id"]
             ctk.CTkButton(
-                del_frm, text=rec["date"], width=110, height=26,
+                del_frm, text=_rec_date(rec), width=110, height=26,
                 fg_color="#dc2626", hover_color="#991b1b",
                 font=ctk.CTkFont(size=10),
                 command=lambda r=rid: self._delete_record(r)
@@ -838,10 +877,12 @@ class AnthropometricFrame(ctk.CTkFrame):
             if r.get("weight_kg") and r.get("height_cm") else None
             for r in records
         ]
-        date_labels = [
-            f"{d[8:10]}/{d[5:7]}\n'{d[2:4]}"
-            for d in [r["date"] for r in records]
-        ]
+        date_labels = []
+        for r in records:
+            d = _rec_date(r)
+            date_labels.append(
+                f"{d[8:10]}/{d[5:7]}\n'{d[2:4]}" if len(d) >= 10 else d
+            )
 
         charts = [
             ("Peso (kg)",          [r.get("weight_kg")      for r in records], "#1a6b3c"),

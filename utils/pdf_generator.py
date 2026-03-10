@@ -39,6 +39,11 @@ WHITE     = colors.white
 RED_NEG   = colors.HexColor("#dc2626")
 GREEN_POS = colors.HexColor("#16a34a")
 
+def _rec_date(r: dict) -> str:
+    """Return session date for display, falling back to system date."""
+    return r.get("session_date") or r.get("date", "—") or "—"
+
+
 LEVEL_PDF_COLOR = {
     "excellent": colors.HexColor("#16a34a"),
     "good":      colors.HexColor("#16a34a"),
@@ -191,7 +196,7 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
     story.append(Paragraph("INFORME COMPOSICIÓN CORPORAL", S["title"]))
     sex   = patient.get("sex", "—")
     age   = patient.get("age") or "—"
-    dates = [r["date"] for r in records]
+    dates = [_rec_date(r) for r in records]
     age_str = f"{age} años" if age != "—" else "edad no registrada"
     story.append(Paragraph(
         f"{patient.get('name', '—')}  |  {sex}  |  {age_str}  |  "
@@ -327,8 +332,8 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
                                  spaceAfter=6))
         story.append(Paragraph("RESULTADOS", S["section"]))
 
-        d_first = records[0]["date"]
-        d_last  = records[-1]["date"]
+        d_first = _rec_date(records[0])
+        d_last  = _rec_date(records[-1])
         story.append(Paragraph(
             f"Cambios desde <b>{d_first}</b> a <b>{d_last}</b>",
             S["body"]
@@ -602,7 +607,7 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
     story.append(Paragraph("INFORME COMPOSICIÓN CORPORAL — ISAK 2", S["title"]))
     sex = patient.get("sex", "—")
     age = patient.get("age") or "—"
-    dates = [r["date"] for r in records]
+    dates = [_rec_date(r) for r in records]
     age_str = f"{age} años" if age != "—" else "edad no registrada"
     story.append(Paragraph(
         f"{patient.get('name', '—')}  |  {sex}  |  {age_str}  |  "
@@ -762,7 +767,7 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
         story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6))
         story.append(Paragraph("RESUMEN DE CAMBIOS", S["section"]))
         story.append(Paragraph(
-            f"Cambios desde <b>{records[0]['date']}</b> a <b>{records[-1]['date']}</b>",
+            f"Cambios desde <b>{_rec_date(records[0])}</b> a <b>{_rec_date(records[-1])}</b>",
             S["body"]
         ))
         story.append(Spacer(1, 6))
@@ -840,7 +845,7 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
             f"Somatotipo: {soma_rec['somatotype_endo']:.1f} – "
             f"{soma_rec['somatotype_meso']:.1f} – "
             f"{soma_rec['somatotype_ecto']:.1f}  "
-            f"(Endo – Meso – Ecto)  |  Sesión: {soma_rec['date']}",
+            f"(Endo – Meso – Ecto)  |  Sesión: {_rec_date(soma_rec)}",
             S["body"]
         ))
         story.append(Spacer(1, 6))
@@ -985,7 +990,7 @@ def generate_evolution_report(patient: dict, records: list, output_path: str) ->
     ))
     story.append(HRFlowable(width="100%", thickness=2, color=SECONDARY, spaceAfter=10))
 
-    dates = [r["date"] for r in records]
+    dates = [_rec_date(r) for r in records]
     bmi_vals = [
         calc.bmi(r["weight_kg"], r["height_cm"])
         if r.get("weight_kg") and r.get("height_cm") else None
@@ -1084,7 +1089,7 @@ def generate_patient_report(patient: dict, anthropometrics: list,
         rows = [hdrs]
         for a in anthropometrics:
             rows.append([
-                a.get("date", "—"),
+                _rec_date(a),
                 f"{a.get('weight_kg', '—')} kg",
                 f"{a.get('height_cm', '—')} cm",
                 f"{a.get('waist_cm', '—')} cm",

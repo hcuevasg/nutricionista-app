@@ -194,7 +194,7 @@ class ReportsFrame(ctk.CTkFrame):
         has_isak2 = any(r.get("isak_level") == "ISAK 2" for r in records)
         level_tag = "ISAK2" if has_isak2 else "ISAK1"
         safe_name = patient["name"].replace(" ", "_")
-        last_date = records[-1]["date"]
+        last_date = records[-1].get("session_date") or records[-1].get("date", "")
         path = self._ask_save_path(f"{level_tag}_{safe_name}_{last_date}.pdf")
         if not path:
             return
