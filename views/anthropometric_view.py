@@ -652,11 +652,16 @@ class AnthropometricFrame(ctk.CTkFrame):
         for c in range(total_cols):
             self._history_scroll.grid_columnconfigure(c, weight=1)
 
+        def _is_suspicious(r: dict) -> bool:
+            sd = r.get("session_date") or ""
+            return not sd or " " in sd  # NULL or datetime-format (not user-set)
+
         # Header
         headers = ["Variable"]
         for r in records:
             lvl = r.get("isak_level") or "ISAK 1"
-            headers.append(f"{_rec_date(r)}\n[{lvl}]")
+            prefix = "⚠️ " if _is_suspicious(r) else ""
+            headers.append(f"{prefix}{_rec_date(r)}\n[{lvl}]")
         headers.append("Cambios")
         for c, h in enumerate(headers):
             ctk.CTkLabel(
@@ -816,10 +821,40 @@ class AnthropometricFrame(ctk.CTkFrame):
                padx=6, pady=(12, 4), sticky="w")
         row_idx += 1
 
+        # ⚠️ notice if any session has suspicious date
+        if any(_is_suspicious(r) for r in records):
+            ctk.CTkLabel(
+                self._history_scroll,
+                text="⚠️  Fecha pendiente de verificar — usa \"Editar fecha\" para corregirla.",
+                font=ctk.CTkFont(size=10), text_color="#ca8a04"
+            ).grid(row=row_idx, column=0, columnspan=total_cols,
+                   padx=6, pady=(4, 2), sticky="w")
+            row_idx += 1
+
+        # Edit date buttons
+        edit_frm = ctk.CTkFrame(self._history_scroll, fg_color="transparent")
+        edit_frm.grid(row=row_idx, column=0, columnspan=total_cols,
+                      padx=6, pady=(4, 2), sticky="w")
+        ctk.CTkLabel(edit_frm, text="Editar fecha:",
+                     font=ctk.CTkFont(size=10), text_color="gray"
+                     ).pack(side="left", padx=(0, 8))
+        for rec in records:
+            btn_color = "#ca8a04" if _is_suspicious(rec) else "#1a6b3c"
+            btn_hover  = "#92400e" if _is_suspicious(rec) else "#15803d"
+            ctk.CTkButton(
+                edit_frm,
+                text=f"{'⚠️ ' if _is_suspicious(rec) else '✏️ '}{_rec_date(rec)}",
+                width=120, height=26,
+                fg_color=btn_color, hover_color=btn_hover,
+                font=ctk.CTkFont(size=10),
+                command=lambda r=rec: self._edit_session_date(r)
+            ).pack(side="left", padx=3)
+        row_idx += 1
+
         # Delete buttons
         del_frm = ctk.CTkFrame(self._history_scroll, fg_color="transparent")
         del_frm.grid(row=row_idx, column=0, columnspan=total_cols,
-                     padx=6, pady=(4, 12), sticky="w")
+                     padx=6, pady=(2, 12), sticky="w")
         ctk.CTkLabel(del_frm, text="Eliminar sesión:",
                      font=ctk.CTkFont(size=10), text_color="gray"
                      ).pack(side="left", padx=(0, 8))
@@ -836,6 +871,65 @@ class AnthropometricFrame(ctk.CTkFrame):
         if messagebox.askyesno("Eliminar", "¿Eliminar esta evaluación?"):
             db.delete_anthropometric(rid)
             self._load_history()
+
+    def _edit_session_date(self, rec: dict):
+        """Open a dialog to edit the session_date of an existing record."""
+        current_str = _rec_date(rec)[:10]  # take YYYY-MM-DD part
+        try:
+            parts = current_str.split("-")
+            current = date(int(parts[0]), int(parts[1]), int(parts[2]))
+        except Exception:
+            current = date.today()
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Editar fecha de sesión")
+        dlg.geometry("320x200")
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        dlg.attributes("-topmost", True)
+
+        ctk.CTkLabel(
+            dlg, text="Fecha de la sesión:",
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(pady=(24, 8))
+
+        get_new_date = None
+        if _CAL_OK:
+            picker = _DateEntry(
+                dlg, year=current.year, month=current.month, day=current.day,
+                date_pattern="yyyy-mm-dd", width=16,
+                background="#1a6b3c", foreground="white",
+                selectbackground="#16a34a", font=("Segoe UI", 12),
+            )
+            picker.pack(pady=4)
+            get_new_date = lambda: picker.get_date().isoformat()
+        else:
+            var = ctk.StringVar(value=current.isoformat())
+            ctk.CTkEntry(dlg, textvariable=var, width=180,
+                         placeholder_text="YYYY-MM-DD").pack(pady=4)
+            get_new_date = lambda: var.get().strip()
+
+        def _save():
+            new_date = get_new_date()
+            if not new_date:
+                return
+            db.update_session_date(rec["id"], new_date)
+            dlg.destroy()
+            self._load_history()
+            if self._tabs.get() == "Evolución":
+                self._load_evolution()
+
+        btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_row.pack(pady=20)
+        ctk.CTkButton(
+            btn_row, text="Guardar", width=110,
+            fg_color="#16a34a", hover_color="#15803d",
+            command=_save
+        ).pack(side="left", padx=8)
+        ctk.CTkButton(
+            btn_row, text="Cancelar", width=110,
+            command=dlg.destroy
+        ).pack(side="left", padx=8)
 
     # ── Evolution charts ──────────────────────────────────────────────────────
     def _load_evolution(self):

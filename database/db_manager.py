@@ -360,6 +360,16 @@ def get_anthropometrics(patient_id: int) -> list:
     return [dict(r) for r in rows]
 
 
+def update_session_date(aid: int, session_date: str):
+    conn = get_connection()
+    conn.execute(
+        "UPDATE anthropometrics SET session_date=? WHERE id=?",
+        (session_date, aid)
+    )
+    conn.commit()
+    conn.close()
+
+
 def delete_anthropometric(aid: int):
     conn = get_connection()
     conn.execute("DELETE FROM anthropometrics WHERE id=?", (aid,))
