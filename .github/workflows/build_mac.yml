@@ -49,6 +49,10 @@ jobs:
             --hidden-import reportlab.graphics.shapes \
             --hidden-import reportlab.lib.pagesizes \
             --hidden-import reportlab.platypus \
+            --hidden-import matplotlib \
+            --hidden-import matplotlib.backends.backend_tkagg \
+            --hidden-import matplotlib.backends.backend_agg \
+            --collect-all matplotlib \
             --add-data "assets:assets" \
             main.py
 
