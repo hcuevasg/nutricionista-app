@@ -359,17 +359,8 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
 
     # ── RESULTADOS SUMMARY ────────────────────────────────────────────────────
     if n >= 2:
-        story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY,
-                                 spaceAfter=6))
-        story.append(Paragraph("RESULTADOS", S["section"]))
-
         d_first = _rec_date(records[0])
         d_last  = _rec_date(records[-1])
-        story.append(Paragraph(
-            f"Cambios desde <b>{d_first}</b> a <b>{d_last}</b>",
-            S["body"]
-        ))
-        story.append(Spacer(1, 6))
 
         pat_sex = patient.get("sex", "")
         pat_age = patient.get("age", 30) or 30
@@ -434,16 +425,19 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
             colWidths=[6 * cm, 4 * cm, 4 * cm, 4.5 * cm]
         )
         sum_tbl.setStyle(sum_ts)
-        story.append(KeepTogether([sum_tbl]))
+        story.append(KeepTogether([
+            HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6),
+            Paragraph("RESULTADOS", S["section"]),
+            Paragraph(
+                f"Cambios desde <b>{d_first}</b> a <b>{d_last}</b>",
+                S["body"]
+            ),
+            Spacer(1, 6),
+            sum_tbl,
+        ]))
         story.append(Spacer(1, 14))
 
     # ── CLASSIFICATION TABLE (women) ──────────────────────────────────────────
-    story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY,
-                             spaceAfter=6))
-    story.append(Paragraph(
-        "CLASIFICACIÓN % MASA GRASA — MUJERES",
-        S["section"]
-    ))
 
     class_data = [
         ["Rango edad", "Excelente", "Bueno", "Promedio", "Elevado", "Muy elevado"],
@@ -477,7 +471,11 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
         colWidths=[3 * cm, 3 * cm, 3 * cm, 3 * cm, 3 * cm, 3.5 * cm]
     )
     class_tbl.setStyle(class_ts)
-    story.append(KeepTogether([class_tbl]))
+    story.append(KeepTogether([
+        HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6),
+        Paragraph("CLASIFICACIÓN % MASA GRASA — MUJERES", S["section"]),
+        class_tbl,
+    ]))
 
     # ── Footer ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 10))
@@ -803,13 +801,8 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
 
     # ── RESULTADOS SUMMARY ────────────────────────────────────────────────────
     if n >= 2:
-        story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6))
-        story.append(Paragraph("RESUMEN DE CAMBIOS", S["section"]))
-        story.append(Paragraph(
-            f"Cambios desde <b>{_rec_date(records[0])}</b> a <b>{_rec_date(records[-1])}</b>",
-            S["body"]
-        ))
-        story.append(Spacer(1, 6))
+        _d0 = _rec_date(records[0])
+        _d1 = _rec_date(records[-1])
 
         pat_sex2 = patient.get("sex", "")
         pat_age2 = patient.get("age", 30) or 30
@@ -866,7 +859,16 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
 
         sum_tbl = Table(summary_data, colWidths=[6 * cm, 4 * cm, 4 * cm, 4.5 * cm])
         sum_tbl.setStyle(sum_ts)
-        story.append(KeepTogether([sum_tbl]))
+        story.append(KeepTogether([
+            HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6),
+            Paragraph("RESUMEN DE CAMBIOS", S["section"]),
+            Paragraph(
+                f"Cambios desde <b>{_d0}</b> a <b>{_d1}</b>",
+                S["body"]
+            ),
+            Spacer(1, 6),
+            sum_tbl,
+        ]))
         story.append(Spacer(1, 14))
 
     # ── SOMATOCARTA ───────────────────────────────────────────────────────────
@@ -878,28 +880,27 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
             break
 
     if soma_rec:
-        story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6))
-        story.append(Paragraph("SOMATOCARTA DE HEATH & CARTER", S["section"]))
-        story.append(Paragraph(
-            f"Somatotipo: {soma_rec['somatotype_endo']:.1f} – "
-            f"{soma_rec['somatotype_meso']:.1f} – "
-            f"{soma_rec['somatotype_ecto']:.1f}  "
-            f"(Endo – Meso – Ecto)  |  Sesión: {_rec_date(soma_rec)}",
-            S["body"]
-        ))
-        story.append(Spacer(1, 6))
         drawing = _draw_somatocarta(
             soma_rec["somatotype_endo"],
             soma_rec["somatotype_meso"],
             soma_rec["somatotype_ecto"],
         )
-        story.append(KeepTogether([drawing]))
+        story.append(KeepTogether([
+            HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6),
+            Paragraph("SOMATOCARTA DE HEATH & CARTER", S["section"]),
+            Paragraph(
+                f"Somatotipo: {soma_rec['somatotype_endo']:.1f} – "
+                f"{soma_rec['somatotype_meso']:.1f} – "
+                f"{soma_rec['somatotype_ecto']:.1f}  "
+                f"(Endo – Meso – Ecto)  |  Sesión: {_rec_date(soma_rec)}",
+                S["body"]
+            ),
+            Spacer(1, 6),
+            drawing,
+        ]))
         story.append(Spacer(1, 14))
 
     # ── CLASSIFICATION TABLE ──────────────────────────────────────────────────
-    story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6))
-    story.append(Paragraph("CLASIFICACIÓN % MASA GRASA — MUJERES", S["section"]))
-
     class_data = [
         ["Rango edad", "Excelente", "Bueno", "Promedio", "Elevado", "Muy elevado"],
         ["20-29 años", "< 15", "16-19", "20-28", "29-31", "> 32"],
@@ -925,7 +926,11 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
     class_tbl = Table(class_data,
                       colWidths=[3 * cm, 3 * cm, 3 * cm, 3 * cm, 3 * cm, 3.5 * cm])
     class_tbl.setStyle(class_ts)
-    story.append(KeepTogether([class_tbl]))
+    story.append(KeepTogether([
+        HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=6),
+        Paragraph("CLASIFICACIÓN % MASA GRASA — MUJERES", S["section"]),
+        class_tbl,
+    ]))
 
     # ── Footer ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 10))
