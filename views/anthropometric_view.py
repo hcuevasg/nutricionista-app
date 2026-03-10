@@ -1,12 +1,18 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from datetime import date
 import database.db_manager as db
 import utils.calculations as calc
 
+try:
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    _MPL_OK = True
+except ImportError:
+    _MPL_OK = False
+
 
 def _section_label(parent, text, row, cols=4):
-    """Styled section header spanning all columns."""
     frm = ctk.CTkFrame(parent, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
     frm.grid(row=row, column=0, columnspan=cols * 2,
              padx=8, pady=(14, 2), sticky="ew")
@@ -18,10 +24,6 @@ def _section_label(parent, text, row, cols=4):
 
 
 def _field_row(parent, items, row, var_dict):
-    """
-    items: list of (label, key, col_index) — col_index 0..3
-    Places label at (row, col*2) and entry at (row+1, col*2).
-    """
     for label, key, col in items:
         ctk.CTkLabel(
             parent, text=label, text_color="gray",
@@ -39,9 +41,11 @@ class AnthropometricFrame(ctk.CTkFrame):
         self.app = app
         self._vars: dict[str, ctk.StringVar] = {}
         self._result_labels: dict[str, ctk.CTkLabel] = {}
+        self._class_labels:  dict[str, ctk.CTkLabel] = {}
         self._last_calc: dict = {}
         self._isak_level = ctk.StringVar(value="ISAK 1")
         self._isak2_frame = None
+        self._evo_figures: list = []
         self._build_ui()
 
     # ── Layout ────────────────────────────────────────────────────────────────
@@ -49,7 +53,6 @@ class AnthropometricFrame(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Header bar
         hdr = ctk.CTkFrame(self, fg_color="transparent")
         hdr.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
         hdr.grid_columnconfigure(1, weight=1)
@@ -65,64 +68,58 @@ class AnthropometricFrame(ctk.CTkFrame):
         )
         self._patient_lbl.grid(row=0, column=1, padx=16, sticky="w")
 
-        # Tabs
-        self._tabs = ctk.CTkTabview(self)
+        self._tabs = ctk.CTkTabview(self, command=self._on_tab_change)
         self._tabs.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
         self._tabs.add("Nueva evaluación")
         self._tabs.add("Historial")
+        self._tabs.add("Evolución")
 
         self._build_form_tab(self._tabs.tab("Nueva evaluación"))
         self._build_history_tab(self._tabs.tab("Historial"))
+        self._build_evolution_tab(self._tabs.tab("Evolución"))
 
     # ── Form tab ──────────────────────────────────────────────────────────────
     def _build_form_tab(self, tab):
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(1, weight=1)
 
-        # ── ISAK Level selector ────────────────────────────────────────────
-        level_bar = ctk.CTkFrame(tab, fg_color=("#f0fdf4", "#1a2e22"),
-                                 corner_radius=8)
+        # ISAK level selector
+        level_bar = ctk.CTkFrame(tab, fg_color=("#f0fdf4", "#1a2e22"), corner_radius=8)
         level_bar.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 0))
-
         ctk.CTkLabel(
             level_bar, text="Nivel ISAK:",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=("#1a6b3c", "#4ade80")
         ).pack(side="left", padx=(12, 8), pady=8)
-
         ctk.CTkSegmentedButton(
             level_bar, values=["ISAK 1", "ISAK 2"],
             variable=self._isak_level,
             command=self._toggle_isak_level,
             font=ctk.CTkFont(size=11, weight="bold"),
         ).pack(side="left", pady=6)
-
         ctk.CTkLabel(
             level_bar,
             text="ISAK 1: perfil restringido  |  ISAK 2: perfil completo + somatotipo",
             font=ctk.CTkFont(size=10), text_color="gray"
-        ).pack(side="left", padx=16, pady=8)
+        ).pack(side="left", padx=16)
 
-        # ── Scrollable form ────────────────────────────────────────────────
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
-        scroll.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+        scroll.grid(row=1, column=0, sticky="nsew")
         scroll.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
-        f = scroll  # alias
+        f = scroll
 
         # ── DATOS BÁSICOS ──────────────────────────────────────────────────
         _section_label(f, "DATOS BÁSICOS", row=0, cols=4)
-
         self._vars["date"] = ctk.StringVar(value=date.today().isoformat())
         ctk.CTkLabel(f, text="Fecha sesión", text_color="gray",
                      font=ctk.CTkFont(size=11), anchor="w"
                      ).grid(row=1, column=0, padx=(10, 2), pady=(6, 0), sticky="w")
         ctk.CTkEntry(f, textvariable=self._vars["date"], height=32
                      ).grid(row=2, column=0, padx=(10, 2), pady=(0, 2), sticky="ew")
-
         for label, key, col in [
-            ("Peso (kg)",                  "weight_kg", 1),
-            ("Talla (cm)",                 "height_cm", 2),
-            ("Circ. cintura mínima (cm)",  "waist_cm",  3),
+            ("Peso (kg)",                 "weight_kg", 1),
+            ("Talla (cm)",                "height_cm", 2),
+            ("Circ. cintura mínima (cm)", "waist_cm",  3),
         ]:
             ctk.CTkLabel(f, text=label, text_color="gray",
                          font=ctk.CTkFont(size=11), anchor="w"
@@ -131,31 +128,26 @@ class AnthropometricFrame(ctk.CTkFrame):
             ctk.CTkEntry(f, textvariable=self._vars[key], height=32
                          ).grid(row=2, column=col * 2, padx=(10, 2), pady=(0, 2), sticky="ew")
 
-        # ── PERÍMETROS ────────────────────────────────────────────────────
+        # ── PERÍMETROS ─────────────────────────────────────────────────────
         _section_label(f, "PERÍMETROS (cm)", row=3, cols=4)
-
-        perimeters = [
+        for label, key, row, col in [
             ("Brazo relajado (BR)",  "arm_relaxed_cm",   4, 0),
             ("Brazo contraído (BC)", "arm_contracted_cm", 4, 1),
             ('Cadera "glúteo"',      "hip_glute_cm",      4, 2),
             ("Muslo máximo",         "thigh_max_cm",      4, 3),
             ("Muslo medio",          "thigh_mid_cm",      6, 0),
             ("Pantorrilla",          "calf_cm",           6, 1),
-        ]
-        for label, key, row, col in perimeters:
+        ]:
             ctk.CTkLabel(f, text=label, text_color="gray",
                          font=ctk.CTkFont(size=11), anchor="w"
-                         ).grid(row=row, column=col * 2,
-                                padx=(10, 2), pady=(6, 0), sticky="w")
+                         ).grid(row=row, column=col * 2, padx=(10, 2), pady=(6, 0), sticky="w")
             self._vars[key] = ctk.StringVar()
             ctk.CTkEntry(f, textvariable=self._vars[key], height=32
-                         ).grid(row=row + 1, column=col * 2,
-                                padx=(10, 2), pady=(0, 2), sticky="ew")
+                         ).grid(row=row + 1, column=col * 2, padx=(10, 2), pady=(0, 2), sticky="ew")
 
-        # ── PLIEGUES CUTÁNEOS ─────────────────────────────────────────────
+        # ── PLIEGUES CUTÁNEOS ──────────────────────────────────────────────
         _section_label(f, "PLIEGUES CUTÁNEOS (mm)", row=8, cols=4)
-
-        skinfolds = [
+        for label, key, row, col in [
             ("Tríceps (*)",          "triceps_mm",      9,  0),
             ("Subescapular (*)",     "subscapular_mm",  9,  1),
             ("Bíceps",               "biceps_mm",       9,  2),
@@ -164,19 +156,15 @@ class AnthropometricFrame(ctk.CTkFrame):
             ("Abdominal (*)",        "abdominal_mm",    11, 1),
             ("Muslo medial (*)",     "medial_thigh_mm", 11, 2),
             ("Pantorrilla máx. (*)", "max_calf_mm",     11, 3),
-        ]
-        for label, key, row, col in skinfolds:
+        ]:
             ctk.CTkLabel(f, text=label, text_color="gray",
                          font=ctk.CTkFont(size=11), anchor="w"
-                         ).grid(row=row, column=col * 2,
-                                padx=(10, 2), pady=(6, 0), sticky="w")
+                         ).grid(row=row, column=col * 2, padx=(10, 2), pady=(6, 0), sticky="w")
             self._vars[key] = ctk.StringVar()
             ent = ctk.CTkEntry(f, textvariable=self._vars[key], height=32)
-            ent.grid(row=row + 1, column=col * 2,
-                     padx=(10, 2), pady=(0, 2), sticky="ew")
+            ent.grid(row=row + 1, column=col * 2, padx=(10, 2), pady=(0, 2), sticky="ew")
             self._vars[key].trace_add("write", lambda *_: self._update_sum())
 
-        # Sumatoria 6 pliegues (readonly, auto)
         ctk.CTkLabel(f, text="Σ 6 pliegues (*) — auto",
                      text_color="#1a6b3c",
                      font=ctk.CTkFont(size=11, weight="bold"), anchor="w"
@@ -187,45 +175,42 @@ class AnthropometricFrame(ctk.CTkFrame):
                      fg_color=("#e8f5ee", "#1a3a28")
                      ).grid(row=14, column=0, padx=(10, 2), pady=(0, 2), sticky="ew")
 
-        # ── ISAK 2 EXTRA FIELDS (hidden by default) ───────────────────────
+        # ── ISAK 2 EXTRA FIELDS ────────────────────────────────────────────
         self._isak2_frame = ctk.CTkFrame(f, fg_color="transparent")
-        self._isak2_frame.grid(row=15, column=0, columnspan=8,
-                               sticky="ew", padx=0, pady=0)
+        self._isak2_frame.grid(row=15, column=0, columnspan=8, sticky="ew")
         self._isak2_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
         self._build_isak2_fields(self._isak2_frame)
-        self._isak2_frame.grid_remove()   # hidden until ISAK 2 selected
+        self._isak2_frame.grid_remove()
 
-        # ── BUTTONS ───────────────────────────────────────────────────────
+        # ── BUTTONS ────────────────────────────────────────────────────────
         btn_row = ctk.CTkFrame(f, fg_color="transparent")
         btn_row.grid(row=16, column=0, columnspan=8, padx=8, pady=(14, 6), sticky="ew")
         btn_row.grid_columnconfigure((0, 1), weight=1)
+        ctk.CTkButton(btn_row, text="Calcular", height=40,
+                      command=self._calculate
+                      ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ctk.CTkButton(btn_row, text="Guardar evaluación", height=40,
+                      fg_color="#16a34a", hover_color="#15803d",
+                      command=self._save
+                      ).grid(row=0, column=1, sticky="ew")
 
-        ctk.CTkButton(
-            btn_row, text="Calcular", height=40,
-            command=self._calculate
-        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
-
-        ctk.CTkButton(
-            btn_row, text="Guardar evaluación", height=40,
-            fg_color="#16a34a", hover_color="#15803d",
-            command=self._save
-        ).grid(row=0, column=1, sticky="ew")
-
-        # ── RESULTS BOX (ISAK 1) ──────────────────────────────────────────
+        # ── RESULTS BOX (ISAK 1) ───────────────────────────────────────────
         res = ctk.CTkFrame(f, fg_color=("#f0fdf4", "#1a2e22"), corner_radius=10)
         res.grid(row=17, column=0, columnspan=8, padx=8, pady=(8, 4), sticky="ew")
-        res.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        res.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
 
+        # (key, label, has_classification)
         result_items = [
-            ("dif_br_bc",   "Diferencia BC - BR"),
-            ("sum6",        "Σ 6 pliegues"),
-            ("fat_pct",     "% Masa grasa (D&W)"),
-            ("fat_kg",      "Masa grasa (kg)"),
-            ("lean_kg",     "Masa magra (kg)"),
+            ("dif_br_bc", "Diferencia BC - BR",  False),
+            ("sum6",      "Σ 6 pliegues",         False),
+            ("fat_pct",   "% Masa grasa (D&W)",   True),
+            ("fat_kg",    "Masa grasa (kg)",       False),
+            ("lean_kg",   "Masa magra (kg)",       False),
+            ("bmi",       "IMC (kg/m²)",           True),
         ]
-        for col, (key, label) in enumerate(result_items):
+        for col, (key, label, has_cls) in enumerate(result_items):
             frm = ctk.CTkFrame(res, fg_color="transparent")
-            frm.grid(row=0, column=col, padx=12, pady=10, sticky="ew")
+            frm.grid(row=0, column=col, padx=10, pady=10, sticky="ew")
             ctk.CTkLabel(frm, text=label,
                          font=ctk.CTkFont(size=9), text_color="gray"
                          ).pack(anchor="w")
@@ -233,13 +218,18 @@ class AnthropometricFrame(ctk.CTkFrame):
                                font=ctk.CTkFont(size=15, weight="bold"))
             lbl.pack(anchor="w")
             self._result_labels[key] = lbl
+            if has_cls:
+                cls_lbl = ctk.CTkLabel(frm, text="",
+                                       font=ctk.CTkFont(size=10))
+                cls_lbl.pack(anchor="w")
+                self._class_labels[key] = cls_lbl
 
         ctk.CTkLabel(
             res, text="*Ecuación Durnin & Womersley — Medición antropométrica ISAK 1",
             font=ctk.CTkFont(size=9), text_color="gray"
-        ).grid(row=1, column=0, columnspan=5, padx=12, pady=(0, 8), sticky="w")
+        ).grid(row=1, column=0, columnspan=6, padx=12, pady=(0, 8), sticky="w")
 
-        # ── RESULTS BOX (ISAK 2 — hidden by default) ──────────────────────
+        # ── RESULTS BOX (ISAK 2) ───────────────────────────────────────────
         self._isak2_results_frame = ctk.CTkFrame(
             f, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=10)
         self._isak2_results_frame.grid(row=18, column=0, columnspan=8,
@@ -247,13 +237,13 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._isak2_results_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         result2_items = [
-            ("endo",  "Endomorfia"),
-            ("meso",  "Mesomorfia"),
-            ("ecto",  "Ectomorfia"),
-            ("whtr",  "Índ. Cintura/Talla"),
-            ("amb",   "Área Musc. Brazo (cm²)"),
+            ("endo",  "Endomorfia",           False),
+            ("meso",  "Mesomorfia",           False),
+            ("ecto",  "Ectomorfia",           False),
+            ("whtr",  "Índ. Cintura/Talla",   True),
+            ("amb",   "Área Musc. Brazo(cm²)",False),
         ]
-        for col, (key, label) in enumerate(result2_items):
+        for col, (key, label, has_cls) in enumerate(result2_items):
             frm2 = ctk.CTkFrame(self._isak2_results_frame, fg_color="transparent")
             frm2.grid(row=0, column=col, padx=12, pady=10, sticky="ew")
             ctk.CTkLabel(frm2, text=label,
@@ -263,6 +253,11 @@ class AnthropometricFrame(ctk.CTkFrame):
                                 font=ctk.CTkFont(size=15, weight="bold"))
             lbl2.pack(anchor="w")
             self._result_labels[f"isak2_{key}"] = lbl2
+            if has_cls:
+                cls_lbl2 = ctk.CTkLabel(frm2, text="",
+                                        font=ctk.CTkFont(size=10))
+                cls_lbl2.pack(anchor="w")
+                self._class_labels[f"isak2_{key}"] = cls_lbl2
 
         ctk.CTkLabel(
             self._isak2_results_frame,
@@ -272,9 +267,6 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._isak2_results_frame.grid_remove()
 
     def _build_isak2_fields(self, f):
-        """Build all ISAK 2 extra input fields inside wrapper frame f."""
-
-        # ── PLIEGUES CUTÁNEOS ADICIONALES ─────────────────────────────────
         _section_label(f, "PLIEGUES CUTÁNEOS ADICIONALES (mm)", row=0, cols=4)
         _field_row(f, [
             ("Pectoral (tórax)",   "pectoral_mm",    0),
@@ -282,7 +274,6 @@ class AnthropometricFrame(ctk.CTkFrame):
             ("Muslo anterior",     "front_thigh_mm", 2),
         ], row=1, var_dict=self._vars)
 
-        # ── PERÍMETROS ADICIONALES ────────────────────────────────────────
         _section_label(f, "PERÍMETROS ADICIONALES (cm)", row=3, cols=4)
         _field_row(f, [
             ("Cabeza",              "head_cm",      0),
@@ -291,32 +282,63 @@ class AnthropometricFrame(ctk.CTkFrame):
             ("Tobillo mínimo",      "ankle_min_cm", 3),
         ], row=4, var_dict=self._vars)
 
-        # ── DIÁMETROS ÓSEOS ───────────────────────────────────────────────
         _section_label(f, "DIÁMETROS ÓSEOS (cm)", row=6, cols=4)
         _field_row(f, [
-            ("Húmero bicondíleo",    "humerus_width_cm",  0),
-            ("Fémur bicondíleo",     "femur_width_cm",    1),
-            ("Biacromial",           "biacromial_cm",     2),
-            ("Biiliocrestal",        "biiliocrestal_cm",  3),
+            ("Húmero bicondíleo",   "humerus_width_cm",  0),
+            ("Fémur bicondíleo",    "femur_width_cm",    1),
+            ("Biacromial",          "biacromial_cm",     2),
+            ("Biiliocrestal",       "biiliocrestal_cm",  3),
         ], row=7, var_dict=self._vars)
         _field_row(f, [
-            ("Ant-post. tórax",      "ap_chest_cm",       0),
-            ("Transv. tórax",        "transv_chest_cm",   1),
-            ("Longitud pie",         "foot_length_cm",    2),
-            ("Muñeca biestiloideo",  "wrist_cm",          3),
+            ("Ant-post. tórax",     "ap_chest_cm",       0),
+            ("Transv. tórax",       "transv_chest_cm",   1),
+            ("Longitud pie",        "foot_length_cm",    2),
+            ("Muñeca biestiloideo", "wrist_cm",          3),
         ], row=9, var_dict=self._vars)
         _field_row(f, [
-            ("Tobillo bimaleolar",   "ankle_bimalleolar_cm", 0),
+            ("Tobillo bimaleolar",  "ankle_bimalleolar_cm", 0),
         ], row=11, var_dict=self._vars)
 
-        # ── LONGITUDES ────────────────────────────────────────────────────
         _section_label(f, "LONGITUDES (cm)", row=13, cols=4)
         _field_row(f, [
-            ("Acromio-radial",       "acromion_radial_cm",  0),
-            ("Radio-estiloide",      "radial_styloid_cm",   1),
+            ("Acromio-radial",       "acromion_radial_cm",   0),
+            ("Radio-estiloide",      "radial_styloid_cm",    1),
             ("Iliospinal (pierna)",  "iliospinal_height_cm", 2),
             ("Trocánter-tibial",     "trochanter_tibial_cm", 3),
         ], row=14, var_dict=self._vars)
+
+    # ── Evolution tab ─────────────────────────────────────────────────────────
+    def _build_evolution_tab(self, tab):
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(1, weight=1)
+
+        toolbar = ctk.CTkFrame(tab, fg_color="transparent")
+        toolbar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 0))
+
+        ctk.CTkButton(
+            toolbar, text="↺ Actualizar gráficos", height=34, width=160,
+            command=self._load_evolution
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            toolbar, text="Exportar PDF evolución", height=34, width=180,
+            fg_color="#7c3aed", hover_color="#5b21b6",
+            command=self._export_evolution_pdf
+        ).pack(side="left", padx=4)
+
+        ctk.CTkLabel(
+            toolbar,
+            text="Peso · %Grasa · Masa grasa · Masa magra · Σ6 pliegues · Cintura · IMC",
+            font=ctk.CTkFont(size=10), text_color="gray"
+        ).pack(side="left", padx=12)
+
+        self._evo_scroll = ctk.CTkScrollableFrame(tab)
+        self._evo_scroll.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+
+    # ── Tab change ────────────────────────────────────────────────────────────
+    def _on_tab_change(self):
+        if self._tabs.get() == "Evolución":
+            self._load_evolution()
 
     # ── Toggle ISAK level ─────────────────────────────────────────────────────
     def _toggle_isak_level(self, value):
@@ -350,7 +372,6 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._patient_lbl.configure(text="Ningún paciente seleccionado")
 
     def _gf(self, key) -> float | None:
-        """Get float from var dict, return None if empty/invalid."""
         try:
             v = self._vars.get(key)
             if v is None:
@@ -361,19 +382,33 @@ class AnthropometricFrame(ctk.CTkFrame):
             return None
 
     def _update_sum(self):
-        """Live-recalculate Σ6 as fields are typed."""
         s = calc.sum_6_skinfolds(
-            self._gf("triceps_mm"),    self._gf("subscapular_mm"),
+            self._gf("triceps_mm"),     self._gf("subscapular_mm"),
             self._gf("supraspinal_mm"), self._gf("abdominal_mm"),
             self._gf("medial_thigh_mm"), self._gf("max_calf_mm"),
         )
         self._vars["sum_6_skinfolds"].set(f"{s} mm" if s is not None else "—")
 
+    def _set_class(self, key, pct_or_val, classify_fn, *fn_args):
+        """Helper: compute classification and update class label."""
+        lbl = self._class_labels.get(key)
+        if lbl is None:
+            return
+        if pct_or_val is None:
+            lbl.configure(text="", text_color="gray")
+            return
+        try:
+            cat, level = classify_fn(pct_or_val, *fn_args)
+            emoji = calc.LEVEL_EMOJI.get(level, "")
+            color = calc.LEVEL_COLOR.get(level, "gray")
+            lbl.configure(text=f"{emoji} {cat}", text_color=color)
+        except Exception:
+            lbl.configure(text="", text_color="gray")
+
     def _calculate(self) -> bool:
         pid = self.app.get_patient_id()
         if not pid:
-            messagebox.showwarning("Sin paciente",
-                                   "Selecciona un paciente primero.")
+            messagebox.showwarning("Sin paciente", "Selecciona un paciente primero.")
             return False
 
         patient = db.get_patient(pid)
@@ -381,6 +416,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         age = (patient or {}).get("age", 30) or 30
 
         w = self._gf("weight_kg")
+        h = self._gf("height_cm")
         if not w:
             messagebox.showerror("Datos incompletos", "El peso es obligatorio.")
             return False
@@ -395,7 +431,7 @@ class AnthropometricFrame(ctk.CTkFrame):
 
         # Σ 6 pliegues
         s6 = calc.sum_6_skinfolds(
-            self._gf("triceps_mm"),    self._gf("subscapular_mm"),
+            self._gf("triceps_mm"),     self._gf("subscapular_mm"),
             self._gf("supraspinal_mm"), self._gf("abdominal_mm"),
             self._gf("medial_thigh_mm"), self._gf("max_calf_mm"),
         )
@@ -404,19 +440,14 @@ class AnthropometricFrame(ctk.CTkFrame):
         )
 
         # Durnin & Womersley
-        bi = self._gf("biceps_mm")
-        tr = self._gf("triceps_mm")
-        ss = self._gf("subscapular_mm")
-        ic = self._gf("iliac_crest_mm")
-
+        bi = self._gf("biceps_mm");  tr = self._gf("triceps_mm")
+        ss = self._gf("subscapular_mm"); ic = self._gf("iliac_crest_mm")
         density, fat_pct = None, None
         if all(v is not None for v in [bi, tr, ss, ic]):
-            density, fat_pct = calc.body_fat_durnin_womersley(
-                bi, tr, ss, ic, age, sex
-            )
+            density, fat_pct = calc.body_fat_durnin_womersley(bi, tr, ss, ic, age, sex)
 
-        fat_kg  = calc.fat_mass_kg(w, fat_pct)  if fat_pct is not None else None
-        lean_kg = calc.lean_mass_kg(w, fat_kg)  if fat_kg  is not None else None
+        fat_kg  = calc.fat_mass_kg(w, fat_pct) if fat_pct is not None else None
+        lean_kg = calc.lean_mass_kg(w, fat_kg) if fat_kg  is not None else None
 
         self._result_labels["fat_pct"].configure(
             text=f"{fat_pct}%" if fat_pct is not None else "—"
@@ -427,6 +458,14 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._result_labels["lean_kg"].configure(
             text=f"{lean_kg} kg" if lean_kg is not None else "—"
         )
+        self._set_class("fat_pct", fat_pct, calc.classify_fat_pct, sex, age)
+
+        # IMC + clasificación
+        bmi_val = calc.bmi(w, h) if h else None
+        self._result_labels["bmi"].configure(
+            text=str(bmi_val) if bmi_val is not None else "—"
+        )
+        self._set_class("bmi", bmi_val, calc.classify_bmi)
 
         self._last_calc = {
             "dif_br_bc":       dif,
@@ -435,22 +474,18 @@ class AnthropometricFrame(ctk.CTkFrame):
             "fat_mass_pct":    fat_pct,
             "fat_mass_kg":     fat_kg,
             "lean_mass_kg":    lean_kg,
-            # ISAK 2 placeholders
-            "somatotype_endo":  None,
-            "somatotype_meso":  None,
-            "somatotype_ecto":  None,
+            "somatotype_endo": None,
+            "somatotype_meso": None,
+            "somatotype_ecto": None,
             "waist_height_ratio": None,
             "arm_muscle_area":  None,
         }
 
         # ── ISAK 2 calculations ────────────────────────────────────────────
         if self._isak_level.get() == "ISAK 2":
-            h = self._gf("height_cm")
-
-            # Somatotipo Heath & Carter
             endo, meso, ecto = calc.somatotype_heath_carter(
                 h, w,
-                self._gf("triceps_mm"),    self._gf("subscapular_mm"),
+                self._gf("triceps_mm"),     self._gf("subscapular_mm"),
                 self._gf("supraspinal_mm"),
                 self._gf("humerus_width_cm"), self._gf("femur_width_cm"),
                 self._gf("arm_contracted_cm"), self._gf("calf_cm"),
@@ -466,17 +501,14 @@ class AnthropometricFrame(ctk.CTkFrame):
                 text=f"{ecto}" if ecto is not None else "—"
             )
 
-            # Índice cintura/talla
             waist = self._gf("waist_cm")
             whtr = calc.waist_height_ratio(waist, h)
             self._result_labels["isak2_whtr"].configure(
                 text=f"{whtr}" if whtr is not None else "—"
             )
+            self._set_class("isak2_whtr", whtr, calc.classify_whtr)
 
-            # AMB
-            amb = calc.arm_muscle_area(
-                self._gf("arm_relaxed_cm"), self._gf("triceps_mm")
-            )
+            amb = calc.arm_muscle_area(self._gf("arm_relaxed_cm"), self._gf("triceps_mm"))
             self._result_labels["isak2_amb"].configure(
                 text=f"{amb}" if amb is not None else "—"
             )
@@ -497,9 +529,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         pid = self.app.get_patient_id()
         if not pid:
             return
-
         level = self._isak_level.get()
-
         data = {
             "patient_id":         pid,
             "date":               self._vars["date"].get().strip(),
@@ -521,16 +551,13 @@ class AnthropometricFrame(ctk.CTkFrame):
             "abdominal_mm":       self._gf("abdominal_mm"),
             "medial_thigh_mm":    self._gf("medial_thigh_mm"),
             "max_calf_mm":        self._gf("max_calf_mm"),
-            # ISAK 2 extra skinfolds
             "pectoral_mm":        self._gf("pectoral_mm"),
             "axillary_mm":        self._gf("axillary_mm"),
             "front_thigh_mm":     self._gf("front_thigh_mm"),
-            # ISAK 2 extra perimeters
             "head_cm":            self._gf("head_cm"),
             "neck_cm":            self._gf("neck_cm"),
             "chest_cm":           self._gf("chest_cm"),
             "ankle_min_cm":       self._gf("ankle_min_cm"),
-            # ISAK 2 bone diameters
             "humerus_width_cm":   self._gf("humerus_width_cm"),
             "femur_width_cm":     self._gf("femur_width_cm"),
             "biacromial_cm":      self._gf("biacromial_cm"),
@@ -540,7 +567,6 @@ class AnthropometricFrame(ctk.CTkFrame):
             "foot_length_cm":     self._gf("foot_length_cm"),
             "wrist_cm":           self._gf("wrist_cm"),
             "ankle_bimalleolar_cm": self._gf("ankle_bimalleolar_cm"),
-            # ISAK 2 lengths
             "acromion_radial_cm": self._gf("acromion_radial_cm"),
             "radial_styloid_cm":  self._gf("radial_styloid_cm"),
             "iliospinal_height_cm": self._gf("iliospinal_height_cm"),
@@ -548,8 +574,7 @@ class AnthropometricFrame(ctk.CTkFrame):
             **self._last_calc,
         }
         db.insert_anthropometric(data)
-        messagebox.showinfo("Guardado",
-                            f"Evaluación {level} guardada correctamente.")
+        messagebox.showinfo("Guardado", f"Evaluación {level} guardada correctamente.")
         self._clear_form()
         self._load_history()
         self._tabs.set("Historial")
@@ -562,6 +587,8 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._vars["sum_6_skinfolds"].set("—")
         for lbl in self._result_labels.values():
             lbl.configure(text="—")
+        for lbl in self._class_labels.values():
+            lbl.configure(text="")
         self._last_calc = {}
 
     # ── History tab ───────────────────────────────────────────────────────────
@@ -572,30 +599,26 @@ class AnthropometricFrame(ctk.CTkFrame):
         pid = self.app.get_patient_id()
         if not pid:
             return
-
-        records = db.get_anthropometrics(pid)   # ASC by date
+        records = db.get_anthropometrics(pid)
         if not records:
             ctk.CTkLabel(
                 self._history_scroll,
-                text="Sin evaluaciones registradas.",
-                text_color="gray"
+                text="Sin evaluaciones registradas.", text_color="gray"
             ).grid(row=0, column=0, pady=30)
             return
 
         has_isak2 = any(r.get("isak_level") == "ISAK 2" for r in records)
-
         n_sessions = len(records)
         total_cols = n_sessions + 2
         for c in range(total_cols):
             self._history_scroll.grid_columnconfigure(c, weight=1)
 
-        # Header row — show date + ISAK level badge
+        # Header
         headers = ["Variable"]
         for r in records:
             lvl = r.get("isak_level") or "ISAK 1"
             headers.append(f"{r['date']}\n[{lvl}]")
         headers.append("Cambios")
-
         for c, h in enumerate(headers):
             ctk.CTkLabel(
                 self._history_scroll, text=h,
@@ -603,12 +626,12 @@ class AnthropometricFrame(ctk.CTkFrame):
                 text_color="gray", justify="center"
             ).grid(row=0, column=c, padx=6, pady=(4, 8), sticky="w")
 
-        # Variable rows definition
+        # Sections
         sections = [
             ("── DATOS BÁSICOS ──", []),
             (None, [
-                ("Peso (kg)",             "weight_kg"),
-                ("Talla (cm)",            "height_cm"),
+                ("Peso (kg)",               "weight_kg"),
+                ("Talla (cm)",              "height_cm"),
                 ("Circ. cintura mín. (cm)", "waist_cm"),
             ]),
             ("── PERÍMETROS (cm) ──", []),
@@ -633,30 +656,29 @@ class AnthropometricFrame(ctk.CTkFrame):
                 ("Pantorrilla máx. (*)", "max_calf_mm"),
                 ("Σ 6 pliegues (*)",     "sum_6_skinfolds"),
             ]),
-            ("── RESULTADOS D&W ──", []),
+            ("── RESULTADOS ──", []),
             (None, [
                 ("% Masa grasa* (D&W)", "fat_mass_pct"),
                 ("Masa grasa (kg)",     "fat_mass_kg"),
                 ("Masa magra (kg)",     "lean_mass_kg"),
             ]),
         ]
-
         if has_isak2:
             sections += [
-                ("── PLIEGUES ADICIONALES ISAK 2 (mm) ──", []),
+                ("── ISAK 2 — PLIEGUES ADICIONALES (mm) ──", []),
                 (None, [
                     ("Pectoral",        "pectoral_mm"),
                     ("Axilar medio",    "axillary_mm"),
                     ("Muslo anterior",  "front_thigh_mm"),
                 ]),
-                ("── PERÍMETROS ADICIONALES ISAK 2 (cm) ──", []),
+                ("── ISAK 2 — PERÍMETROS ADICIONALES (cm) ──", []),
                 (None, [
-                    ("Cabeza",              "head_cm"),
-                    ("Cuello",              "neck_cm"),
-                    ("Tórax mesoesternal",  "chest_cm"),
-                    ("Tobillo mínimo",      "ankle_min_cm"),
+                    ("Cabeza",             "head_cm"),
+                    ("Cuello",             "neck_cm"),
+                    ("Tórax mesoesternal", "chest_cm"),
+                    ("Tobillo mínimo",     "ankle_min_cm"),
                 ]),
-                ("── DIÁMETROS ÓSEOS ISAK 2 (cm) ──", []),
+                ("── ISAK 2 — DIÁMETROS ÓSEOS (cm) ──", []),
                 (None, [
                     ("Húmero bicondíleo",   "humerus_width_cm"),
                     ("Fémur bicondíleo",    "femur_width_cm"),
@@ -668,24 +690,30 @@ class AnthropometricFrame(ctk.CTkFrame):
                     ("Muñeca biestiloideo", "wrist_cm"),
                     ("Tobillo bimaleolar",  "ankle_bimalleolar_cm"),
                 ]),
-                ("── LONGITUDES ISAK 2 (cm) ──", []),
+                ("── ISAK 2 — LONGITUDES (cm) ──", []),
                 (None, [
-                    ("Acromio-radial",      "acromion_radial_cm"),
-                    ("Radio-estiloide",     "radial_styloid_cm"),
-                    ("Iliospinal (pierna)", "iliospinal_height_cm"),
-                    ("Trocánter-tibial",    "trochanter_tibial_cm"),
+                    ("Acromio-radial",       "acromion_radial_cm"),
+                    ("Radio-estiloide",      "radial_styloid_cm"),
+                    ("Iliospinal (pierna)",  "iliospinal_height_cm"),
+                    ("Trocánter-tibial",     "trochanter_tibial_cm"),
                 ]),
-                ("── SOMATOTIPO ISAK 2 ──", []),
+                ("── ISAK 2 — SOMATOTIPO ──", []),
                 (None, [
-                    ("Endomorfia",          "somatotype_endo"),
-                    ("Mesomorfia",          "somatotype_meso"),
-                    ("Ectomorfia",          "somatotype_ecto"),
-                    ("Índ. Cintura/Talla",  "waist_height_ratio"),
-                    ("AMB (cm²)",           "arm_muscle_area"),
+                    ("Endomorfia",         "somatotype_endo"),
+                    ("Mesomorfia",         "somatotype_meso"),
+                    ("Ectomorfia",         "somatotype_ecto"),
+                    ("Índ. Cintura/Talla", "waist_height_ratio"),
+                    ("AMB (cm²)",          "arm_muscle_area"),
                 ]),
             ]
 
         row_idx = 1
+        # Compute BMI for history (for classification display)
+        bmi_by_id = {}
+        for r in records:
+            ww, hh = r.get("weight_kg"), r.get("height_cm")
+            bmi_by_id[r["id"]] = calc.bmi(ww, hh) if ww and hh else None
+
         for section_title, rows in sections:
             if section_title:
                 frm = ctk.CTkFrame(self._history_scroll,
@@ -714,13 +742,8 @@ class AnthropometricFrame(ctk.CTkFrame):
                         v = round(bc - br, 2) if (br and bc) else None
                     else:
                         v = rec.get(db_key)
-
-                    if db_key == "fat_mass_pct" and v is not None:
-                        cell = f"{v}%"
-                    elif v is not None:
-                        cell = str(v)
-                    else:
-                        cell = "—"
+                    cell = f"{v}%" if db_key == "fat_mass_pct" and v is not None else (
+                           str(v) if v is not None else "—")
                     vals.append((v, cell))
 
                 for c, (raw, cell) in enumerate(vals, start=1):
@@ -729,12 +752,12 @@ class AnthropometricFrame(ctk.CTkFrame):
                         font=ctk.CTkFont(size=11)
                     ).grid(row=row_idx, column=c, padx=6, pady=3, sticky="w")
 
-                # Cambios column
+                # Cambios
                 cambio_text = "—"
                 if len(vals) >= 2:
-                    first_v, last_v = vals[0][0], vals[-1][0]
-                    if first_v is not None and last_v is not None:
-                        diff = round(last_v - first_v, 2)
+                    fv, lv = vals[0][0], vals[-1][0]
+                    if fv is not None and lv is not None:
+                        diff = round(lv - fv, 2)
                         cambio_text = f"{diff:+.2f}"
                 ctk.CTkLabel(
                     self._history_scroll, text=cambio_text,
@@ -743,20 +766,18 @@ class AnthropometricFrame(ctk.CTkFrame):
                                 ("#dc2626" if cambio_text.startswith("-") else "gray"))
                 ).grid(row=row_idx, column=n_sessions + 1,
                        padx=6, pady=3, sticky="w")
-
                 row_idx += 1
 
-        # Footer note
+        # Footer
         ctk.CTkLabel(
             self._history_scroll,
-            text="*Según ecuación de Durnin & Womersley — ISAK 1  |  "
-                 "**Somatotipo Heath & Carter (1990) — ISAK 2",
+            text="*Durnin & Womersley (1974)  |  **Heath & Carter (1990)",
             font=ctk.CTkFont(size=9), text_color="gray"
         ).grid(row=row_idx, column=0, columnspan=total_cols,
                padx=6, pady=(12, 4), sticky="w")
-
         row_idx += 1
-        # Delete buttons per session
+
+        # Delete buttons
         del_frm = ctk.CTkFrame(self._history_scroll, fg_color="transparent")
         del_frm.grid(row=row_idx, column=0, columnspan=total_cols,
                      padx=6, pady=(4, 12), sticky="w")
@@ -765,9 +786,8 @@ class AnthropometricFrame(ctk.CTkFrame):
                      ).pack(side="left", padx=(0, 8))
         for rec in records:
             rid = rec["id"]
-            lvl = rec.get("isak_level") or "ISAK 1"
             ctk.CTkButton(
-                del_frm, text=f"{rec['date']}", width=110, height=26,
+                del_frm, text=rec["date"], width=110, height=26,
                 fg_color="#dc2626", hover_color="#991b1b",
                 font=ctk.CTkFont(size=10),
                 command=lambda r=rid: self._delete_record(r)
@@ -777,3 +797,163 @@ class AnthropometricFrame(ctk.CTkFrame):
         if messagebox.askyesno("Eliminar", "¿Eliminar esta evaluación?"):
             db.delete_anthropometric(rid)
             self._load_history()
+
+    # ── Evolution charts ──────────────────────────────────────────────────────
+    def _load_evolution(self):
+        """Render matplotlib evolution charts for all 7 variables."""
+        for w in self._evo_scroll.winfo_children():
+            w.destroy()
+        # Close previous figures to free memory
+        for fig in self._evo_figures:
+            try:
+                fig.clf()
+            except Exception:
+                pass
+        self._evo_figures.clear()
+
+        if not _MPL_OK:
+            ctk.CTkLabel(
+                self._evo_scroll,
+                text="matplotlib no instalado.\nEjecuta: pip install matplotlib",
+                font=ctk.CTkFont(size=13), text_color="gray"
+            ).grid(row=0, column=0, pady=40, columnspan=2)
+            return
+
+        pid = self.app.get_patient_id()
+        if not pid:
+            return
+
+        records = db.get_anthropometrics(pid)
+        if len(records) < 2:
+            ctk.CTkLabel(
+                self._evo_scroll,
+                text="Se necesitan al menos 2 sesiones registradas para mostrar evolución.",
+                font=ctk.CTkFont(size=13), text_color="gray"
+            ).grid(row=0, column=0, pady=40, columnspan=2)
+            return
+
+        # Build BMI series
+        bmi_vals = [
+            calc.bmi(r["weight_kg"], r["height_cm"])
+            if r.get("weight_kg") and r.get("height_cm") else None
+            for r in records
+        ]
+        date_labels = [
+            f"{d[8:10]}/{d[5:7]}\n'{d[2:4]}"
+            for d in [r["date"] for r in records]
+        ]
+
+        charts = [
+            ("Peso (kg)",          [r.get("weight_kg")      for r in records], "#1a6b3c"),
+            ("% Masa grasa",       [r.get("fat_mass_pct")   for r in records], "#0d6efd"),
+            ("Masa grasa (kg)",    [r.get("fat_mass_kg")    for r in records], "#dc2626"),
+            ("Masa magra (kg)",    [r.get("lean_mass_kg")   for r in records], "#16a34a"),
+            ("Σ 6 pliegues (mm)",  [r.get("sum_6_skinfolds") for r in records], "#7c3aed"),
+            ("Cintura (cm)",       [r.get("waist_cm")        for r in records], "#ca8a04"),
+            ("IMC (kg/m²)",        bmi_vals,                                    "#0891b2"),
+        ]
+
+        self._evo_scroll.grid_columnconfigure((0, 1), weight=1)
+        dark = ctk.get_appearance_mode() == "Dark"
+        bg_fig = "#1e1e1e" if dark else "#ffffff"
+        bg_ax  = "#2a2a2a" if dark else "#fafafa"
+        tc     = "#e5e7eb" if dark else "#374151"
+        gc     = "#4b5563" if dark else "#e5e7eb"
+
+        for i, (title, values, color) in enumerate(charts):
+            r_pos, c_pos = divmod(i, 2)
+            paired = [(d, v) for d, v in zip(date_labels, values) if v is not None]
+
+            card = ctk.CTkFrame(self._evo_scroll, corner_radius=10,
+                                fg_color=("#f8f8f8", "#1e1e1e"))
+            card.grid(row=r_pos, column=c_pos, padx=8, pady=8, sticky="nsew")
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                card, text=title,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=color
+            ).grid(row=0, column=0, padx=12, pady=(10, 0), sticky="w")
+
+            if len(paired) < 2:
+                ctk.CTkLabel(
+                    card, text="Datos insuficientes (< 2 sesiones con valores)",
+                    text_color="gray", font=ctk.CTkFont(size=11)
+                ).grid(row=1, column=0, pady=20)
+                continue
+
+            ds, vs = zip(*paired)
+            xs = list(range(len(ds)))
+
+            fig = Figure(figsize=(5.5, 3.0), dpi=90)
+            fig.patch.set_facecolor(bg_fig)
+            ax = fig.add_subplot(111)
+            ax.set_facecolor(bg_ax)
+
+            ax.plot(xs, vs, "o-", color=color, linewidth=2, markersize=7,
+                    markerfacecolor="white", markeredgecolor=color, markeredgewidth=2,
+                    zorder=3)
+
+            # Value annotations above each point
+            y_range = max(vs) - min(vs) if max(vs) != min(vs) else 1
+            for xi, val in enumerate(vs):
+                ax.annotate(
+                    str(round(val, 1)),
+                    xy=(xi, val),
+                    textcoords="offset points", xytext=(0, 10),
+                    ha="center", fontsize=8, fontweight="bold",
+                    color=color, zorder=4
+                )
+
+            ax.set_xticks(xs)
+            ax.set_xticklabels(ds, fontsize=7.5, color=tc)
+            ax.tick_params(axis="y", labelsize=7.5, colors=tc)
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.spines["left"].set_color(gc)
+            ax.spines["bottom"].set_color(gc)
+            ax.grid(axis="y", color=gc, linewidth=0.5, linestyle="--", alpha=0.8)
+            # Pad y so annotations don't clip
+            y_pad = y_range * 0.15
+            ax.set_ylim(min(vs) - y_pad, max(vs) + y_pad * 2)
+            fig.tight_layout(pad=0.8)
+
+            canvas = FigureCanvasTkAgg(fig, master=card)
+            canvas.get_tk_widget().grid(
+                row=1, column=0, sticky="nsew", padx=6, pady=(4, 10)
+            )
+            canvas.draw()
+            self._evo_figures.append(fig)
+
+    def _export_evolution_pdf(self):
+        pid = self.app.get_patient_id()
+        if not pid:
+            messagebox.showwarning("Sin paciente", "Selecciona un paciente primero.")
+            return
+        patient = db.get_patient(pid)
+        records = db.get_anthropometrics(pid)
+        if len(records) < 2:
+            messagebox.showinfo("Sin datos",
+                                "Se necesitan al menos 2 sesiones para exportar.")
+            return
+
+        safe = patient["name"].replace(" ", "_")
+        path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            initialfile=f"Evolucion_{safe}.pdf",
+            title="Guardar reporte de evolución..."
+        )
+        if not path:
+            return
+        try:
+            from utils import pdf_generator
+            pdf_generator.generate_evolution_report(patient, records, path)
+            messagebox.showinfo("OK", f"PDF guardado correctamente.")
+            import os
+            try:
+                os.startfile(path)
+            except Exception:
+                pass
+        except Exception as e:
+            messagebox.showerror("Error al generar PDF", str(e))

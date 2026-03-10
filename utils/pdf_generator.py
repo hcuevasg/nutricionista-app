@@ -15,6 +15,15 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.graphics.shapes import (
     Drawing, Line, Circle, String as GString, Rect, Group
 )
+from reportlab.platypus import Image as RLImage
+import io as _io
+import utils.calculations as calc
+
+try:
+    from matplotlib.figure import Figure as _MplFigure
+    _MPL_OK = True
+except ImportError:
+    _MPL_OK = False
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 PRIMARY   = colors.HexColor("#1a6b3c")
@@ -29,6 +38,17 @@ SECTION_TXT = colors.HexColor("#065f46")
 WHITE     = colors.white
 RED_NEG   = colors.HexColor("#dc2626")
 GREEN_POS = colors.HexColor("#16a34a")
+
+LEVEL_PDF_COLOR = {
+    "excellent": colors.HexColor("#16a34a"),
+    "good":      colors.HexColor("#16a34a"),
+    "average":   colors.HexColor("#ca8a04"),
+    "high":      colors.HexColor("#ea580c"),
+    "very_high": colors.HexColor("#dc2626"),
+    "low":       colors.HexColor("#2563eb"),
+    "moderate":  colors.HexColor("#ca8a04"),
+    "risk":      colors.HexColor("#dc2626"),
+}
 
 
 def _styles():
@@ -315,33 +335,67 @@ def generate_isak_report(patient: dict, records: list, output_path: str) -> str:
         ))
         story.append(Spacer(1, 6))
 
-        def _result_line(label, key, suffix="", decimals=2):
+        pat_sex = patient.get("sex", "")
+        pat_age = patient.get("age", 30) or 30
+
+        def _result_line_cls(label, key, suffix="", decimals=2, classify_fn=None):
             f0, f1 = first_last(key)
             chg = _cambio(f0, f1, decimals)
             v_last = _fmt(f1, suffix, decimals) if f1 is not None else "—"
-            return [label, v_last, chg]
+            cat, level = ("—", None)
+            if classify_fn and f1 is not None:
+                try:
+                    cat, level = classify_fn(f1)
+                except Exception:
+                    pass
+            return [label, v_last, chg, cat, level]
 
-        summary_data = [
-            ["Variable", "Última sesión", "Cambio total"],
-            _result_line("Peso total (kg)",   "weight_kg",   "", 1),
-            _result_line("Masa magra (kg)",   "lean_mass_kg", "", 2),
-            _result_line("Masa grasa (kg)",   "fat_mass_kg",  "", 2),
-            _result_line("% Masa grasa*",     "fat_mass_pct", "%", 1),
-            _result_line("Σ 6 pliegues (mm)", "sum_6_skinfolds", "", 1),
+        # Compute BMI for last record
+        last_r = records[-1]
+        first_r = records[0]
+        bmi_last  = calc.bmi(last_r["weight_kg"],  last_r["height_cm"])  \
+                    if last_r.get("weight_kg") and last_r.get("height_cm") else None
+        bmi_first = calc.bmi(first_r["weight_kg"], first_r["height_cm"]) \
+                    if first_r.get("weight_kg") and first_r.get("height_cm") else None
+
+        rows_with_level = [
+            _result_line_cls("Peso total (kg)",   "weight_kg",       "", 1),
+            _result_line_cls("Masa magra (kg)",   "lean_mass_kg",    "", 2),
+            _result_line_cls("Masa grasa (kg)",   "fat_mass_kg",     "", 2),
+            _result_line_cls("% Masa grasa*",     "fat_mass_pct",    "%", 1,
+                             lambda p: calc.classify_fat_pct(p, pat_sex, pat_age)),
+            _result_line_cls("Σ 6 pliegues (mm)", "sum_6_skinfolds", "", 1),
         ]
+        # Add BMI row manually
+        bmi_cat, bmi_level = ("—", None)
+        if bmi_last is not None:
+            bmi_cat, bmi_level = calc.classify_bmi(bmi_last)
+        rows_with_level.append([
+            "IMC (kg/m²)",
+            _fmt(bmi_last, "", 2) if bmi_last else "—",
+            _cambio(bmi_first, bmi_last, 2),
+            bmi_cat, bmi_level
+        ])
+
+        summary_data = [["Variable", "Última sesión", "Cambio total", "Clasificación"]]
+        summary_data += [[r[0], r[1], r[2], r[3]] for r in rows_with_level]
+
         sum_ts = _base_table_style()
         sum_ts.add("ALIGN", (0, 0), (0, -1), "LEFT")
+        sum_ts.add("ALIGN", (3, 0), (3, -1), "LEFT")
 
-        # Color cambios
-        for ri, row in enumerate(summary_data[1:], start=1):
-            chg = row[2]
-            c = _cambio_color(chg)
-            sum_ts.add("TEXTCOLOR", (2, ri), (2, ri), c)
+        for ri, row_data in enumerate(rows_with_level, start=1):
+            chg = row_data[2]
+            sum_ts.add("TEXTCOLOR", (2, ri), (2, ri), _cambio_color(chg))
             sum_ts.add("FONTNAME",  (2, ri), (2, ri), "Helvetica-Bold")
+            level = row_data[4]
+            if level and level in LEVEL_PDF_COLOR:
+                sum_ts.add("TEXTCOLOR", (3, ri), (3, ri), LEVEL_PDF_COLOR[level])
+                sum_ts.add("FONTNAME",  (3, ri), (3, ri), "Helvetica-Bold")
 
         sum_tbl = Table(
             summary_data,
-            colWidths=[7 * cm, 5 * cm, 5 * cm]
+            colWidths=[6 * cm, 4 * cm, 4 * cm, 4.5 * cm]
         )
         sum_tbl.setStyle(sum_ts)
         story.append(KeepTogether([sum_tbl]))
@@ -713,32 +767,60 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
         ))
         story.append(Spacer(1, 6))
 
-        def _result_line(label, key, suffix="", decimals=2):
+        pat_sex2 = patient.get("sex", "")
+        pat_age2 = patient.get("age", 30) or 30
+
+        def _result_line2(label, key, suffix="", decimals=2, classify_fn=None):
             f0, f1 = first_last(key)
             chg = _cambio(f0, f1, decimals)
             v_last = _fmt(f1, suffix, decimals) if f1 is not None else "—"
-            return [label, v_last, chg]
+            cat, level = ("—", None)
+            if classify_fn and f1 is not None:
+                try:
+                    cat, level = classify_fn(f1)
+                except Exception:
+                    pass
+            return [label, v_last, chg, cat, level]
 
-        summary_data = [
-            ["Variable", "Última sesión", "Cambio total"],
-            _result_line("Peso total (kg)",   "weight_kg",      "", 1),
-            _result_line("Masa magra (kg)",   "lean_mass_kg",   "", 2),
-            _result_line("Masa grasa (kg)",   "fat_mass_kg",    "", 2),
-            _result_line("% Masa grasa*",     "fat_mass_pct",   "%", 1),
-            _result_line("Σ 6 pliegues (mm)", "sum_6_skinfolds", "", 1),
-            _result_line("Endomorfia**",      "somatotype_endo", "", 2),
-            _result_line("Mesomorfia**",      "somatotype_meso", "", 2),
-            _result_line("Ectomorfia**",      "somatotype_ecto", "", 2),
-            _result_line("Índ. cintura/talla","waist_height_ratio", "", 3),
+        rows2 = [
+            _result_line2("Peso total (kg)",    "weight_kg",         "", 1),
+            _result_line2("Masa magra (kg)",    "lean_mass_kg",      "", 2),
+            _result_line2("Masa grasa (kg)",    "fat_mass_kg",       "", 2),
+            _result_line2("% Masa grasa*",      "fat_mass_pct",      "%", 1,
+                          lambda p: calc.classify_fat_pct(p, pat_sex2, pat_age2)),
+            _result_line2("Σ 6 pliegues (mm)",  "sum_6_skinfolds",   "", 1),
+            _result_line2("Endomorfia**",       "somatotype_endo",   "", 2),
+            _result_line2("Mesomorfia**",       "somatotype_meso",   "", 2),
+            _result_line2("Ectomorfia**",       "somatotype_ecto",   "", 2),
+            _result_line2("Índ. cintura/talla", "waist_height_ratio", "", 3,
+                          lambda r: calc.classify_whtr(r)),
         ]
+        last2 = records[-1]; first2 = records[0]
+        bmi2_last  = calc.bmi(last2["weight_kg"],  last2["height_cm"])  \
+                     if last2.get("weight_kg") and last2.get("height_cm") else None
+        bmi2_first = calc.bmi(first2["weight_kg"], first2["height_cm"]) \
+                     if first2.get("weight_kg") and first2.get("height_cm") else None
+        bmi2_cat, bmi2_level = ("—", None)
+        if bmi2_last:
+            bmi2_cat, bmi2_level = calc.classify_bmi(bmi2_last)
+        rows2.append(["IMC (kg/m²)", _fmt(bmi2_last, "", 2) if bmi2_last else "—",
+                       _cambio(bmi2_first, bmi2_last, 2), bmi2_cat, bmi2_level])
+
+        summary_data = [["Variable", "Última sesión", "Cambio total", "Clasificación"]]
+        summary_data += [[r[0], r[1], r[2], r[3]] for r in rows2]
+
         sum_ts = _base_table_style()
         sum_ts.add("ALIGN", (0, 0), (0, -1), "LEFT")
-        for ri, row in enumerate(summary_data[1:], start=1):
-            c = _cambio_color(row[2])
-            sum_ts.add("TEXTCOLOR", (2, ri), (2, ri), c)
+        sum_ts.add("ALIGN", (3, 0), (3, -1), "LEFT")
+        for ri, row_data in enumerate(rows2, start=1):
+            sum_ts.add("TEXTCOLOR", (2, ri), (2, ri), _cambio_color(row_data[2]))
             sum_ts.add("FONTNAME",  (2, ri), (2, ri), "Helvetica-Bold")
+            level = row_data[4]
+            if level and level in LEVEL_PDF_COLOR:
+                sum_ts.add("TEXTCOLOR", (3, ri), (3, ri), LEVEL_PDF_COLOR[level])
+                sum_ts.add("FONTNAME",  (3, ri), (3, ri), "Helvetica-Bold")
 
-        sum_tbl = Table(summary_data, colWidths=[7 * cm, 5 * cm, 5 * cm])
+        sum_tbl = Table(summary_data, colWidths=[6 * cm, 4 * cm, 4 * cm, 4.5 * cm])
         sum_tbl.setStyle(sum_ts)
         story.append(KeepTogether([sum_tbl]))
         story.append(Spacer(1, 14))
@@ -809,6 +891,149 @@ def generate_isak2_report(patient: dict, records: list, output_path: str) -> str
         "*Durnin & Womersley (1974)  |  **Heath & Carter (1990) — "
         "Medición antropométrica ISAK 2  |  "
         f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}  |  NutriApp © 2025",
+        S["small"]
+    ))
+
+    doc.build(story)
+    return output_path
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  EVOLUTION CHARTS HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_chart_image(dates: list, values: list, title: str, color_hex: str,
+                      w_cm: float = 11.5, h_cm: float = 5.5):
+    """
+    Generate a matplotlib chart and return a ReportLab Image flowable.
+    dates/values may contain None; pairs where value is None are skipped.
+    Returns None if fewer than 2 valid data points.
+    """
+    if not _MPL_OK:
+        return None
+    paired = [(d, v) for d, v in zip(dates, values) if v is not None]
+    if len(paired) < 2:
+        return None
+
+    ds, vs = zip(*paired)
+    xs = list(range(len(ds)))
+    # Short date label: "15/01\n'24"
+    def short_date(d):
+        return f"{d[8:10]}/{d[5:7]}\n'{d[2:4]}"
+    x_labels = [short_date(d) for d in ds]
+
+    fig = _MplFigure(figsize=(w_cm / 2.54, h_cm / 2.54), dpi=150)
+    fig.patch.set_facecolor("white")
+    ax = fig.add_subplot(111)
+    ax.set_facecolor("#fafafa")
+
+    ax.plot(xs, vs, "o-", color=color_hex, linewidth=1.5, markersize=5,
+            markerfacecolor="white", markeredgecolor=color_hex, markeredgewidth=1.5,
+            zorder=3)
+
+    y_range = max(vs) - min(vs) if max(vs) != min(vs) else 1
+    for xi, val in enumerate(vs):
+        ax.annotate(str(round(val, 1)), xy=(xi, val),
+                    textcoords="offset points", xytext=(0, 7),
+                    ha="center", fontsize=6, fontweight="bold", color=color_hex)
+
+    ax.set_xticks(xs)
+    ax.set_xticklabels(x_labels, fontsize=6)
+    ax.tick_params(axis="y", labelsize=6, colors="#6b7280")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.spines["left"].set_color("#e5e7eb")
+    ax.spines["bottom"].set_color("#e5e7eb")
+    ax.grid(axis="y", color="#e5e7eb", linewidth=0.4, linestyle="--")
+    ax.set_title(title, fontsize=8, color=color_hex, fontweight="bold", pad=4)
+    y_pad = y_range * 0.18
+    ax.set_ylim(min(vs) - y_pad, max(vs) + y_pad * 2.2)
+    fig.tight_layout(pad=0.5)
+
+    buf = _io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    buf.seek(0)
+    fig.clf()
+
+    return RLImage(buf, width=w_cm * cm, height=h_cm * cm)
+
+
+def generate_evolution_report(patient: dict, records: list, output_path: str) -> str:
+    """
+    Generate a standalone PDF with 7 evolution charts (one per key variable).
+    """
+    if not _MPL_OK:
+        raise RuntimeError(
+            "matplotlib no está instalado. Ejecuta: pip install matplotlib"
+        )
+    S = _styles()
+    doc = SimpleDocTemplate(
+        output_path, pagesize=A4,
+        leftMargin=1.8 * cm, rightMargin=1.8 * cm,
+        topMargin=1.8 * cm, bottomMargin=1.8 * cm
+    )
+    story = []
+
+    sex = patient.get("sex", "—")
+    age = patient.get("age") or "—"
+    age_str = f"{age} años" if age != "—" else "edad no registrada"
+    n = len(records)
+
+    story.append(Paragraph("CURVAS DE EVOLUCIÓN", S["title"]))
+    story.append(Paragraph(
+        f"{patient.get('name', '—')}  |  {sex}  |  {age_str}  |  {n} sesiones",
+        S["subtitle"]
+    ))
+    story.append(HRFlowable(width="100%", thickness=2, color=SECONDARY, spaceAfter=10))
+
+    dates = [r["date"] for r in records]
+    bmi_vals = [
+        calc.bmi(r["weight_kg"], r["height_cm"])
+        if r.get("weight_kg") and r.get("height_cm") else None
+        for r in records
+    ]
+
+    charts = [
+        ("Peso (kg)",          [r.get("weight_kg")       for r in records], "#1a6b3c"),
+        ("% Masa grasa",       [r.get("fat_mass_pct")    for r in records], "#0d6efd"),
+        ("Masa grasa (kg)",    [r.get("fat_mass_kg")     for r in records], "#dc2626"),
+        ("Masa magra (kg)",    [r.get("lean_mass_kg")    for r in records], "#16a34a"),
+        ("Σ 6 pliegues (mm)",  [r.get("sum_6_skinfolds") for r in records], "#7c3aed"),
+        ("Cintura (cm)",       [r.get("waist_cm")         for r in records], "#ca8a04"),
+        ("IMC (kg/m²)",        bmi_vals,                                     "#0891b2"),
+    ]
+
+    # Lay out 2 charts per row using a ReportLab Table
+    pair_buf = []
+    for title, values, color in charts:
+        img = _make_chart_image(dates, values, title, color)
+        pair_buf.append(img if img else Spacer(11.5 * cm, 5.5 * cm))
+        if len(pair_buf) == 2:
+            row_tbl = Table([pair_buf],
+                            colWidths=[11.5 * cm, 11.5 * cm],
+                            hAlign="LEFT")
+            row_tbl.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(row_tbl)
+            story.append(Spacer(1, 8))
+            pair_buf = []
+
+    if pair_buf:
+        pair_buf.append(Spacer(11.5 * cm, 5.5 * cm))
+        row_tbl = Table([pair_buf], colWidths=[11.5 * cm, 11.5 * cm], hAlign="LEFT")
+        row_tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        story.append(row_tbl)
+
+    story.append(Spacer(1, 12))
+    story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        f"Reporte de evolución — NutriApp © 2025  |  "
+        f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
         S["small"]
     ))
 

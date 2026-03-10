@@ -232,6 +232,93 @@ def waist_height_ratio(waist_cm: float, height_cm: float) -> float | None:
         return None
 
 
+# ── Puntos de corte / clasificación ─────────────────────────────────────────
+
+LEVEL_COLOR = {
+    "excellent": "#16a34a",
+    "good":      "#16a34a",
+    "average":   "#ca8a04",
+    "high":      "#ea580c",
+    "very_high": "#dc2626",
+    "low":       "#2563eb",
+    "moderate":  "#ca8a04",
+    "risk":      "#dc2626",
+}
+
+LEVEL_EMOJI = {
+    "excellent": "🟢",
+    "good":      "🟢",
+    "average":   "🟡",
+    "high":      "🟠",
+    "very_high": "🔴",
+    "low":       "🔵",
+    "moderate":  "🟡",
+    "risk":      "🔴",
+}
+
+# Fat% tables: (min_age, max_age, [excellent_max, good_max, average_max, high_max])
+_FAT_WOMEN_TABLE = [
+    (20, 29, [15, 19, 28, 31]),
+    (30, 39, [16, 20, 29, 32]),
+    (40, 49, [17, 21, 30, 33]),
+    (50, 59, [18, 22, 31, 34]),
+    (60, 999, [19, 23, 32, 35]),
+]
+_FAT_MEN_TABLE = [
+    (20, 29, [11, 13, 20, 23]),
+    (30, 39, [12, 15, 21, 24]),
+    (40, 49, [14, 17, 23, 26]),
+    (50, 59, [15, 18, 24, 27]),
+    (60, 999, [16, 19, 25, 28]),
+]
+
+
+def classify_fat_pct(pct: float, sex: str, age: int) -> tuple:
+    """Returns (category_text, level_key) for % body fat."""
+    is_male = sex.lower() in ("masculino", "m", "hombre")
+    table = _FAT_MEN_TABLE if is_male else _FAT_WOMEN_TABLE
+    t = table[-1][2]
+    for min_a, max_a, thresh in table:
+        if min_a <= age <= max_a:
+            t = thresh
+            break
+    if pct <= t[0]: return "Excelente",    "excellent"
+    if pct <= t[1]: return "Bueno",        "good"
+    if pct <= t[2]: return "Promedio",     "average"
+    if pct <= t[3]: return "Elevado",      "high"
+    return "Muy elevado", "very_high"
+
+
+def classify_bmi(bmi_val: float) -> tuple:
+    """Returns (category_text, level_key) for BMI."""
+    if bmi_val < 18.5: return "Bajo peso",   "low"
+    if bmi_val < 25.0: return "Normal",       "excellent"
+    if bmi_val < 30.0: return "Sobrepeso",    "average"
+    if bmi_val < 35.0: return "Obesidad I",   "high"
+    if bmi_val < 40.0: return "Obesidad II",  "very_high"
+    return "Obesidad III", "very_high"
+
+
+def classify_whr(ratio: float, sex: str) -> tuple:
+    """Returns (category_text, level_key) for waist-hip ratio."""
+    is_male = sex.lower() in ("masculino", "m", "hombre")
+    if is_male:
+        if ratio < 0.95:  return "Riesgo bajo",     "excellent"
+        if ratio <= 1.00: return "Riesgo moderado",  "moderate"
+        return "Riesgo alto", "risk"
+    else:
+        if ratio < 0.80:  return "Riesgo bajo",     "excellent"
+        if ratio <= 0.85: return "Riesgo moderado",  "moderate"
+        return "Riesgo alto", "risk"
+
+
+def classify_whtr(ratio: float) -> tuple:
+    """Returns (category_text, level_key) for waist-height ratio."""
+    if ratio < 0.50: return "Saludable",           "excellent"
+    if ratio < 0.60: return "Riesgo incrementado",  "average"
+    return "Riesgo alto", "very_high"
+
+
 def arm_muscle_area(arm_relaxed_cm: float, triceps_mm: float) -> float | None:
     """
     Área Muscular del Brazo (AMB) en cm².
