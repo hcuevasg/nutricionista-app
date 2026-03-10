@@ -26,13 +26,13 @@ def _rec_date(r: dict) -> str:
 
 
 def _section_label(parent, text, row, cols=4):
-    frm = ctk.CTkFrame(parent, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
+    frm = ctk.CTkFrame(parent, fg_color=("#d1fae5", "#064e3b"), corner_radius=6)
     frm.grid(row=row, column=0, columnspan=cols * 2,
              padx=8, pady=(14, 2), sticky="ew")
     ctk.CTkLabel(
         frm, text=text,
         font=ctk.CTkFont(size=12, weight="bold"),
-        text_color=("#1a6b3c", "#4ade80")
+        text_color=("#047857", "#6ee7b7")
     ).pack(side="left", padx=10, pady=4)
 
 
@@ -43,7 +43,7 @@ def _field_row(parent, items, row, var_dict):
             font=ctk.CTkFont(size=11), anchor="w"
         ).grid(row=row, column=col * 2, padx=(10, 2), pady=(6, 0), sticky="w")
         var_dict[key] = ctk.StringVar()
-        ctk.CTkEntry(parent, textvariable=var_dict[key], height=32
+        ctk.CTkEntry(parent, textvariable=var_dict[key], height=36
                      ).grid(row=row + 1, column=col * 2,
                             padx=(10, 2), pady=(0, 2), sticky="ew")
 
@@ -67,10 +67,10 @@ class AnthropometricFrame(ctk.CTkFrame):
     # ── Layout ────────────────────────────────────────────────────────────────
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         hdr = ctk.CTkFrame(self, fg_color="transparent")
-        hdr.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
+        hdr.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
         hdr.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -84,8 +84,12 @@ class AnthropometricFrame(ctk.CTkFrame):
         )
         self._patient_lbl.grid(row=0, column=1, padx=16, sticky="w")
 
+        # Header separator
+        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+
         self._tabs = ctk.CTkTabview(self, command=self._on_tab_change)
-        self._tabs.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        self._tabs.grid(row=2, column=0, sticky="nsew", padx=24, pady=(4, 20))
         self._tabs.add("Nueva evaluación")
         self._tabs.add("Historial")
         self._tabs.add("Evolución")

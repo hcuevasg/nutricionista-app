@@ -30,11 +30,11 @@ class PatientFormFrame(ctk.CTkFrame):
 
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
+        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
         header.grid_columnconfigure(1, weight=1)
 
         self._title_lbl = ctk.CTkLabel(
@@ -45,14 +45,19 @@ class PatientFormFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             header, text="← Volver a lista", width=150, height=32,
+            corner_radius=8,
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=lambda: self.app._show_frame("patients")
         ).grid(row=0, column=2)
 
+        # Header separator
+        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+
         # Scrollable form
         scroll = ctk.CTkScrollableFrame(self)
-        scroll.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        scroll.grid(row=2, column=0, sticky="nsew", padx=24, pady=(8, 20))
         scroll.grid_columnconfigure((1, 3), weight=1)
         self._form = scroll
 
@@ -102,7 +107,7 @@ class PatientFormFrame(ctk.CTkFrame):
         self._vars["age"] = ctk.StringVar()
         self._age_entry = ctk.CTkEntry(
             scroll, textvariable=self._vars["age"], height=36,
-            state="disabled", fg_color=("#f0f9f4", "#1a2e22")
+            state="disabled", fg_color=("#d1fae5", "#064e3b")
         )
         self._age_entry.grid(row=3, column=4, padx=(8, 4), pady=(0, 2), sticky="ew")
 
@@ -150,13 +155,13 @@ class PatientFormFrame(ctk.CTkFrame):
 
         # ── Photo section ─────────────────────────────────────────────────────
         photo_section_lbl = ctk.CTkFrame(
-            scroll, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
+            scroll, fg_color=("#d1fae5", "#064e3b"), corner_radius=6)
         photo_section_lbl.grid(row=15, column=0, columnspan=6,
                                 padx=8, pady=(4, 2), sticky="ew")
         ctk.CTkLabel(
             photo_section_lbl, text="Foto del paciente",
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#1a6b3c", "#4ade80")
+            text_color=("#047857", "#6ee7b7")
         ).pack(side="left", padx=10, pady=4)
 
         photo_row = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -181,13 +186,13 @@ class PatientFormFrame(ctk.CTkFrame):
 
         # ── Goals section ─────────────────────────────────────────────────────
         goals_section_lbl = ctk.CTkFrame(
-            scroll, fg_color=("#e8f5ee", "#1a3a28"), corner_radius=6)
+            scroll, fg_color=("#d1fae5", "#064e3b"), corner_radius=6)
         goals_section_lbl.grid(row=17, column=0, columnspan=6,
                                 padx=8, pady=(4, 2), sticky="ew")
         ctk.CTkLabel(
             goals_section_lbl, text="Metas del paciente",
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#1a6b3c", "#4ade80")
+            text_color=("#047857", "#6ee7b7")
         ).pack(side="left", padx=10, pady=4)
 
         goal_fields = [
@@ -234,20 +239,22 @@ class PatientFormFrame(ctk.CTkFrame):
 
         # Save button
         self._save_btn = ctk.CTkButton(
-            scroll, text="Guardar Paciente", height=42,
+            scroll, text="Guardar Paciente", height=44,
+            corner_radius=8,
             font=ctk.CTkFont(size=14, weight="bold"),
             command=self._save
         )
         self._save_btn.grid(row=23, column=0, columnspan=3,
-                            padx=(8, 4), pady=(8, 4), sticky="ew")
+                            padx=(8, 4), pady=(12, 4), sticky="ew")
 
         ctk.CTkButton(
-            scroll, text="Cancelar", height=42,
+            scroll, text="Cancelar", height=44,
+            corner_radius=8,
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=lambda: self.app._show_frame("patients")
         ).grid(row=23, column=3, columnspan=3,
-               padx=(4, 8), pady=(8, 4), sticky="ew")
+               padx=(4, 8), pady=(12, 4), sticky="ew")
 
     # ── Photo helpers ─────────────────────────────────────────────────────────
     def _upload_photo(self):

@@ -12,11 +12,11 @@ class PatientListFrame(ctk.CTkFrame):
 
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         # ── Top bar ──────────────────────────────────────────────────────────
         top = ctk.CTkFrame(self, fg_color="transparent")
-        top.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
+        top.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
         top.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -32,13 +32,19 @@ class PatientListFrame(ctk.CTkFrame):
         self._search_var.trace_add("write", lambda *_: self._filter())
 
         ctk.CTkButton(
-            top, text="+ Nuevo Paciente", height=36, width=160,
+            top, text="+ Nuevo Paciente", height=44, width=170,
+            corner_radius=8,
+            font=ctk.CTkFont(size=13, weight="bold"),
             command=lambda: self.app.open_patient_form(None)
         ).grid(row=0, column=2)
 
+        # Header separator
+        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+
         # ── List ─────────────────────────────────────────────────────────────
         self._scroll = ctk.CTkScrollableFrame(self, label_text="")
-        self._scroll.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        self._scroll.grid(row=2, column=0, sticky="nsew", padx=24, pady=(8, 20))
         self._scroll.grid_columnconfigure(0, weight=1)
 
     # ── Data ─────────────────────────────────────────────────────────────────
@@ -59,14 +65,20 @@ class PatientListFrame(ctk.CTkFrame):
         if not patients:
             search_text = self._search_var.get().strip()
             if search_text:
-                empty_msg = "No se encontraron pacientes con ese criterio de búsqueda."
+                icon, msg = "🔍", "No se encontraron pacientes\ncon ese criterio de búsqueda."
             else:
-                empty_msg = "No hay pacientes registrados.\nHaz clic en '+ Nuevo Paciente' para agregar uno."
+                icon, msg = "👤", "No hay pacientes registrados.\nHaz clic en '+ Nuevo Paciente' para agregar uno."
+            empty_card = ctk.CTkFrame(self._scroll, fg_color=("gray95", "gray17"),
+                                      corner_radius=12)
+            empty_card.pack(fill="x", padx=8, pady=40)
             ctk.CTkLabel(
-                self._scroll,
-                text=empty_msg,
-                font=ctk.CTkFont(size=14), text_color="gray"
-            ).pack(pady=60)
+                empty_card, text=icon,
+                font=ctk.CTkFont(size=36)
+            ).pack(pady=(28, 4))
+            ctk.CTkLabel(
+                empty_card, text=msg,
+                font=ctk.CTkFont(size=14), text_color="gray", justify="center"
+            ).pack(pady=(0, 28))
             return
 
         active_pid = self.app.get_patient_id()
@@ -83,9 +95,9 @@ class PatientListFrame(ctk.CTkFrame):
         card = ctk.CTkFrame(
             self._scroll,
             corner_radius=10,
-            fg_color=("#e8f5ee", "#1a3a28") if is_active else ("#f9fafb", "#1e1e1e"),
-            border_width=2 if is_active else 0,
-            border_color="#16a34a"
+            fg_color=("#dcfce7", "#064e3b") if is_active else ("white", "#1a2620"),
+            border_width=2 if is_active else 1,
+            border_color="#059669" if is_active else ("#E1F2ED", "#1f3d2a")
         )
         card.pack(fill="x", padx=4, pady=4)
         card.grid_columnconfigure(2, weight=1)
@@ -93,7 +105,7 @@ class PatientListFrame(ctk.CTkFrame):
         # Active badge
         if is_active:
             badge = ctk.CTkFrame(card, width=6, corner_radius=3,
-                                  fg_color="#16a34a")
+                                  fg_color="#059669")
             badge.grid(row=0, column=0, rowspan=2, padx=(10, 0),
                        pady=12, sticky="ns")
         else:
@@ -107,8 +119,13 @@ class PatientListFrame(ctk.CTkFrame):
         if avatar_img:
             avatar_lbl.configure(image=avatar_img)
         else:
-            avatar_lbl.configure(text=initials[:2],
-                                  font=ctk.CTkFont(size=14, weight="bold"))
+            avatar_lbl.configure(
+                text=initials[:2],
+                font=ctk.CTkFont(size=14, weight="bold"),
+                fg_color="#059669" if not is_active else "#047857",
+                corner_radius=22,
+                text_color="white",
+            )
         avatar_lbl.grid(row=0, column=1, rowspan=2, padx=(8, 0), pady=8)
         # Keep reference to prevent GC
         avatar_lbl._avatar_img = avatar_img
@@ -121,7 +138,7 @@ class PatientListFrame(ctk.CTkFrame):
             name_frame,
             text=p["name"],
             font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=("#16a34a" if is_active else ("gray10", "gray90"))
+            text_color=("#047857" if is_active else ("gray10", "gray90"))
         ).pack(side="left")
 
         if is_active:
@@ -129,7 +146,7 @@ class PatientListFrame(ctk.CTkFrame):
                 name_frame,
                 text="  ACTIVO",
                 font=ctk.CTkFont(size=10, weight="bold"),
-                text_color="#16a34a"
+                text_color="#059669"
             ).pack(side="left", padx=(6, 0))
 
         # Age / sex / contact
@@ -152,8 +169,9 @@ class PatientListFrame(ctk.CTkFrame):
             ctk.CTkButton(
                 btn_frame,
                 text="Seleccionar",
-                width=110, height=32,
-                fg_color="#16a34a", hover_color="#15803d",
+                width=120, height=36,
+                corner_radius=8,
+                fg_color="#059669", hover_color="#047857",
                 font=ctk.CTkFont(size=12, weight="bold"),
                 command=lambda i=pid: self._select(i)
             ).pack(pady=(0, 4))
@@ -161,16 +179,18 @@ class PatientListFrame(ctk.CTkFrame):
             ctk.CTkButton(
                 btn_frame,
                 text="✓ Seleccionado",
-                width=110, height=32,
-                fg_color="#dcfce7", hover_color="#bbf7d0",
-                text_color="#15803d",
+                width=120, height=36,
+                corner_radius=8,
+                fg_color="#d1fae5", hover_color="#a7f3d0",
+                text_color="#047857",
                 font=ctk.CTkFont(size=12, weight="bold"),
                 state="disabled"
             ).pack(pady=(0, 4))
 
         ctk.CTkButton(
             btn_frame, text="Editar",
-            width=110, height=32,
+            width=120, height=36,
+            corner_radius=8,
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=lambda i=pid: self._edit(i)
@@ -178,8 +198,9 @@ class PatientListFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             btn_frame, text="Eliminar",
-            width=110, height=32,
-            fg_color="#dc2626", hover_color="#991b1b",
+            width=120, height=36,
+            corner_radius=8,
+            fg_color="#dc2626", hover_color="#b91c1c",
             command=lambda i=pid: self._delete(i)
         ).pack()
 

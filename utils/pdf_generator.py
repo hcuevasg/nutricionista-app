@@ -1225,10 +1225,10 @@ def generate_meal_plan_report(patient: dict, plan: dict,
     story.append(Paragraph("Resumen del Plan", S["section"]))
     pairs = [
         ("Objetivo",        plan.get("goal") or "—"),
-        ("Calorías totales", f"{plan.get('calories', '—')} kcal"),
-        ("Proteínas",       f"{plan.get('protein_g', '—')} g"),
-        ("Carbohidratos",   f"{plan.get('carbs_g', '—')} g"),
-        ("Grasas",          f"{plan.get('fat_g', '—')} g"),
+        ("Calorías totales", f"{plan.get('calories') or '—'} kcal" if plan.get('calories') else "—"),
+        ("Proteínas",       f"{plan.get('protein_g') or '—'} g"  if plan.get('protein_g') else "—"),
+        ("Carbohidratos",   f"{plan.get('carbs_g') or '—'} g"    if plan.get('carbs_g') else "—"),
+        ("Grasas",          f"{plan.get('fat_g') or '—'} g"      if plan.get('fat_g') else "—"),
         ("Notas",           plan.get("notes") or "—"),
     ]
     story.append(_info_table(pairs))

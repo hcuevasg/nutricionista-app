@@ -13,11 +13,11 @@ class ReportsFrame(ctk.CTkFrame):
 
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
+        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
         header.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -31,9 +31,13 @@ class ReportsFrame(ctk.CTkFrame):
         )
         self._patient_lbl.grid(row=0, column=1, padx=16, sticky="w")
 
+        # Header separator
+        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+
         # Cards
         scroll = ctk.CTkScrollableFrame(self)
-        scroll.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        scroll.grid(row=2, column=0, sticky="nsew", padx=24, pady=(8, 20))
         scroll.grid_columnconfigure((0, 1, 2), weight=1)
 
         self._build_card(
@@ -46,7 +50,7 @@ class ReportsFrame(ctk.CTkFrame):
             ),
             button_text="Generar reporte completo",
             command=self._full_report,
-            color="#1a6b3c"
+            color="#059669"
         )
 
         self._build_card(
@@ -87,7 +91,9 @@ class ReportsFrame(ctk.CTkFrame):
     def _build_card(self, parent, row, col, title, description,
                     button_text, command, color):
         card = ctk.CTkFrame(parent, corner_radius=12,
-                             fg_color=(f"#f8f8f8", "#1e1e1e"))
+                             fg_color=("gray97", "#1e2228"),
+                             border_width=1,
+                             border_color=("gray88", "gray25"))
         card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
         card.grid_columnconfigure(0, weight=1)
 
@@ -107,7 +113,9 @@ class ReportsFrame(ctk.CTkFrame):
         ).grid(row=2, column=0, padx=16, pady=(0, 16), sticky="w")
 
         ctk.CTkButton(
-            card, text=button_text, height=36,
+            card, text=button_text, height=44,
+            corner_radius=8,
+            font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=color,
             hover_color=self._darken(color),
             command=command

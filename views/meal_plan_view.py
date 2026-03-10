@@ -11,6 +11,29 @@ UNITS = ["g", "ml", "taza", "cdta", "cda", "unidad", "porción", "rebanada"]
 GOALS = ["Pérdida de peso", "Mantenimiento", "Ganancia muscular",
          "Control glucémico", "Salud cardiovascular", "Otro"]
 
+# Color por tiempo de comida
+_MEAL_COLORS = {
+    "Desayuno":     ("#fef3c7", "#78350f"),
+    "Media mañana": ("#d1fae5", "#065f46"),
+    "Almuerzo":     ("#dbeafe", "#1e3a5f"),
+    "Merienda":     ("#fce7f3", "#831843"),
+    "Cena":         ("#ede9fe", "#4c1d95"),
+    "Colación":     ("#f1f5f9", "#334155"),
+}
+_MEAL_COLORS_DARK = {
+    "Desayuno":     ("#78350f", "#fef3c7"),
+    "Media mañana": ("#065f46", "#d1fae5"),
+    "Almuerzo":     ("#1e3a5f", "#dbeafe"),
+    "Merienda":     ("#831843", "#fce7f3"),
+    "Cena":         ("#4c1d95", "#ede9fe"),
+    "Colación":     ("#334155", "#f1f5f9"),
+}
+
+
+def _meal_color(meal_type: str) -> tuple[str, str]:
+    """Returns (light_bg, dark_bg) for the meal type."""
+    return _MEAL_COLORS.get(meal_type, ("#f8fafc", "#1e293b"))
+
 
 class MealPlanFrame(ctk.CTkFrame):
     def __init__(self, parent, app):
@@ -19,13 +42,15 @@ class MealPlanFrame(ctk.CTkFrame):
         self._selected_plan_id: int | None = None
         self._build_ui()
 
+    # ── Layout ────────────────────────────────────────────────────────────────
+
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 8))
+        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
         header.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -39,172 +64,262 @@ class MealPlanFrame(ctk.CTkFrame):
         )
         self._patient_lbl.grid(row=0, column=1, padx=16, sticky="w")
 
-        # Main pane: left=plan list, right=plan detail
+        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+
+        # Main split: left list + right detail
         panes = ctk.CTkFrame(self, fg_color="transparent")
-        panes.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        panes.grid(row=2, column=0, sticky="nsew", padx=24, pady=(8, 20))
         panes.grid_columnconfigure(1, weight=1)
         panes.grid_rowconfigure(0, weight=1)
 
-        # ── Left panel: plan list ─────────────────────────────────────────────
-        left = ctk.CTkFrame(panes, width=260)
+        self._build_left_panel(panes)
+        self._build_right_panel(panes)
+
+    def _build_left_panel(self, parent):
+        left = ctk.CTkFrame(parent, width=240)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         left.grid_rowconfigure(1, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
         ctk.CTkButton(
-            left, text="+ Nuevo Plan", height=36,
+            left, text="+ Nuevo Plan", height=42,
+            corner_radius=8,
+            font=ctk.CTkFont(size=13, weight="bold"),
             command=self._new_plan
         ).grid(row=0, column=0, padx=8, pady=8, sticky="ew")
 
-        self._plan_scroll = ctk.CTkScrollableFrame(left, label_text="Planes")
+        self._plan_scroll = ctk.CTkScrollableFrame(left, label_text="Mis planes")
         self._plan_scroll.grid(row=1, column=0, sticky="nsew", padx=4, pady=(0, 8))
         self._plan_scroll.grid_columnconfigure(0, weight=1)
 
-        # ── Right panel: plan detail/editor ──────────────────────────────────
-        self._right = ctk.CTkFrame(panes)
+    def _build_right_panel(self, parent):
+        self._right = ctk.CTkFrame(parent)
         self._right.grid(row=0, column=1, sticky="nsew")
         self._right.grid_columnconfigure(0, weight=1)
-        self._right.grid_rowconfigure(1, weight=1)
+        self._right.grid_rowconfigure(0, weight=1)
 
-        self._detail_placeholder = ctk.CTkLabel(
-            self._right,
-            text="Selecciona un plan o crea uno nuevo.",
-            font=ctk.CTkFont(size=14), text_color="gray"
+        # Placeholder frame (shown when no plan is open)
+        self._placeholder = ctk.CTkFrame(self._right, fg_color="transparent")
+        self._placeholder.grid(row=0, column=0)
+        self._placeholder.grid_columnconfigure(0, weight=1)
+
+        self._placeholder_icon = ctk.CTkLabel(
+            self._placeholder, text="🥗",
+            font=ctk.CTkFont(size=48)
         )
-        self._detail_placeholder.grid(row=0, column=0, pady=60)
+        self._placeholder_icon.grid(row=0, column=0, pady=(40, 8))
 
-        # Plan editor (hidden until a plan is selected/created)
-        self._editor = ctk.CTkFrame(self._right, fg_color="transparent")
-        self._editor.grid_columnconfigure((0, 1, 2, 3), weight=1)
-        self._editor.grid_rowconfigure(5, weight=1)
+        self._placeholder_title = ctk.CTkLabel(
+            self._placeholder, text="Sin paciente seleccionado",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        self._placeholder_title.grid(row=1, column=0, pady=(0, 6))
+
+        self._placeholder_desc = ctk.CTkLabel(
+            self._placeholder,
+            text="Ve a la lista de pacientes y selecciona uno\npara ver o crear sus planes alimenticios.",
+            font=ctk.CTkFont(size=13), text_color="gray", justify="center"
+        )
+        self._placeholder_desc.grid(row=2, column=0, pady=(0, 20))
+
+        self._placeholder_btn = ctk.CTkButton(
+            self._placeholder, text="Ir a lista de pacientes",
+            height=36, width=200,
+            fg_color="transparent", border_width=1,
+            text_color=("gray20", "gray80"),
+            command=lambda: self.app._show_frame("patients")
+        )
+        self._placeholder_btn.grid(row=3, column=0)
+
+        # Tab view (hidden until a plan is loaded)
+        self._tabs = ctk.CTkTabview(self._right, anchor="nw",
+                                    command=self._on_tab_change)
+        self._tabs.grid_columnconfigure(0, weight=1)
+
+        self._tab_info = self._tabs.add("  Información  ")
+        self._tab_items = self._tabs.add("  Alimentos  ")
+        self._tabs.set("  Información  ")
+
+        self._build_info_tab()
+        self._build_items_tab()
+
+    # ── Tab: Información ──────────────────────────────────────────────────────
+
+    def _build_info_tab(self):
+        tab = self._tab_info
+        tab.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         self._plan_vars: dict[str, ctk.StringVar] = {}
-        self._build_plan_editor()
 
-    def _build_plan_editor(self):
-        ed = self._editor
-
-        # Plan name
-        ctk.CTkLabel(ed, text="Nombre del plan", text_color="gray",
+        # Row 0: Name + Date + Goal
+        ctk.CTkLabel(tab, text="Nombre del plan", text_color="gray",
                      font=ctk.CTkFont(size=12)).grid(
-            row=0, column=0, padx=8, pady=(12, 0), sticky="w")
+            row=0, column=0, columnspan=2, padx=8, pady=(12, 0), sticky="w")
         self._plan_vars["name"] = ctk.StringVar()
-        ctk.CTkEntry(ed, textvariable=self._plan_vars["name"], height=34).grid(
-            row=1, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
+        ctk.CTkEntry(tab, textvariable=self._plan_vars["name"], height=36
+                     ).grid(row=1, column=0, columnspan=2, padx=8, pady=(0, 8), sticky="ew")
 
-        # Date
-        ctk.CTkLabel(ed, text="Fecha", text_color="gray",
+        ctk.CTkLabel(tab, text="Fecha", text_color="gray",
                      font=ctk.CTkFont(size=12)).grid(
             row=0, column=2, padx=8, pady=(12, 0), sticky="w")
         self._plan_vars["date"] = ctk.StringVar(value=date.today().isoformat())
-        ctk.CTkEntry(ed, textvariable=self._plan_vars["date"], height=34).grid(
-            row=1, column=2, padx=8, pady=(0, 4), sticky="ew")
+        ctk.CTkEntry(tab, textvariable=self._plan_vars["date"], height=36
+                     ).grid(row=1, column=2, padx=8, pady=(0, 8), sticky="ew")
 
-        # Goal
-        ctk.CTkLabel(ed, text="Objetivo", text_color="gray",
+        ctk.CTkLabel(tab, text="Objetivo", text_color="gray",
                      font=ctk.CTkFont(size=12)).grid(
             row=0, column=3, padx=8, pady=(12, 0), sticky="w")
         self._goal_var = ctk.StringVar(value=GOALS[0])
-        ctk.CTkOptionMenu(ed, values=GOALS, variable=self._goal_var,
-                          height=34).grid(
-            row=1, column=3, padx=8, pady=(0, 4), sticky="ew")
+        ctk.CTkOptionMenu(tab, values=GOALS, variable=self._goal_var, height=36
+                          ).grid(row=1, column=3, padx=8, pady=(0, 8), sticky="ew")
 
-        # Macros
-        macro_labels = [
-            ("Calorías (kcal)", "calories", 2, 0),
-            ("Proteínas (g)",   "protein_g", 2, 1),
-            ("Carbohidratos (g)", "carbs_g", 2, 2),
-            ("Grasas (g)",      "fat_g",    2, 3),
+        # Divider
+        ctk.CTkFrame(tab, height=1, fg_color=("gray85", "gray30")
+                     ).grid(row=2, column=0, columnspan=4, sticky="ew", padx=8, pady=4)
+
+        # Row 1: Macro targets
+        ctk.CTkLabel(
+            tab, text="Objetivos nutricionales del plan",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+        ).grid(row=3, column=0, columnspan=4, padx=8, pady=(4, 2), sticky="w")
+
+        macro_defs = [
+            ("Calorías (kcal)", "calories"),
+            ("Proteínas (g)",   "protein_g"),
+            ("Carbohidratos (g)", "carbs_g"),
+            ("Grasas (g)",      "fat_g"),
         ]
-        for label, key, row, col in macro_labels:
-            ctk.CTkLabel(ed, text=label, text_color="gray",
-                         font=ctk.CTkFont(size=12)).grid(
-                row=row, column=col, padx=8, pady=(10, 0), sticky="w")
+        for col, (label, key) in enumerate(macro_defs):
+            ctk.CTkLabel(tab, text=label, text_color="gray",
+                         font=ctk.CTkFont(size=11)).grid(
+                row=4, column=col, padx=8, pady=(6, 0), sticky="w")
             self._plan_vars[key] = ctk.StringVar()
-            ctk.CTkEntry(ed, textvariable=self._plan_vars[key], height=34).grid(
-                row=row + 1, column=col, padx=8, pady=(0, 4), sticky="ew")
+            ctk.CTkEntry(tab, textvariable=self._plan_vars[key], height=36
+                         ).grid(row=5, column=col, padx=8, pady=(0, 8), sticky="ew")
 
-        # Auto-fill macros button
         ctk.CTkButton(
-            ed, text="Auto-calcular macros", height=32,
+            tab, text="Auto-calcular desde TDER", height=34,
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=self._auto_macros
-        ).grid(row=4, column=0, columnspan=2, padx=8, pady=4, sticky="ew")
+        ).grid(row=6, column=0, columnspan=2, padx=8, pady=4, sticky="ew")
 
-        # Save plan header button
         ctk.CTkButton(
-            ed, text="Guardar cabecera", height=32,
+            tab, text="Guardar plan", height=34,
             command=self._save_plan_header
-        ).grid(row=4, column=2, columnspan=2, padx=8, pady=4, sticky="ew")
+        ).grid(row=6, column=2, columnspan=2, padx=8, pady=4, sticky="ew")
 
         # Notes
-        ctk.CTkLabel(ed, text="Notas del plan", text_color="gray",
+        ctk.CTkLabel(tab, text="Notas", text_color="gray",
                      font=ctk.CTkFont(size=12)).grid(
-            row=5, column=0, columnspan=4, padx=8, pady=(8, 0), sticky="w")
-        self._plan_notes = ctk.CTkTextbox(ed, height=55)
-        self._plan_notes.grid(row=6, column=0, columnspan=4,
-                               padx=8, pady=(0, 8), sticky="ew")
+            row=7, column=0, columnspan=4, padx=8, pady=(8, 0), sticky="w")
+        self._plan_notes = ctk.CTkTextbox(tab, height=80)
+        self._plan_notes.grid(row=8, column=0, columnspan=4,
+                               padx=8, pady=(0, 12), sticky="ew")
 
-        # ── Meal items section ────────────────────────────────────────────────
-        ctk.CTkLabel(
-            ed, text="Alimentos del Plan",
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).grid(row=7, column=0, columnspan=4, padx=8, pady=(8, 4), sticky="w")
+    # ── Tab: Alimentos ────────────────────────────────────────────────────────
 
-        # Add item row
-        add_row = ctk.CTkFrame(ed, fg_color="transparent")
-        add_row.grid(row=8, column=0, columnspan=4, padx=8, pady=4, sticky="ew")
-        add_row.grid_columnconfigure(1, weight=1)
+    def _build_items_tab(self):
+        tab = self._tab_items
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(1, weight=1)
 
+        # ── Add item form ─────────────────────────────────────────────────────
+        add_frame = ctk.CTkFrame(tab, fg_color=("gray95", "gray17"), corner_radius=8)
+        add_frame.grid(row=0, column=0, sticky="ew", padx=4, pady=(8, 4))
+        add_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(add_frame, text="Agregar alimento",
+                     font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+                     ).grid(row=0, column=0, columnspan=8, padx=10, pady=(8, 2), sticky="w")
+
+        # Labels row
+        for col, txt in enumerate(["Tiempo de comida", "Alimento", "Cantidad", "Unidad"]):
+            ctk.CTkLabel(add_frame, text=txt, text_color="gray",
+                         font=ctk.CTkFont(size=11)
+                         ).grid(row=1, column=col, padx=(8 if col == 0 else 4, 4),
+                                pady=(4, 0), sticky="w")
+
+        # Fields row
         self._item_meal_var = ctk.StringVar(value=MEAL_TYPES[0])
-        ctk.CTkOptionMenu(add_row, values=MEAL_TYPES,
-                          variable=self._item_meal_var, width=150, height=32
-                          ).grid(row=0, column=0, padx=(0, 6))
+        ctk.CTkOptionMenu(add_frame, values=MEAL_TYPES,
+                          variable=self._item_meal_var, width=140, height=32
+                          ).grid(row=2, column=0, padx=(8, 4), pady=(0, 6))
 
         self._item_food_var = ctk.StringVar()
-        ctk.CTkEntry(add_row, textvariable=self._item_food_var,
-                     placeholder_text="Alimento", height=32
-                     ).grid(row=0, column=1, padx=(0, 6), sticky="ew")
+        ctk.CTkEntry(add_frame, textvariable=self._item_food_var,
+                     placeholder_text="Ej: Avena cocida", height=32
+                     ).grid(row=2, column=1, padx=4, pady=(0, 6), sticky="ew")
 
         self._item_qty_var = ctk.StringVar()
-        ctk.CTkEntry(add_row, textvariable=self._item_qty_var,
-                     placeholder_text="Cant.", width=60, height=32
-                     ).grid(row=0, column=2, padx=(0, 6))
+        ctk.CTkEntry(add_frame, textvariable=self._item_qty_var,
+                     placeholder_text="0", width=64, height=32
+                     ).grid(row=2, column=2, padx=4, pady=(0, 6))
 
         self._item_unit_var = ctk.StringVar(value=UNITS[0])
-        ctk.CTkOptionMenu(add_row, values=UNITS,
-                          variable=self._item_unit_var, width=90, height=32
-                          ).grid(row=0, column=3, padx=(0, 6))
+        ctk.CTkOptionMenu(add_frame, values=UNITS,
+                          variable=self._item_unit_var, width=96, height=32
+                          ).grid(row=2, column=3, padx=4, pady=(0, 6))
 
-        # Nutrient entries
-        self._item_kcal_var  = ctk.StringVar()
-        self._item_prot_var  = ctk.StringVar()
-        self._item_carb_var  = ctk.StringVar()
-        self._item_fat_var   = ctk.StringVar()
+        # Nutrient labels row
+        for col, txt in enumerate(["Calorías (kcal)", "Proteínas (g)", "Carbohidr. (g)", "Grasas (g)"]):
+            ctk.CTkLabel(add_frame, text=txt, text_color="gray",
+                         font=ctk.CTkFont(size=11)
+                         ).grid(row=3, column=col, padx=(8 if col == 0 else 4, 4),
+                                pady=(4, 0), sticky="w")
 
-        for i, (var, ph) in enumerate([
-            (self._item_kcal_var, "kcal"),
-            (self._item_prot_var, "Prot"),
-            (self._item_carb_var, "HC"),
-            (self._item_fat_var,  "Gras"),
+        # Nutrient fields row
+        self._item_kcal_var = ctk.StringVar()
+        self._item_prot_var = ctk.StringVar()
+        self._item_carb_var = ctk.StringVar()
+        self._item_fat_var  = ctk.StringVar()
+
+        for col, (var, w) in enumerate([
+            (self._item_kcal_var, 90),
+            (self._item_prot_var, 90),
+            (self._item_carb_var, 90),
+            (self._item_fat_var,  90),
         ]):
-            ctk.CTkEntry(add_row, textvariable=var, placeholder_text=ph,
-                         width=55, height=32
-                         ).grid(row=0, column=4 + i, padx=(0, 4))
+            ctk.CTkEntry(add_frame, textvariable=var,
+                         placeholder_text="0", width=w, height=32
+                         ).grid(row=4, column=col,
+                                padx=(8 if col == 0 else 4, 4), pady=(0, 10))
 
         ctk.CTkButton(
-            add_row, text="Agregar", width=80, height=32,
+            add_frame, text="+ Agregar", height=32,
+            font=ctk.CTkFont(size=12, weight="bold"),
             command=self._add_item
-        ).grid(row=0, column=8, padx=(4, 0))
+        ).grid(row=4, column=4, padx=(8, 8), pady=(0, 10))
 
-        # Items list
-        self._items_scroll = ctk.CTkScrollableFrame(ed, height=220)
-        self._items_scroll.grid(row=9, column=0, columnspan=4,
-                                 padx=8, pady=(4, 8), sticky="ew")
+        # ── Items list (scrollable, grouped) ─────────────────────────────────
+        self._items_scroll = ctk.CTkScrollableFrame(tab)
+        self._items_scroll.grid(row=1, column=0, sticky="nsew", padx=4, pady=(4, 0))
         self._items_scroll.grid_columnconfigure(1, weight=1)
 
-    # ── Events ────────────────────────────────────────────────────────────────
+        # ── Macro totals bar ──────────────────────────────────────────────────
+        self._totals_bar = ctk.CTkFrame(tab, fg_color=("gray90", "gray20"),
+                                        corner_radius=8)
+        self._totals_bar.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 8))
+        self._totals_bar.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self._total_labels: dict[str, ctk.CTkLabel] = {}
+        for col, (key, icon) in enumerate([
+            ("calories", "Calorías"),
+            ("protein_g", "Proteínas"),
+            ("carbs_g", "Carbohidr."),
+            ("fat_g", "Grasas"),
+        ]):
+            ctk.CTkLabel(self._totals_bar, text=icon, text_color="gray",
+                         font=ctk.CTkFont(size=10)).grid(
+                row=0, column=col, padx=12, pady=(6, 0))
+            lbl = ctk.CTkLabel(self._totals_bar, text="— / —",
+                               font=ctk.CTkFont(size=12, weight="bold"))
+            lbl.grid(row=1, column=col, padx=12, pady=(0, 8))
+            self._total_labels[key] = lbl
+
+    # ── Navigation & refresh ──────────────────────────────────────────────────
+
     def on_show(self):
         pid = self.app.get_patient_id()
         if pid:
@@ -213,7 +328,43 @@ class MealPlanFrame(ctk.CTkFrame):
                 self._patient_lbl.configure(text=f"Paciente: {p['name']}")
                 self._load_plans()
                 return
+        # No patient selected
         self._patient_lbl.configure(text="Ningún paciente seleccionado")
+        self._selected_plan_id = None
+        self._hide_tabs()
+        self._set_placeholder(
+            title="Sin paciente seleccionado",
+            desc="Ve a la lista de pacientes y selecciona uno\npara ver o crear sus planes alimenticios.",
+            show_btn=True
+        )
+        for w in self._plan_scroll.winfo_children():
+            w.destroy()
+
+    def _on_tab_change(self):
+        """Auto-save header when user switches to Alimentos tab."""
+        tab_name = self._tabs.get()
+        if "Alimentos" in tab_name and self._selected_plan_id is not None:
+            self._save_plan_header(silent=True)
+        if "Alimentos" in tab_name:
+            self._load_items()
+
+    def _set_placeholder(self, title: str, desc: str, show_btn: bool = False):
+        self._placeholder_title.configure(text=title)
+        self._placeholder_desc.configure(text=desc)
+        if show_btn:
+            self._placeholder_btn.grid(row=3, column=0, pady=(0, 20))
+        else:
+            self._placeholder_btn.grid_remove()
+
+    def _show_tabs(self):
+        self._placeholder.grid_remove()
+        self._tabs.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+
+    def _hide_tabs(self):
+        self._tabs.grid_remove()
+        self._placeholder.grid(row=0, column=0)
+
+    # ── Plan list ─────────────────────────────────────────────────────────────
 
     def _load_plans(self):
         for w in self._plan_scroll.winfo_children():
@@ -225,30 +376,44 @@ class MealPlanFrame(ctk.CTkFrame):
 
         plans = db.get_meal_plans(pid)
         if not plans:
-            ctk.CTkLabel(self._plan_scroll, text="Sin planes.",
-                         text_color="gray").pack(pady=20)
+            ctk.CTkLabel(self._plan_scroll,
+                         text="Este paciente aún\nno tiene planes.\n\nPresiona\n«+ Nuevo Plan»\npara crear uno.",
+                         text_color="gray", font=ctk.CTkFont(size=12),
+                         justify="center").pack(pady=20)
+            self._hide_tabs()
+            self._set_placeholder(
+                title="Sin planes alimenticios",
+                desc=f"Crea el primer plan para este paciente\nusando el botón «+ Nuevo Plan» a la izquierda.",
+                show_btn=False
+            )
             return
 
         for plan in plans:
             mid = plan["id"]
-            frame = ctk.CTkFrame(self._plan_scroll, fg_color="transparent")
-            frame.pack(fill="x", pady=3)
+            is_selected = (mid == self._selected_plan_id)
 
+            frame = ctk.CTkFrame(self._plan_scroll, fg_color="transparent")
+            frame.pack(fill="x", pady=2)
+
+            btn_color = ("#d1fae5", "#14532d") if is_selected else ("#e8f5ee", "#1a2e22")
             ctk.CTkButton(
-                frame, text=f"{plan['name']}\n{plan['date']}",
-                height=48, anchor="w",
-                font=ctk.CTkFont(size=12),
-                fg_color=("#e8f5ee", "#1a2e22"),
-                hover_color=("#d1fae5", "#14532d"),
+                frame,
+                text=f"{plan['name']}\n{plan['date']}  •  {plan.get('goal') or ''}",
+                height=52, anchor="w",
+                font=ctk.CTkFont(size=11),
+                fg_color=btn_color,
+                hover_color=("#bbf7d0", "#166534"),
                 text_color=("gray10", "gray90"),
                 command=lambda m=mid: self._select_plan(m)
             ).pack(side="left", expand=True, fill="x", padx=(0, 4))
 
             ctk.CTkButton(
-                frame, text="✕", width=28, height=48,
+                frame, text="✕", width=28, height=52,
                 fg_color="#dc2626", hover_color="#991b1b",
                 command=lambda m=mid: self._delete_plan(m)
             ).pack(side="right")
+
+    # ── Plan CRUD ─────────────────────────────────────────────────────────────
 
     def _new_plan(self):
         pid = self.app.get_patient_id()
@@ -257,15 +422,16 @@ class MealPlanFrame(ctk.CTkFrame):
                                    "Selecciona un paciente primero.")
             return
         self._selected_plan_id = None
-        self._clear_plan_editor()
-        self._show_editor()
+        self._clear_editor()
+        self._show_tabs()
+        self._tabs.set("  Información  ")
 
     def _select_plan(self, mid: int):
         self._selected_plan_id = mid
         plan = db.get_meal_plan(mid)
         if not plan:
             return
-        self._clear_plan_editor()
+        self._clear_editor()
         self._plan_vars["name"].set(plan.get("name", ""))
         self._plan_vars["date"].set(plan.get("date", ""))
         self._goal_var.set(plan.get("goal") or GOALS[0])
@@ -276,14 +442,11 @@ class MealPlanFrame(ctk.CTkFrame):
         notes = plan.get("notes") or ""
         self._plan_notes.delete("1.0", "end")
         self._plan_notes.insert("1.0", notes)
-        self._show_editor()
-        self._load_items()
+        self._show_tabs()
+        self._tabs.set("  Información  ")
+        self._load_plans()  # refresh highlight
 
-    def _show_editor(self):
-        self._detail_placeholder.grid_remove()
-        self._editor.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-
-    def _clear_plan_editor(self):
+    def _clear_editor(self):
         for v in self._plan_vars.values():
             v.set("")
         self._plan_vars["date"].set(date.today().isoformat())
@@ -291,44 +454,17 @@ class MealPlanFrame(ctk.CTkFrame):
         self._plan_notes.delete("1.0", "end")
         for w in self._items_scroll.winfo_children():
             w.destroy()
+        self._reset_totals_bar()
 
-    def _auto_macros(self):
-        pid = self.app.get_patient_id()
-        if not pid:
-            return
-        records = db.get_anthropometrics(pid)
-        if not records:
-            messagebox.showinfo("Sin datos",
-                                "No hay evaluaciones antropométricas.\n"
-                                "Ingresa una evaluación primero.")
-            return
-        latest = records[0]
-        tdee_val = latest.get("tdee")
-        if not tdee_val:
-            messagebox.showinfo("Sin TDER",
-                                "No se encontró TDER en la última evaluación.")
-            return
-        goal = self._goal_var.get()
-        if "Pérdida" in goal:
-            cals = round(tdee_val * 0.8)
-        elif "Ganancia" in goal:
-            cals = round(tdee_val * 1.15)
-        else:
-            cals = round(tdee_val)
-        macros = calc.macro_distribution(cals)
-        self._plan_vars["calories"].set(str(cals))
-        self._plan_vars["protein_g"].set(str(macros["protein_g"]))
-        self._plan_vars["carbs_g"].set(str(macros["carbs_g"]))
-        self._plan_vars["fat_g"].set(str(macros["fat_g"]))
-
-    def _save_plan_header(self):
+    def _save_plan_header(self, silent: bool = False):
         pid = self.app.get_patient_id()
         if not pid:
             return
         name = self._plan_vars["name"].get().strip()
         if not name:
-            messagebox.showerror("Error", "El nombre del plan es obligatorio.")
-            return
+            if not silent:
+                messagebox.showerror("Error", "El nombre del plan es obligatorio.")
+            return False
 
         def _float(k):
             try:
@@ -354,8 +490,10 @@ class MealPlanFrame(ctk.CTkFrame):
         else:
             db.update_meal_plan(self._selected_plan_id, data)
 
-        messagebox.showinfo("Guardado", "Plan guardado.")
+        if not silent:
+            messagebox.showinfo("Guardado", "Plan guardado correctamente.")
         self._load_plans()
+        return True
 
     def _delete_plan(self, mid: int):
         if messagebox.askyesno("Eliminar plan",
@@ -363,16 +501,48 @@ class MealPlanFrame(ctk.CTkFrame):
             db.delete_meal_plan(mid)
             if self._selected_plan_id == mid:
                 self._selected_plan_id = None
-                self._editor.grid_remove()
-                self._detail_placeholder.grid(row=0, column=0, pady=60)
+                self._hide_tabs()
             self._load_plans()
 
+    def _auto_macros(self):
+        pid = self.app.get_patient_id()
+        if not pid:
+            return
+        records = db.get_anthropometrics(pid)
+        if not records:
+            messagebox.showinfo("Sin datos",
+                                "No hay evaluaciones antropométricas.\n"
+                                "Ingresa una evaluación primero.")
+            return
+        latest = records[-1]  # most recent
+        tdee_val = latest.get("tdee")
+        if not tdee_val:
+            messagebox.showinfo("Sin TDER",
+                                "No se encontró TDER en la última evaluación.")
+            return
+        goal = self._goal_var.get()
+        if "Pérdida" in goal:
+            cals = round(tdee_val * 0.8)
+        elif "Ganancia" in goal:
+            cals = round(tdee_val * 1.15)
+        else:
+            cals = round(tdee_val)
+        macros = calc.macro_distribution(cals)
+        self._plan_vars["calories"].set(str(cals))
+        self._plan_vars["protein_g"].set(str(macros["protein_g"]))
+        self._plan_vars["carbs_g"].set(str(macros["carbs_g"]))
+        self._plan_vars["fat_g"].set(str(macros["fat_g"]))
+
     # ── Items ─────────────────────────────────────────────────────────────────
+
     def _add_item(self):
         if self._selected_plan_id is None:
-            messagebox.showwarning("Sin plan",
-                                   "Guarda primero la cabecera del plan.")
-            return
+            # Auto-save header first
+            if not self._save_plan_header(silent=False):
+                return
+            if self._selected_plan_id is None:
+                return
+
         food = self._item_food_var.get().strip()
         if not food:
             messagebox.showerror("Error", "El nombre del alimento es obligatorio.")
@@ -396,6 +566,7 @@ class MealPlanFrame(ctk.CTkFrame):
             "fat_g":     _f(self._item_fat_var),
         }
         db.insert_meal_item(data)
+        # Clear food fields only, keep meal type / unit selection
         self._item_food_var.set("")
         self._item_qty_var.set("")
         self._item_kcal_var.set("")
@@ -409,51 +580,173 @@ class MealPlanFrame(ctk.CTkFrame):
             w.destroy()
 
         if not self._selected_plan_id:
+            self._reset_totals_bar()
             return
 
         items = db.get_meal_items(self._selected_plan_id)
         if not items:
             ctk.CTkLabel(self._items_scroll,
-                         text="Sin alimentos aún.", text_color="gray"
-                         ).pack(pady=12)
+                         text="Aún no hay alimentos en este plan.",
+                         text_color="gray", font=ctk.CTkFont(size=13)
+                         ).pack(pady=24)
+            self._reset_totals_bar()
             return
 
-        headers = ["Tiempo", "Alimento", "Cant.", "Unid.",
-                   "kcal", "Prot", "HC", "Gras", ""]
-        for col, h in enumerate(headers):
+        # Group items by meal type preserving MEAL_TYPES order
+        groups: dict[str, list] = {m: [] for m in MEAL_TYPES}
+        for item in items:
+            mt = item.get("meal_type", "Colación")
+            groups.setdefault(mt, []).append(item)
+
+        totals = {"calories": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0}
+
+        for meal_type in MEAL_TYPES:
+            group = groups.get(meal_type, [])
+            if not group:
+                continue
+
+            # Section header
+            light_bg, dark_bg = _meal_color(meal_type)
+            section_hdr = ctk.CTkFrame(
+                self._items_scroll,
+                fg_color=(light_bg, dark_bg),
+                corner_radius=6
+            )
+            section_hdr.pack(fill="x", pady=(6, 2), padx=4)
+            section_hdr.grid_columnconfigure(1, weight=1)
+
             ctk.CTkLabel(
-                self._items_scroll, text=h,
-                font=ctk.CTkFont(size=10, weight="bold"),
+                section_hdr, text=meal_type,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=("gray15", "gray95")
+            ).grid(row=0, column=0, padx=10, pady=5, sticky="w")
+
+            # Sub-totals for this meal
+            mt_kcal = sum(i.get("calories") or 0 for i in group)
+            ctk.CTkLabel(
+                section_hdr,
+                text=f"{mt_kcal:.0f} kcal",
+                font=ctk.CTkFont(size=11),
                 text_color="gray"
-            ).grid(row=0, column=col, padx=4, pady=(4, 6), sticky="w")
+            ).grid(row=0, column=1, padx=8, sticky="e")
 
-        self._items_scroll.grid_columnconfigure(1, weight=1)
+            # Column headers
+            hdr_row = ctk.CTkFrame(self._items_scroll, fg_color="transparent")
+            hdr_row.pack(fill="x", padx=8)
+            hdr_row.grid_columnconfigure(0, weight=1)
 
-        for i, item in enumerate(items, start=1):
-            vals = [
-                item.get("meal_type", "—"),
-                item.get("food_name", "—"),
-                str(item.get("quantity") or "—"),
-                item.get("unit", "—"),
-                str(item.get("calories") or "—"),
-                str(item.get("protein_g") or "—"),
-                str(item.get("carbs_g") or "—"),
-                str(item.get("fat_g") or "—"),
-            ]
-            for col, val in enumerate(vals):
+            for col, (h, w) in enumerate([
+                ("Alimento", 0), ("Cant.", 52), ("Unid.", 70),
+                ("kcal", 52), ("Prot g", 52), ("HC g", 52), ("Gras g", 52), ("", 30)
+            ]):
+                kw = {"width": w} if w else {}
                 ctk.CTkLabel(
-                    self._items_scroll, text=val,
-                    font=ctk.CTkFont(size=11)
-                ).grid(row=i, column=col, padx=4, pady=3, sticky="w")
+                    hdr_row, text=h,
+                    font=ctk.CTkFont(size=9, weight="bold"),
+                    text_color="gray",
+                    **kw
+                ).grid(row=0, column=col, padx=4, pady=(2, 0),
+                       sticky="w" if col == 0 else "e")
+            if not any(w == 0 for _, w in [("Alimento", 0)]):
+                hdr_row.grid_columnconfigure(0, weight=1)
+            hdr_row.grid_columnconfigure(0, weight=1)
 
-            iid = item["id"]
-            ctk.CTkButton(
-                self._items_scroll, text="✕", width=26, height=26,
-                fg_color="#dc2626", hover_color="#991b1b",
-                font=ctk.CTkFont(size=10),
-                command=lambda ii=iid: self._delete_item(ii)
-            ).grid(row=i, column=8, padx=4, pady=3)
+            # Item rows
+            for item in group:
+                row_frame = ctk.CTkFrame(
+                    self._items_scroll,
+                    fg_color=("gray97", "gray18"),
+                    corner_radius=4
+                )
+                row_frame.pack(fill="x", padx=8, pady=1)
+                row_frame.grid_columnconfigure(0, weight=1)
+
+                vals = [
+                    item.get("food_name", "—"),
+                    str(item.get("quantity") or "—"),
+                    item.get("unit", "—"),
+                    _fmt(item.get("calories")),
+                    _fmt(item.get("protein_g")),
+                    _fmt(item.get("carbs_g")),
+                    _fmt(item.get("fat_g")),
+                ]
+                widths = [0, 52, 70, 52, 52, 52, 52]
+                for col, (val, w) in enumerate(zip(vals, widths)):
+                    kw = {"width": w} if w else {}
+                    ctk.CTkLabel(
+                        row_frame, text=val,
+                        font=ctk.CTkFont(size=11),
+                        **kw
+                    ).grid(row=0, column=col, padx=4, pady=3,
+                           sticky="w" if col == 0 else "e")
+
+                iid = item["id"]
+                ctk.CTkButton(
+                    row_frame, text="✕", width=28, height=24,
+                    fg_color="transparent",
+                    hover_color=("#fee2e2", "#7f1d1d"),
+                    text_color=("#dc2626", "#f87171"),
+                    font=ctk.CTkFont(size=10),
+                    command=lambda ii=iid: self._delete_item(ii)
+                ).grid(row=0, column=7, padx=(2, 4), pady=2)
+
+                # Accumulate totals
+                for key in totals:
+                    v = item.get(key)
+                    if v:
+                        totals[key] += v
+
+        self._update_totals_bar(totals)
 
     def _delete_item(self, iid: int):
         db.delete_meal_item(iid)
         self._load_items()
+
+    # ── Totals bar ────────────────────────────────────────────────────────────
+
+    def _reset_totals_bar(self):
+        for lbl in self._total_labels.values():
+            lbl.configure(text="— / —", text_color=("gray40", "gray60"))
+
+    def _update_totals_bar(self, totals: dict):
+        plan = db.get_meal_plan(self._selected_plan_id) if self._selected_plan_id else None
+
+        defs = [
+            ("calories",  "kcal"),
+            ("protein_g", "g"),
+            ("carbs_g",   "g"),
+            ("fat_g",     "g"),
+        ]
+        for key, unit in defs:
+            actual = totals.get(key, 0)
+            target = plan.get(key) if plan else None
+            if target:
+                pct = actual / target
+                color = _progress_color(pct)
+                text = f"{actual:.0f} / {target:.0f} {unit}"
+            else:
+                color = ("gray40", "gray60")
+                text = f"{actual:.0f} {unit}"
+            self._total_labels[key].configure(text=text, text_color=color)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _fmt(val) -> str:
+    if val is None:
+        return "—"
+    try:
+        f = float(val)
+        return f"{f:.1f}" if f != int(f) else str(int(f))
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _progress_color(pct: float) -> tuple[str, str]:
+    """Green if on target (85–110 %), yellow if low, red if over."""
+    if pct < 0.75:
+        return ("#b45309", "#fbbf24")   # yellow
+    elif pct > 1.15:
+        return ("#dc2626", "#f87171")   # red
+    else:
+        return ("#15803d", "#4ade80")   # green

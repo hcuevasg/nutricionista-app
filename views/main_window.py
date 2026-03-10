@@ -4,11 +4,22 @@ from views.patient_form import PatientFormFrame
 from views.anthropometric_view import AnthropometricFrame
 from views.meal_plan_view import MealPlanFrame
 from views.reports_view import ReportsFrame
+from views.backup_view import BackupView
 import database.db_manager as db
 from utils.image_helpers import get_initials, make_circle_image
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
+
+# ── Paleta de colores (Calorie & Nutrition Counter — UI/UX Pro Max) ───────────
+_C_PRIMARY       = "#059669"   # Emerald-600 — sidebar, botones principales
+_C_PRIMARY_DARK  = "#047857"   # Emerald-700 — hover, card activo
+_C_PRIMARY_DEEP  = "#065f46"   # Emerald-800 — activo nav, toggle oscuro
+_C_ACCENT        = "#34d399"   # Emerald-400 — separadores, detalles claros
+_C_TEXT_MUTED    = "#a7f3d0"   # Verde muy claro — texto secundario en sidebar
+_C_NAV_INACTIVE  = "#bbf7d0"   # Texto inactivo nav
+_C_BG_LIGHT      = "#f0fdf4"   # Fondo content light mode
+_C_BG_DARK       = "#0a1f14"   # Fondo content dark mode
 
 
 class App(ctk.CTk):
@@ -28,10 +39,10 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
 
         # ── Sidebar ───────────────────────────────────────────────────────────
-        sidebar = ctk.CTkFrame(self, width=220, corner_radius=0,
-                                fg_color="#1a6b3c")
+        sidebar = ctk.CTkFrame(self, width=240, corner_radius=0,
+                               fg_color=_C_PRIMARY)
         sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_rowconfigure(7, weight=1)   # spacer row
+        sidebar.grid_rowconfigure(8, weight=1)
         sidebar.grid_columnconfigure(0, weight=1)
 
         # Logo
@@ -43,45 +54,46 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(
             sidebar, text="Gestión Nutricional",
-            font=ctk.CTkFont(size=11), text_color="#a7f3c8"
+            font=ctk.CTkFont(size=11), text_color=_C_TEXT_MUTED
         ).grid(row=1, column=0, padx=20, pady=(0, 20))
 
         # Nav buttons
         nav_items = [
-            ("patients",        "Pacientes",          "👤"),
-            ("anthropometrics", "Antropometría",      "📏"),
+            ("patients",        "Pacientes",           "👤"),
+            ("anthropometrics", "Antropometría",       "📏"),
             ("meal_plans",      "Planes Alimenticios", "🥗"),
-            ("reports",         "Reportes",           "📄"),
+            ("reports",         "Reportes",            "📄"),
+            ("backup",          "Backup",              "💾"),
         ]
         self._nav_buttons: dict[str, ctk.CTkButton] = {}
         for i, (key, label, icon) in enumerate(nav_items):
             btn = ctk.CTkButton(
                 sidebar,
                 text=f"  {icon}  {label}",
-                anchor="w", height=42, corner_radius=8,
+                anchor="w", height=44, corner_radius=8,
                 font=ctk.CTkFont(size=13),
-                fg_color="transparent", hover_color="#145730",
-                text_color="white",
+                fg_color="transparent", hover_color=_C_PRIMARY_DARK,
+                text_color=_C_NAV_INACTIVE,
                 command=lambda k=key: self._show_frame(k)
             )
-            btn.grid(row=i + 2, column=0, padx=12, pady=4, sticky="ew")
+            btn.grid(row=i + 2, column=0, padx=12, pady=3, sticky="ew")
             self._nav_buttons[key] = btn
 
         # ── Active patient card ───────────────────────────────────────────────
-        sep = ctk.CTkFrame(sidebar, height=1, fg_color="#2d8a56")
-        sep.grid(row=6, column=0, sticky="ew", padx=16, pady=(12, 0))
+        sep = ctk.CTkFrame(sidebar, height=1, fg_color=_C_ACCENT)
+        sep.grid(row=7, column=0, sticky="ew", padx=16, pady=(12, 0))
 
         self._patient_card = ctk.CTkFrame(
             sidebar, corner_radius=10,
-            fg_color="#145730"
+            fg_color=_C_PRIMARY_DARK
         )
-        self._patient_card.grid(row=7, column=0, padx=12, pady=12, sticky="sew")
+        self._patient_card.grid(row=8, column=0, padx=12, pady=12, sticky="sew")
         self._patient_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
             self._patient_card,
             text="Paciente activo",
-            font=ctk.CTkFont(size=10), text_color="#a7f3c8"
+            font=ctk.CTkFont(size=10), text_color=_C_TEXT_MUTED
         ).grid(row=0, column=0, padx=12, pady=(10, 2), sticky="w")
 
         self._card_photo_lbl = ctk.CTkLabel(
@@ -93,39 +105,42 @@ class App(ctk.CTk):
             self._patient_card,
             text="Ninguno seleccionado",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="white", wraplength=180, justify="left"
+            text_color="white", wraplength=196, justify="left"
         )
         self._card_name.grid(row=2, column=0, padx=12, pady=(0, 2), sticky="w")
 
         self._card_info = ctk.CTkLabel(
             self._patient_card,
             text="",
-            font=ctk.CTkFont(size=11), text_color="#a7f3c8"
+            font=ctk.CTkFont(size=11), text_color=_C_TEXT_MUTED
         )
         self._card_info.grid(row=3, column=0, padx=12, pady=(0, 8), sticky="w")
 
         ctk.CTkButton(
             self._patient_card,
             text="Cambiar paciente",
-            height=30, corner_radius=6,
+            height=32, corner_radius=6,
             font=ctk.CTkFont(size=11),
-            fg_color="#1a6b3c", hover_color="#0d3d20",
+            fg_color=_C_PRIMARY, hover_color=_C_PRIMARY_DEEP,
             text_color="white",
             command=lambda: self._show_frame("patients")
         ).grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
 
         # Theme toggle
         ctk.CTkButton(
-            sidebar, text="Cambiar tema",
-            height=32, corner_radius=8,
+            sidebar, text="☀  Cambiar tema",
+            height=34, corner_radius=8,
             font=ctk.CTkFont(size=11),
-            fg_color="#0d3d20", hover_color="#092b16",
-            text_color="#a7f3c8",
+            fg_color=_C_PRIMARY_DEEP, hover_color="#053d2e",
+            text_color=_C_TEXT_MUTED,
             command=self._toggle_theme
-        ).grid(row=8, column=0, padx=12, pady=(0, 16), sticky="ew")
+        ).grid(row=9, column=0, padx=12, pady=(0, 16), sticky="ew")
 
         # ── Content area ──────────────────────────────────────────────────────
-        self._content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self._content = ctk.CTkFrame(
+            self, corner_radius=0,
+            fg_color=(_C_BG_LIGHT, _C_BG_DARK)
+        )
         self._content.grid(row=0, column=1, sticky="nsew")
         self._content.grid_columnconfigure(0, weight=1)
         self._content.grid_rowconfigure(0, weight=1)
@@ -138,6 +153,7 @@ class App(ctk.CTk):
             ("anthropometrics", AnthropometricFrame),
             ("meal_plans",      MealPlanFrame),
             ("reports",         ReportsFrame),
+            ("backup",          BackupView),
         ]:
             f = cls(self._content, app=self)
             f.grid(row=0, column=0, sticky="nsew")
@@ -151,7 +167,18 @@ class App(ctk.CTk):
             if hasattr(frame, "on_show"):
                 frame.on_show()
         for k, btn in self._nav_buttons.items():
-            btn.configure(fg_color="#0d3d20" if k == key else "transparent")
+            if k == key:
+                btn.configure(
+                    fg_color=_C_PRIMARY_DEEP,
+                    text_color="white",
+                    font=ctk.CTkFont(size=13, weight="bold"),
+                )
+            else:
+                btn.configure(
+                    fg_color="transparent",
+                    text_color=_C_NAV_INACTIVE,
+                    font=ctk.CTkFont(size=13),
+                )
 
     # ── Patient management ────────────────────────────────────────────────────
     def set_patient(self, patient_id: int | None):
@@ -178,12 +205,11 @@ class App(ctk.CTk):
         age = f"{p['age']} años" if p.get("age") else "—"
         sex = p.get("sex") or "—"
         self._card_info.configure(text=f"{age}  ·  {sex}")
-        # Update photo
         initials = get_initials(p["name"])
         img = make_circle_image(p.get("photo_path"), 64, initials)
         if img:
             self._card_photo_lbl.configure(image=img, text="")
-            self._card_photo_lbl._photo_img = img  # prevent GC
+            self._card_photo_lbl._photo_img = img
         else:
             self._card_photo_lbl.configure(image=None, text=initials,
                                             font=ctk.CTkFont(size=20, weight="bold"),
@@ -196,3 +222,21 @@ class App(ctk.CTk):
     def _toggle_theme(self):
         mode = ctk.get_appearance_mode()
         ctk.set_appearance_mode("dark" if mode == "Light" else "light")
+
+    # ── Toast notification ────────────────────────────────────────────────────
+    def show_toast(self, message: str, duration_ms: int = 3000,
+                   color: str = _C_PRIMARY):
+        """Muestra un mensaje discreto en la esquina inferior derecha."""
+        toast = ctk.CTkFrame(self, corner_radius=10, fg_color=color,
+                             border_width=1, border_color=_C_ACCENT)
+        ctk.CTkLabel(
+            toast, text=message,
+            font=ctk.CTkFont(size=12), text_color="white"
+        ).pack(padx=18, pady=11)
+
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        toast.place(x=w - 360, y=h - 72)
+        toast.lift()
+        self.after(duration_ms, toast.destroy)
