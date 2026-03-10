@@ -20,10 +20,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.9
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.9"
 
       - name: Install dependencies
         run: |
@@ -32,6 +32,8 @@ jobs:
           pip install pyinstaller
 
       - name: Build app with PyInstaller
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           pyinstaller \
             --name "NutriApp" \
@@ -62,7 +64,7 @@ jobs:
             ## NutriApp ${{ github.ref_name }}
 
             ### Descarga
-            - **macOS Intel (x86_64):** descarga `NutriApp-mac-intel.zip`, descomprime y arrastra `NutriApp.app` a Aplicaciones.
+            - **macOS Intel (x86_64) — compatible con Big Sur 11.6+:** descarga `NutriApp-mac-intel.zip`, descomprime y arrastra `NutriApp.app` a Aplicaciones.
 
             ### Qué incluye esta versión
             - Evaluación antropométrica ISAK 1 e ISAK 2
