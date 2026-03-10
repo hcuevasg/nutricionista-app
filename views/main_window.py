@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from typing import Optional
 from views.patient_list import PatientListFrame
 from views.patient_form import PatientFormFrame
 from views.anthropometric_view import AnthropometricFrame
@@ -29,7 +30,7 @@ class App(ctk.CTk):
         self.geometry("1280x760")
         self.minsize(1100, 680)
 
-        self._selected_patient_id: int | None = None
+        self._selected_patient_id: Optional[int] = None
         self._build_ui()
         self._show_frame("patients")
 
@@ -181,11 +182,11 @@ class App(ctk.CTk):
                 )
 
     # ── Patient management ────────────────────────────────────────────────────
-    def set_patient(self, patient_id: int | None):
+    def set_patient(self, patient_id: Optional[int]):
         self._selected_patient_id = patient_id
         self._refresh_patient_card()
 
-    def get_patient_id(self) -> int | None:
+    def get_patient_id(self) -> Optional[int]:
         return self._selected_patient_id
 
     def _refresh_patient_card(self):
@@ -215,7 +216,7 @@ class App(ctk.CTk):
                                             font=ctk.CTkFont(size=20, weight="bold"),
                                             text_color="white")
 
-    def open_patient_form(self, patient_id: int | None = None):
+    def open_patient_form(self, patient_id: Optional[int] = None):
         self._frames["patient_form"].load_patient(patient_id)
         self._show_frame("patient_form")
 

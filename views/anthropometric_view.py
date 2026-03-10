@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from datetime import date
+from typing import Optional
 import database.db_manager as db
 import utils.calculations as calc
 from views.edit_evaluation_dialog import EditEvaluationDialog
@@ -403,7 +404,7 @@ class AnthropometricFrame(ctk.CTkFrame):
                 return
         self._patient_lbl.configure(text="Ningún paciente seleccionado")
 
-    def _gf(self, key) -> float | None:
+    def _gf(self, key) -> Optional[float]:
         try:
             v = self._vars.get(key)
             if v is None:

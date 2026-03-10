@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from datetime import date
 import shutil, os, time
+from typing import Optional
 import database.db_manager as db
 from utils.image_helpers import ensure_fotos_dir, get_initials, make_circle_image, FOTOS_DIR
 
@@ -9,7 +10,7 @@ from utils.image_helpers import ensure_fotos_dir, get_initials, make_circle_imag
 SEX_OPTIONS = ["Masculino", "Femenino"]
 
 
-def _calc_age(birth_date_str: str) -> int | None:
+def _calc_age(birth_date_str: str) -> Optional[int]:
     """Return age in years from a YYYY-MM-DD string, or None if invalid."""
     try:
         bd = date.fromisoformat(birth_date_str.strip())
@@ -23,8 +24,8 @@ class PatientFormFrame(ctk.CTkFrame):
     def __init__(self, parent, app):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.app = app
-        self._patient_id: int | None = None
-        self._photo_path: str | None = None
+        self._patient_id: Optional[int] = None
+        self._photo_path: Optional[str] = None
         self._photo_label = None
         self._build_ui()
 
@@ -295,7 +296,7 @@ class PatientFormFrame(ctk.CTkFrame):
         self._vars["age"].set(str(age) if age is not None else "")
 
     # ── Load / Save ───────────────────────────────────────────────────────────
-    def load_patient(self, patient_id: int | None):
+    def load_patient(self, patient_id: Optional[int]):
         self._patient_id = patient_id
         self._clear()
 

@@ -4,6 +4,7 @@ Full-form edit dialog for existing anthropometric evaluations.
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import date
+from typing import Optional
 
 import database.db_manager as db
 import utils.calculations as calc
@@ -337,7 +338,7 @@ class EditEvaluationDialog(ctk.CTkToplevel):
             self._isak2_res.grid_remove()
         self._recalculate()
 
-    def _gf(self, key) -> float | None:
+    def _gf(self, key) -> Optional[float]:
         try:
             v = self._vars.get(key)
             s = v.get().strip() if v else ""

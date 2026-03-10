@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import os
+from typing import Optional
 import database.db_manager as db
 from utils import pdf_generator
 
@@ -148,7 +149,7 @@ class ReportsFrame(ctk.CTkFrame):
         p = db.get_patient(pid)
         return pid, p
 
-    def _ask_save_path(self, default_name: str) -> str | None:
+    def _ask_save_path(self, default_name: str) -> Optional[str]:
         path = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf")],

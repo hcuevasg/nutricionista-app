@@ -1,5 +1,6 @@
 """Dialog to compare two anthropometric sessions side by side."""
 import customtkinter as ctk
+from typing import Optional
 
 
 COMPARE_ROWS = [
@@ -57,7 +58,7 @@ def _fmt(val, key: str = "") -> str:
     return str(val)
 
 
-def _diff_color(diff, better: str | None) -> str:
+def _diff_color(diff, better: Optional[str]) -> str:
     if diff is None or diff == 0:
         return COLOR_GRAY
     if better == "lower":

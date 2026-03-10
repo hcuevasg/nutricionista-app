@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import date
+from typing import Optional
 import database.db_manager as db
 import utils.calculations as calc
 
@@ -39,7 +40,7 @@ class MealPlanFrame(ctk.CTkFrame):
     def __init__(self, parent, app):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.app = app
-        self._selected_plan_id: int | None = None
+        self._selected_plan_id: Optional[int] = None
         self._build_ui()
 
     # ── Layout ────────────────────────────────────────────────────────────────

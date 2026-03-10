@@ -1,6 +1,7 @@
 import sqlite3
 import os
 from datetime import datetime
+from typing import Optional
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nutricionista.db")
 
@@ -288,7 +289,7 @@ def get_all_patients() -> list:
     return [dict(r) for r in rows]
 
 
-def get_patient(pid: int) -> dict | None:
+def get_patient(pid: int) -> Optional[dict]:
     conn = get_connection()
     row = conn.execute("SELECT * FROM patients WHERE id=?", (pid,)).fetchone()
     conn.close()
@@ -494,7 +495,7 @@ def get_meal_plans(patient_id: int) -> list:
     return [dict(r) for r in rows]
 
 
-def get_meal_plan(mid: int) -> dict | None:
+def get_meal_plan(mid: int) -> Optional[dict]:
     conn = get_connection()
     row = conn.execute("SELECT * FROM meal_plans WHERE id=?", (mid,)).fetchone()
     conn.close()

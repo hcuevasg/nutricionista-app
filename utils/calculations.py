@@ -3,6 +3,7 @@ Anthropometric and nutritional calculations.
 All weight in kg, height in cm, circumferences in cm, skinfolds in mm.
 """
 import math
+from typing import Optional, Tuple
 
 
 ACTIVITY_FACTORS = {
@@ -33,7 +34,7 @@ _DW_MEN = [
 
 
 def sum_6_skinfolds(triceps, subscapular, supraspinal,
-                    abdominal, medial_thigh, max_calf) -> float | None:
+                    abdominal, medial_thigh, max_calf) -> Optional[float]:
     """Sum of 6 ISAK skinfolds (marked with *). All in mm."""
     vals = [triceps, subscapular, supraspinal, abdominal, medial_thigh, max_calf]
     if any(v is None for v in vals):
@@ -43,7 +44,7 @@ def sum_6_skinfolds(triceps, subscapular, supraspinal,
 
 def body_fat_durnin_womersley(biceps_mm: float, triceps_mm: float,
                                subscapular_mm: float, iliac_crest_mm: float,
-                               age: int, sex: str) -> tuple[float | None, float | None]:
+                               age: int, sex: str) -> Tuple[Optional[float], Optional[float]]:
     """
     Durnin & Womersley (1974) — ISAK Level 1.
     Σ4 = bíceps + tríceps + subescapular + cresta iliaca.
@@ -143,7 +144,7 @@ def whr_risk(ratio: float, sex: str) -> str:
 
 def body_fat_navy(sex: str, height_cm: float,
                   waist_cm: float, neck_cm: float,
-                  hip_cm: float = 0.0) -> float | None:
+                  hip_cm: float = 0.0) -> Optional[float]:
     try:
         if sex.lower() in ("masculino", "m", "hombre"):
             if waist_cm <= neck_cm:
@@ -222,7 +223,7 @@ def somatotype_heath_carter(
         return None, None, None
 
 
-def waist_height_ratio(waist_cm: float, height_cm: float) -> float | None:
+def waist_height_ratio(waist_cm: float, height_cm: float) -> Optional[float]:
     """Índice cintura/talla. Saludable < 0.5."""
     try:
         if not waist_cm or not height_cm:
@@ -319,7 +320,7 @@ def classify_whtr(ratio: float) -> tuple:
     return "Riesgo alto", "very_high"
 
 
-def arm_muscle_area(arm_relaxed_cm: float, triceps_mm: float) -> float | None:
+def arm_muscle_area(arm_relaxed_cm: float, triceps_mm: float) -> Optional[float]:
     """
     Área Muscular del Brazo (AMB) en cm².
     AMB = (C - π × T/10)² / (4π)  donde C = perím. brazo relajado (cm), T = tríceps (mm).
