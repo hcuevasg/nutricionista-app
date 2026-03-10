@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-mac-intel:
-    runs-on: macos-14
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
@@ -37,7 +37,7 @@ jobs:
             --name "NutriApp" \
             --windowed \
             --onefile \
-            --target-arch arm64 \
+            --target-arch x86_64 \
             --hidden-import customtkinter \
             --hidden-import PIL \
             --hidden-import PIL._tkinter_finder \
@@ -51,7 +51,7 @@ jobs:
       - name: Compress .app bundle
         run: |
           cd dist
-          zip -r ../NutriApp-mac-arm64.zip NutriApp.app
+          zip -r ../NutriApp-mac-intel.zip NutriApp.app
           cd ..
 
       - name: Create GitHub Release
@@ -62,7 +62,7 @@ jobs:
             ## NutriApp ${{ github.ref_name }}
 
             ### Descarga
-            - **macOS Apple Silicon (M1/M2/M3):** descarga `NutriApp-mac-arm64.zip`, descomprime y arrastra `NutriApp.app` a Aplicaciones.
+            - **macOS Intel (x86_64):** descarga `NutriApp-mac-intel.zip`, descomprime y arrastra `NutriApp.app` a Aplicaciones.
 
             ### Qué incluye esta versión
             - Evaluación antropométrica ISAK 1 e ISAK 2
@@ -72,7 +72,7 @@ jobs:
             - Curvas de evolución con gráficos matplotlib
             - Clasificación automática (% grasa, IMC, WHR, WHtR)
             - Edición completa de evaluaciones pasadas
-          files: NutriApp-mac-arm64.zip
+          files: NutriApp-mac-intel.zip
           draft: false
           prerelease: false
         env:
