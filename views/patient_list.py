@@ -95,9 +95,9 @@ class PatientListFrame(ctk.CTkFrame):
         card = ctk.CTkFrame(
             self._scroll,
             corner_radius=10,
-            fg_color=("#dcfce7", "#064e3b") if is_active else ("white", "#1a2620"),
+            fg_color=("#e8f2ed", "#2f5a40") if is_active else ("white", "#1a2620"),
             border_width=2 if is_active else 1,
-            border_color="#059669" if is_active else ("#E1F2ED", "#1f3d2a")
+            border_color="#4b7c60" if is_active else ("#E5EAE7", "#1a2e22")
         )
         card.pack(fill="x", padx=4, pady=4)
         card.grid_columnconfigure(2, weight=1)
@@ -105,7 +105,7 @@ class PatientListFrame(ctk.CTkFrame):
         # Active badge
         if is_active:
             badge = ctk.CTkFrame(card, width=6, corner_radius=3,
-                                  fg_color="#059669")
+                                  fg_color="#4b7c60")
             badge.grid(row=0, column=0, rowspan=2, padx=(10, 0),
                        pady=12, sticky="ns")
         else:
@@ -122,7 +122,7 @@ class PatientListFrame(ctk.CTkFrame):
             avatar_lbl.configure(
                 text=initials[:2],
                 font=ctk.CTkFont(size=14, weight="bold"),
-                fg_color="#059669" if not is_active else "#047857",
+                fg_color="#4b7c60" if not is_active else "#3d6b50",
                 corner_radius=22,
                 text_color="white",
             )
@@ -138,7 +138,7 @@ class PatientListFrame(ctk.CTkFrame):
             name_frame,
             text=p["name"],
             font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=("#047857" if is_active else ("gray10", "gray90"))
+            text_color=("#3d6b50" if is_active else ("gray10", "gray90"))
         ).pack(side="left")
 
         if is_active:
@@ -146,7 +146,7 @@ class PatientListFrame(ctk.CTkFrame):
                 name_frame,
                 text="  ACTIVO",
                 font=ctk.CTkFont(size=10, weight="bold"),
-                text_color="#059669"
+                text_color="#4b7c60"
             ).pack(side="left", padx=(6, 0))
 
         # Age / sex / contact
@@ -171,7 +171,7 @@ class PatientListFrame(ctk.CTkFrame):
                 text="Seleccionar",
                 width=120, height=36,
                 corner_radius=8,
-                fg_color="#059669", hover_color="#047857",
+                fg_color="#4b7c60", hover_color="#3d6b50",
                 font=ctk.CTkFont(size=12, weight="bold"),
                 command=lambda i=pid: self._select(i)
             ).pack(pady=(0, 4))
@@ -181,8 +181,8 @@ class PatientListFrame(ctk.CTkFrame):
                 text="✓ Seleccionado",
                 width=120, height=36,
                 corner_radius=8,
-                fg_color="#d1fae5", hover_color="#a7f3d0",
-                text_color="#047857",
+                fg_color="#e0ede8", hover_color="#b8d8cc",
+                text_color="#3d6b50",
                 font=ctk.CTkFont(size=12, weight="bold"),
                 state="disabled"
             ).pack(pady=(0, 4))
@@ -200,7 +200,7 @@ class PatientListFrame(ctk.CTkFrame):
             btn_frame, text="Eliminar",
             width=120, height=36,
             corner_radius=8,
-            fg_color="#dc2626", hover_color="#b91c1c",
+            fg_color="#c13333", hover_color="#a32828",
             command=lambda i=pid: self._delete(i)
         ).pack()
 

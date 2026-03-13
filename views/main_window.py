@@ -1,27 +1,32 @@
 import customtkinter as ctk
 from typing import Optional
+from views.dashboard_view import DashboardFrame
 from views.patient_list import PatientListFrame
 from views.patient_form import PatientFormFrame
 from views.anthropometric_view import AnthropometricFrame
-from views.meal_plan_view import MealPlanFrame
 from views.reports_view import ReportsFrame
 from views.backup_view import BackupView
 from views.templates_view import TemplatesFrame
+from views.config_view import ConfigView
+from modules.pautas_alimentacion.ui_pautas import PautasFrame as PautasAlimFrame
+from modules.pautas_alimentacion.ui_editor_equivalencias import EditorEquivalenciasFrame
 import database.db_manager as db
 from utils.image_helpers import get_initials, make_circle_image
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
 
-# ── Paleta de colores (Calorie & Nutrition Counter — UI/UX Pro Max) ───────────
-_C_PRIMARY       = "#059669"   # Emerald-600 — sidebar, botones principales
-_C_PRIMARY_DARK  = "#047857"   # Emerald-700 — hover, card activo
-_C_PRIMARY_DEEP  = "#065f46"   # Emerald-800 — activo nav, toggle oscuro
-_C_ACCENT        = "#34d399"   # Emerald-400 — separadores, detalles claros
-_C_TEXT_MUTED    = "#a7f3d0"   # Verde muy claro — texto secundario en sidebar
-_C_NAV_INACTIVE  = "#bbf7d0"   # Texto inactivo nav
-_C_BG_LIGHT      = "#f0fdf4"   # Fondo content light mode
-_C_BG_DARK       = "#0a1f14"   # Fondo content dark mode
+# ── Paleta de colores (Stitch 2026-03) ───────────────────────────────────────
+_C_PRIMARY       = "#4b7c60"   # Forest green — sidebar, botones principales
+_C_PRIMARY_DARK  = "#3d6b50"   # Primary dark — hover, card activo
+_C_PRIMARY_DEEP  = "#2f5a40"   # Primary deep — activo nav
+_C_TERRACOTTA    = "#c06c52"   # Terracotta — accent
+_C_SAGE          = "#8da399"   # Sage — separadores, detalles
+_C_ACCENT        = "#8da399"   # Sage — separadores, detalles claros
+_C_TEXT_MUTED    = "#d1fae5"   # Verde muy claro — texto secundario en sidebar
+_C_NAV_INACTIVE  = "#c8e6d8"   # Texto inactivo nav
+_C_BG_LIGHT      = "#F7F5F2"   # Fondo content light mode
+_C_BG_DARK       = "#161c19"   # Fondo content dark mode
 
 
 class App(ctk.CTk):
@@ -34,7 +39,7 @@ class App(ctk.CTk):
         self._selected_patient_id: Optional[int] = None
         self._pending_plan_id: Optional[int] = None
         self._build_ui()
-        self._show_frame("patients")
+        self._show_frame("dashboard")
 
     # ── Layout ────────────────────────────────────────────────────────────────
     def _build_ui(self):
@@ -45,7 +50,7 @@ class App(ctk.CTk):
         sidebar = ctk.CTkFrame(self, width=240, corner_radius=0,
                                fg_color=_C_PRIMARY)
         sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_rowconfigure(9, weight=1)
+        sidebar.grid_rowconfigure(12, weight=1)
         sidebar.grid_columnconfigure(0, weight=1)
 
         # Logo
@@ -62,12 +67,15 @@ class App(ctk.CTk):
 
         # Nav buttons
         nav_items = [
+            ("dashboard",       "Inicio",              "⊞"),
             ("patients",        "Pacientes",           "👤"),
             ("anthropometrics", "Antropometría",       "📏"),
-            ("meal_plans",      "Planes Alimenticios", "🥗"),
+            ("pautas_alim",     "Pautas Alimentación", "🍽️"),
+            ("eq_editor",       "Tablas Equiv.",       "≡"),
             ("templates",       "Plantillas",          "📋"),
             ("reports",         "Reportes",            "📄"),
             ("backup",          "Backup",              "💾"),
+            ("config",          "Configuración",       "⚙"),
         ]
         self._nav_buttons: dict[str, ctk.CTkButton] = {}
         for i, (key, label, icon) in enumerate(nav_items):
@@ -84,14 +92,14 @@ class App(ctk.CTk):
             self._nav_buttons[key] = btn
 
         # ── Active patient card ───────────────────────────────────────────────
-        sep = ctk.CTkFrame(sidebar, height=1, fg_color=_C_ACCENT)
-        sep.grid(row=8, column=0, sticky="ew", padx=16, pady=(12, 0))
+        sep = ctk.CTkFrame(sidebar, height=1, fg_color=_C_SAGE)
+        sep.grid(row=11, column=0, sticky="ew", padx=16, pady=(12, 0))
 
         self._patient_card = ctk.CTkFrame(
             sidebar, corner_radius=10,
             fg_color=_C_PRIMARY_DARK
         )
-        self._patient_card.grid(row=9, column=0, padx=12, pady=12, sticky="sew")
+        self._patient_card.grid(row=12, column=0, padx=12, pady=12, sticky="sew")
         self._patient_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
@@ -135,10 +143,10 @@ class App(ctk.CTk):
             sidebar, text="☀  Cambiar tema",
             height=34, corner_radius=8,
             font=ctk.CTkFont(size=11),
-            fg_color=_C_PRIMARY_DEEP, hover_color="#053d2e",
+            fg_color=_C_PRIMARY_DEEP, hover_color="#25472f",
             text_color=_C_TEXT_MUTED,
             command=self._toggle_theme
-        ).grid(row=10, column=0, padx=12, pady=(0, 16), sticky="ew")
+        ).grid(row=13, column=0, padx=12, pady=(0, 16), sticky="ew")
 
         # ── Content area ──────────────────────────────────────────────────────
         self._content = ctk.CTkFrame(
@@ -152,13 +160,16 @@ class App(ctk.CTk):
         # Frames
         self._frames: dict[str, ctk.CTkFrame] = {}
         for key, cls in [
+            ("dashboard",       DashboardFrame),
             ("patients",        PatientListFrame),
             ("patient_form",    PatientFormFrame),
             ("anthropometrics", AnthropometricFrame),
-            ("meal_plans",      MealPlanFrame),
+            ("pautas_alim",     PautasAlimFrame),
+            ("eq_editor",       EditorEquivalenciasFrame),
             ("templates",       TemplatesFrame),
             ("reports",         ReportsFrame),
             ("backup",          BackupView),
+            ("config",          ConfigView),
         ]:
             f = cls(self._content, app=self)
             f.grid(row=0, column=0, sticky="nsew")
@@ -233,7 +244,7 @@ class App(ctk.CTk):
                    color: str = _C_PRIMARY):
         """Muestra un mensaje discreto en la esquina inferior derecha."""
         toast = ctk.CTkFrame(self, corner_radius=10, fg_color=color,
-                             border_width=1, border_color=_C_ACCENT)
+                             border_width=1, border_color=_C_SAGE)
         ctk.CTkLabel(
             toast, text=message,
             font=ctk.CTkFont(size=12), text_color="white"

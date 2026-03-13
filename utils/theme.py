@@ -1,0 +1,12 @@
+# NutriApp Design System — Stitch 2026-03
+C_PRIMARY      = "#4b7c60"
+C_PRIMARY_DARK = "#3d6b50"
+C_PRIMARY_DEEP = "#2f5a40"
+C_TERRACOTTA   = "#c06c52"
+C_SAGE         = "#8da399"
+C_BG           = "#F7F5F2"
+C_BG_DARK      = "#161c19"
+C_CARD         = "#FFFFFF"
+C_BORDER       = "#E5EAE7"
+C_TEXT_MUTED   = "#6b7280"
+C_NAV_TEXT     = "#d1fae5"
