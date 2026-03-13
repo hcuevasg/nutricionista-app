@@ -27,13 +27,13 @@ def _rec_date(r: dict) -> str:
 
 
 def _section_label(parent, text, row, cols=4):
-    frm = ctk.CTkFrame(parent, fg_color=("#d1fae5", "#064e3b"), corner_radius=6)
+    frm = ctk.CTkFrame(parent, fg_color=("#e0ede8", "#2f5a40"), corner_radius=6)
     frm.grid(row=row, column=0, columnspan=cols * 2,
              padx=8, pady=(14, 2), sticky="ew")
     ctk.CTkLabel(
         frm, text=text,
         font=ctk.CTkFont(size=12, weight="bold"),
-        text_color=("#047857", "#6ee7b7")
+        text_color=("#4b7c60", "#6ee7b7")
     ).pack(side="left", padx=10, pady=4)
 
 
@@ -67,30 +67,30 @@ class AnthropometricFrame(ctk.CTkFrame):
 
     # ── Layout ────────────────────────────────────────────────────────────────
     def _build_ui(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_columnconfigure(0, minsize=260, weight=0)   # left panel fixed
+        self.grid_columnconfigure(1, weight=1)                # right panel expands
+        self.grid_rowconfigure(0, weight=1)
 
-        hdr = ctk.CTkFrame(self, fg_color="transparent")
-        hdr.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
-        hdr.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(
-            hdr, text="Evaluación Antropométrica ISAK",
-            font=ctk.CTkFont(size=22, weight="bold")
-        ).grid(row=0, column=0, sticky="w")
-
-        self._patient_lbl = ctk.CTkLabel(
-            hdr, text="Ningún paciente seleccionado",
-            font=ctk.CTkFont(size=13), text_color="gray"
+        # ── LEFT PANEL: patient profile ──────────────────────────────────────
+        self._left_panel = ctk.CTkFrame(
+            self, width=260, corner_radius=0,
+            fg_color=("white", "#141f19"),
+            border_width=1, border_color=("#E5EAE7", "#2a3d30")
         )
-        self._patient_lbl.grid(row=0, column=1, padx=16, sticky="w")
+        self._left_panel.grid(row=0, column=0, sticky="nsew")
+        self._left_panel.grid_propagate(False)
+        self._left_panel.grid_columnconfigure(0, weight=1)
+        self._build_left_panel()
 
-        # Header separator
-        ctk.CTkFrame(self, height=1, fg_color=("gray85", "gray30")
-                     ).grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+        # ── RIGHT PANEL: tabs ────────────────────────────────────────────────
+        right = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew")
+        right.grid_columnconfigure(0, weight=1)
+        right.grid_rowconfigure(1, weight=1)
 
-        self._tabs = ctk.CTkTabview(self, command=self._on_tab_change)
-        self._tabs.grid(row=2, column=0, sticky="nsew", padx=24, pady=(4, 20))
+        # Tabs (top bar)
+        self._tabs = ctk.CTkTabview(right, command=self._on_tab_change)
+        self._tabs.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=16, pady=12)
         self._tabs.add("Nueva evaluación")
         self._tabs.add("Historial")
         self._tabs.add("Evolución")
@@ -99,18 +99,159 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._build_history_tab(self._tabs.tab("Historial"))
         self._build_evolution_tab(self._tabs.tab("Evolución"))
 
+        # Keep a label ref for backwards compat (on_show updates it)
+        self._patient_lbl = ctk.CTkLabel(
+            right, text="", font=ctk.CTkFont(size=13), text_color="gray"
+        )
+
+    def _build_left_panel(self):
+        p = self._left_panel
+
+        # Avatar circle
+        self._avatar_lbl = ctk.CTkLabel(
+            p, text="?", width=80, height=80,
+            corner_radius=40,
+            fg_color=("#8da39920", "#2a3d30"),
+            font=ctk.CTkFont(size=26, weight="bold"),
+            text_color=("#4b7c60", "#6ec896")
+        )
+        self._avatar_lbl.grid(row=0, column=0, pady=(30, 8))
+
+        self._name_lbl = ctk.CTkLabel(
+            p, text="Ningún paciente",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            wraplength=220
+        )
+        self._name_lbl.grid(row=1, column=0, padx=16, pady=(0, 2))
+
+        self._patient_info_lbl = ctk.CTkLabel(
+            p, text="Selecciona un paciente",
+            font=ctk.CTkFont(size=11), text_color="#6b7280"
+        )
+        self._patient_info_lbl.grid(row=2, column=0, padx=16, pady=(0, 16))
+
+        # Buttons
+        btn_frame = ctk.CTkFrame(p, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, padx=16, pady=(0, 12), sticky="ew")
+        btn_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkButton(
+            btn_frame, text="✎  Editar Perfil", height=36,
+            fg_color="#c06c52", hover_color="#a85a43",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=lambda: self.app.open_patient_form(self.app.get_patient_id())
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        ctk.CTkButton(
+            btn_frame, text="＋  Nueva Evaluación", height=36,
+            fg_color="#4b7c60", hover_color="#3d6b50",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._new_evaluation
+        ).grid(row=1, column=0, sticky="ew")
+
+        # Separator
+        ctk.CTkFrame(p, height=1, fg_color=("#E5EAE7", "#2a3d30")).grid(
+            row=4, column=0, sticky="ew", padx=16, pady=16
+        )
+
+        # IMC card
+        imc_card = ctk.CTkFrame(
+            p, corner_radius=10,
+            fg_color=("#4b7c6010", "#1a2e22"),
+            border_width=1, border_color=("#4b7c6030", "#2a4030")
+        )
+        imc_card.grid(row=5, column=0, padx=16, pady=(0, 10), sticky="ew")
+        imc_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            imc_card, text="ÚLTIMO IMC",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color=("#4b7c60", "#6ec896")
+        ).grid(row=0, column=0, padx=12, pady=(10, 0), sticky="w")
+
+        self._imc_lbl = ctk.CTkLabel(
+            imc_card, text="—",
+            font=ctk.CTkFont(size=26, weight="bold"),
+            text_color=("#4b7c60", "#6ec896")
+        )
+        self._imc_lbl.grid(row=1, column=0, padx=12, pady=(0, 10), sticky="w")
+
+        # Estado
+        estado_card = ctk.CTkFrame(
+            p, corner_radius=10,
+            fg_color=("transparent", "transparent"),
+            border_width=1, border_color=("#E5EAE7", "#2a3d30")
+        )
+        estado_card.grid(row=6, column=0, padx=16, pady=(0, 20), sticky="ew")
+        estado_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            estado_card, text="ESTADO GENERAL",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color="#6b7280"
+        ).grid(row=0, column=0, padx=12, pady=(10, 0), sticky="w")
+
+        self._estado_lbl = ctk.CTkLabel(
+            estado_card, text="—",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        self._estado_lbl.grid(row=1, column=0, padx=12, pady=(0, 10), sticky="w")
+
+    def _new_evaluation(self):
+        """Clear form fields and focus the Nueva evaluación tab."""
+        for var in self._vars.values():
+            var.set("")
+        self._vars["sum_6_skinfolds"].set("—")
+        if _CAL_OK and self._date_entry is not None:
+            self._date_entry.set_date(date.today())
+        elif "session_date" in self._vars:
+            self._vars["session_date"].set(date.today().isoformat())
+        self._tabs.set("Nueva evaluación")
+
+    def _refresh_left_panel(self, p):
+        from utils.image_helpers import get_initials
+        name = p.get("name", "—")
+        self._name_lbl.configure(text=name)
+        age = f"{p.get('age')} años" if p.get("age") else ""
+        pid = self.app.get_patient_id()
+        if pid:
+            records = db.get_anthropometrics(pid)
+            if records:
+                last = records[-1]
+                w = last.get("weight_kg")
+                h = last.get("height_cm") or p.get("height_cm")
+                if w and h:
+                    bmi = calc.bmi(float(w), float(h))
+                    bmi_str = f"{bmi:.1f}"
+                    cls_text, _ = calc.classify_bmi(bmi)
+                    self._patient_info_lbl.configure(
+                        text=f"{age}  •  IMC {bmi_str}  •  {cls_text}"
+                    )
+                    self._imc_lbl.configure(text=bmi_str)
+                    self._estado_lbl.configure(text=cls_text)
+                else:
+                    self._patient_info_lbl.configure(text=age or "Sin datos")
+                    self._imc_lbl.configure(text="—")
+                    self._estado_lbl.configure(text="—")
+            else:
+                self._patient_info_lbl.configure(text=age or "Sin datos")
+                self._imc_lbl.configure(text="—")
+                self._estado_lbl.configure(text="—")
+        initials = get_initials(name)[:2]
+        self._avatar_lbl.configure(text=initials)
+
     # ── Form tab ──────────────────────────────────────────────────────────────
     def _build_form_tab(self, tab):
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(1, weight=1)
 
         # ISAK level selector
-        level_bar = ctk.CTkFrame(tab, fg_color=("#f0fdf4", "#1a2e22"), corner_radius=8)
+        level_bar = ctk.CTkFrame(tab, fg_color=("#e8f5ee", "#1a2e22"), corner_radius=8)
         level_bar.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 0))
         ctk.CTkLabel(
             level_bar, text="Nivel ISAK:",
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#1a6b3c", "#4ade80")
+            text_color=("#4b7c60", "#6ec896")
         ).pack(side="left", padx=(12, 8), pady=8)
         ctk.CTkSegmentedButton(
             level_bar, values=["ISAK 1", "ISAK 2"],
@@ -132,7 +273,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         # ── DATOS BÁSICOS ──────────────────────────────────────────────────
         _section_label(f, "DATOS BÁSICOS", row=0, cols=4)
         ctk.CTkLabel(f, text="Fecha de la sesión *",
-                     text_color=("#1a6b3c", "#4ade80"),
+                     text_color=("#4b7c60", "#6ec896"),
                      font=ctk.CTkFont(size=11, weight="bold"), anchor="w"
                      ).grid(row=1, column=0, padx=(10, 2), pady=(6, 0), sticky="w")
         today = date.today()
@@ -140,8 +281,8 @@ class AnthropometricFrame(ctk.CTkFrame):
             self._date_entry = _DateEntry(
                 f, year=today.year, month=today.month, day=today.day,
                 date_pattern="yyyy-mm-dd", width=14,
-                background="#1a6b3c", foreground="white",
-                selectbackground="#16a34a", font=("Segoe UI", 11),
+                background="#4b7c60", foreground="white",
+                selectbackground="#3d6b50", font=("Segoe UI", 11),
             )
             self._date_entry.grid(row=2, column=0, padx=(10, 2), pady=(0, 2), sticky="w")
         else:
@@ -199,7 +340,7 @@ class AnthropometricFrame(ctk.CTkFrame):
             self._vars[key].trace_add("write", lambda *_: self._update_sum())
 
         ctk.CTkLabel(f, text="Σ 6 pliegues (*) — auto",
-                     text_color="#1a6b3c",
+                     text_color="#4b7c60",
                      font=ctk.CTkFont(size=11, weight="bold"), anchor="w"
                      ).grid(row=13, column=0, padx=(10, 2), pady=(6, 0), sticky="w")
         self._vars["sum_6_skinfolds"] = ctk.StringVar(value="—")
@@ -223,12 +364,12 @@ class AnthropometricFrame(ctk.CTkFrame):
                       command=self._calculate
                       ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
         ctk.CTkButton(btn_row, text="Guardar evaluación", height=40,
-                      fg_color="#16a34a", hover_color="#15803d",
+                      fg_color="#4b7c60", hover_color="#3d6b50",
                       command=self._save
                       ).grid(row=0, column=1, sticky="ew")
 
         # ── RESULTS BOX (ISAK 1) ───────────────────────────────────────────
-        res = ctk.CTkFrame(f, fg_color=("#f0fdf4", "#1a2e22"), corner_radius=10)
+        res = ctk.CTkFrame(f, fg_color=("#e8f5ee", "#1a2e22"), corner_radius=10)
         res.grid(row=17, column=0, columnspan=8, padx=8, pady=(8, 4), sticky="ew")
         res.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
 
@@ -355,7 +496,7 @@ class AnthropometricFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             toolbar, text="Exportar PDF evolución", height=34, width=180,
-            fg_color="#7c3aed", hover_color="#5b21b6",
+            fg_color="#c06c52", hover_color="#a85a43",
             command=self._export_evolution_pdf
         ).pack(side="left", padx=4)
 
@@ -400,6 +541,7 @@ class AnthropometricFrame(ctk.CTkFrame):
                     self._vars["height_cm"].set(str(p["height_cm"]))
                 if p.get("weight_kg") and not self._vars["weight_kg"].get():
                     self._vars["weight_kg"].set(str(p["weight_kg"]))
+                self._refresh_left_panel(p)
                 self._load_history()
                 return
         self._patient_lbl.configure(text="Ningún paciente seleccionado")
@@ -795,13 +937,13 @@ class AnthropometricFrame(ctk.CTkFrame):
         for section_title, rows in sections:
             if section_title:
                 frm = ctk.CTkFrame(self._history_scroll,
-                                   fg_color=("#e8f5ee", "#1a3a28"), corner_radius=4)
+                                   fg_color=("#e0ede8", "#1a3a28"), corner_radius=4)
                 frm.grid(row=row_idx, column=0, columnspan=total_cols,
                          padx=6, pady=(10, 2), sticky="ew")
                 ctk.CTkLabel(
                     frm, text=section_title,
                     font=ctk.CTkFont(size=10, weight="bold"),
-                    text_color=("#1a6b3c", "#4ade80")
+                    text_color=("#4b7c60", "#6ec896")
                 ).pack(side="left", padx=8, pady=3)
                 row_idx += 1
                 continue
@@ -840,8 +982,8 @@ class AnthropometricFrame(ctk.CTkFrame):
                 ctk.CTkLabel(
                     self._history_scroll, text=cambio_text,
                     font=ctk.CTkFont(size=11, weight="bold"),
-                    text_color=("#16a34a" if cambio_text.startswith("+") else
-                                ("#dc2626" if cambio_text.startswith("-") else "gray"))
+                    text_color=("#4b7c60" if cambio_text.startswith("+") else
+                                ("#c13333" if cambio_text.startswith("-") else "gray"))
                 ).grid(row=row_idx, column=n_sessions + 1,
                        padx=6, pady=3, sticky="w")
                 row_idx += 1
@@ -991,11 +1133,11 @@ class AnthropometricFrame(ctk.CTkFrame):
             )
 
         charts = [
-            ("Peso (kg)",          [r.get("weight_kg")      for r in records], "#1a6b3c"),
+            ("Peso (kg)",          [r.get("weight_kg")      for r in records], "#4b7c60"),
             ("% Masa grasa",       [r.get("fat_mass_pct")   for r in records], "#0d6efd"),
-            ("Masa grasa (kg)",    [r.get("fat_mass_kg")    for r in records], "#dc2626"),
-            ("Masa magra (kg)",    [r.get("lean_mass_kg")   for r in records], "#16a34a"),
-            ("Σ 6 pliegues (mm)",  [r.get("sum_6_skinfolds") for r in records], "#7c3aed"),
+            ("Masa grasa (kg)",    [r.get("fat_mass_kg")    for r in records], "#c13333"),
+            ("Masa magra (kg)",    [r.get("lean_mass_kg")   for r in records], "#4b7c60"),
+            ("Σ 6 pliegues (mm)",  [r.get("sum_6_skinfolds") for r in records], "#c06c52"),
             ("Cintura (cm)",       [r.get("waist_cm")        for r in records], "#ca8a04"),
             ("IMC (kg/m²)",        bmi_vals,                                    "#0891b2"),
         ]
