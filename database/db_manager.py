@@ -198,6 +198,158 @@ def initialize_db():
             plan_id     INTEGER REFERENCES meal_plans(id) ON DELETE SET NULL,
             used_at     TEXT DEFAULT (datetime('now','localtime'))
         );
+
+        -- ── Pautas de Alimentación ────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS pautas (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            paciente_id         INTEGER NOT NULL,
+            fecha_creacion      TEXT NOT NULL,
+            tipo_pauta          TEXT NOT NULL,
+            nombre_pauta        TEXT,
+            peso_calculo        REAL NOT NULL,
+            tmb                 REAL,
+            fa                  REAL,
+            fa_key              TEXT,
+            get                 REAL,
+            prot_gr_kg          REAL,
+            prot_total_g        REAL,
+            prot_total_kcal     REAL,
+            prot_pct            REAL,
+            lip_pct             REAL,
+            lip_total_kcal      REAL,
+            lip_total_g         REAL,
+            cho_total_kcal      REAL,
+            cho_total_g         REAL,
+            cho_g_kg            REAL,
+            tabla_equivalencias TEXT,
+            incluir_equivalencias INTEGER DEFAULT 1,
+            observaciones       TEXT,
+            FOREIGN KEY (paciente_id) REFERENCES patients(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pauta_porciones (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            pauta_id    INTEGER NOT NULL,
+            grupo       TEXT    NOT NULL,
+            porciones   REAL    DEFAULT 0,
+            FOREIGN KEY (pauta_id) REFERENCES pautas(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pauta_distribucion (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            pauta_id        INTEGER NOT NULL,
+            tiempo_comida   TEXT    NOT NULL,
+            grupo           TEXT    NOT NULL,
+            porciones       REAL    DEFAULT 0,
+            FOREIGN KEY (pauta_id) REFERENCES pautas(id) ON DELETE CASCADE
+        );
+
+        -- ── Ejemplos de Menú ──────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS pauta_menu (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            pauta_id        INTEGER NOT NULL,
+            tiempo_comida   TEXT    NOT NULL,
+            opcion_num      INTEGER NOT NULL DEFAULT 1,
+            nombre_opcion   TEXT,
+            FOREIGN KEY (pauta_id) REFERENCES pautas(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pauta_menu_alimentos (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            menu_id         INTEGER NOT NULL,
+            nombre          TEXT    NOT NULL,
+            nombre_usda_original TEXT,
+            cantidad_g      REAL    DEFAULT 100,
+            kcal            REAL,
+            proteinas_g     REAL,
+            carbohidratos_g REAL,
+            grasas_g        REAL,
+            fibra_g         REAL,
+            alimento_id     INTEGER,
+            FOREIGN KEY (menu_id) REFERENCES pauta_menu(id) ON DELETE CASCADE
+        );
+
+        -- ── Plantillas de Pauta ───────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS pauta_plantillas (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre          TEXT    NOT NULL,
+            tipo_pauta      TEXT    NOT NULL DEFAULT 'omnivoro',
+            descripcion     TEXT,
+            created_at      TEXT    DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS plantilla_porciones (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            plantilla_id    INTEGER NOT NULL,
+            grupo           TEXT    NOT NULL,
+            porciones       REAL    DEFAULT 0,
+            FOREIGN KEY (plantilla_id) REFERENCES pauta_plantillas(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS plantilla_distribucion (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            plantilla_id    INTEGER NOT NULL,
+            tiempo_comida   TEXT    NOT NULL,
+            grupo           TEXT    NOT NULL,
+            porciones       REAL    DEFAULT 0,
+            FOREIGN KEY (plantilla_id) REFERENCES pauta_plantillas(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS eq_grupos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_pauta TEXT NOT NULL,
+            nombre_grupo TEXT NOT NULL,
+            orden INTEGER DEFAULT 0,
+            UNIQUE(tipo_pauta, nombre_grupo)
+        );
+
+        CREATE TABLE IF NOT EXISTS eq_alimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            grupo_id INTEGER NOT NULL,
+            gramaje TEXT NOT NULL DEFAULT '',
+            descripcion TEXT NOT NULL,
+            orden INTEGER DEFAULT 0,
+            FOREIGN KEY (grupo_id) REFERENCES eq_grupos(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS menu_plantillas_ref (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_pauta TEXT NOT NULL,
+            kcal_objetivo REAL,
+            prot_objetivo REAL,
+            descripcion TEXT,
+            fecha_importacion TEXT DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE TABLE IF NOT EXISTS menu_plantilla_tiempos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plantilla_id INTEGER NOT NULL,
+            tiempo_comida TEXT NOT NULL,
+            nombre_opcion TEXT,
+            nombre_preparacion TEXT,
+            FOREIGN KEY (plantilla_id) REFERENCES menu_plantillas_ref(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS menu_plantilla_alimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tiempo_id INTEGER NOT NULL,
+            nombre_alimento TEXT NOT NULL,
+            cantidad_g REAL,
+            medida_casera TEXT,
+            kcal REAL,
+            prot_g REAL,
+            cho_g REAL,
+            lip_g REAL,
+            FOREIGN KEY (tiempo_id) REFERENCES menu_plantilla_tiempos(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pauta_ia_config (
+            pauta_id INTEGER PRIMARY KEY,
+            ia_activada INTEGER DEFAULT 0,
+            ultimo_modelo TEXT,
+            ultima_generacion TEXT,
+            FOREIGN KEY (pauta_id) REFERENCES pautas(id) ON DELETE CASCADE
+        );
     """)
 
     conn.commit()
@@ -285,6 +437,14 @@ def _migrate(conn):
     for col, col_type in meal_plan_new_cols:
         if col not in existing_mp:
             conn.execute(f"ALTER TABLE meal_plans ADD COLUMN {col} {col_type}")
+
+    # Migrate pauta_menu_alimentos table
+    menu_alim_new_cols = [("nombre_usda_original", "TEXT")]
+    existing_pma = {row[1] for row in
+                    conn.execute("PRAGMA table_info(pauta_menu_alimentos)").fetchall()}
+    for col, col_type in menu_alim_new_cols:
+        if col not in existing_pma:
+            conn.execute(f"ALTER TABLE pauta_menu_alimentos ADD COLUMN {col} {col_type}")
 
     # Migrate patients table
     patient_new_cols = [
@@ -1057,3 +1217,611 @@ def seed_predefined_templates():
                 "calories": kcal, "protein_g": prot,
                 "carbs_g": carbs, "fat_g": fat, "fiber_g": fiber,
             })
+
+
+# ── Pautas de Alimentación ────────────────────────────────────────────────────
+
+def insert_pauta(data: dict) -> int:
+    """Inserta una pauta nueva y retorna su id."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO pautas (
+            paciente_id, fecha_creacion, tipo_pauta, nombre_pauta,
+            peso_calculo, tmb, fa, fa_key, get,
+            prot_gr_kg, prot_total_g, prot_total_kcal, prot_pct,
+            lip_pct, lip_total_kcal, lip_total_g,
+            cho_total_kcal, cho_total_g, cho_g_kg,
+            tabla_equivalencias, incluir_equivalencias, observaciones
+        ) VALUES (
+            :paciente_id, :fecha_creacion, :tipo_pauta, :nombre_pauta,
+            :peso_calculo, :tmb, :fa, :fa_key, :get,
+            :prot_gr_kg, :prot_total_g, :prot_total_kcal, :prot_pct,
+            :lip_pct, :lip_total_kcal, :lip_total_g,
+            :cho_total_kcal, :cho_total_g, :cho_g_kg,
+            :tabla_equivalencias, :incluir_equivalencias, :observaciones
+        )
+    """, {
+        "paciente_id": data.get("paciente_id"),
+        "fecha_creacion": data.get("fecha_creacion", datetime.now().strftime("%Y-%m-%d")),
+        "tipo_pauta": data.get("tipo_pauta", "omnivoro"),
+        "nombre_pauta": data.get("nombre_pauta"),
+        "peso_calculo": data.get("peso_calculo", 0),
+        "tmb": data.get("tmb"),
+        "fa": data.get("fa"),
+        "fa_key": data.get("fa_key"),
+        "get": data.get("get"),
+        "prot_gr_kg": data.get("prot_gr_kg"),
+        "prot_total_g": data.get("prot_total_g"),
+        "prot_total_kcal": data.get("prot_total_kcal"),
+        "prot_pct": data.get("prot_pct"),
+        "lip_pct": data.get("lip_pct"),
+        "lip_total_kcal": data.get("lip_total_kcal"),
+        "lip_total_g": data.get("lip_total_g"),
+        "cho_total_kcal": data.get("cho_total_kcal"),
+        "cho_total_g": data.get("cho_total_g"),
+        "cho_g_kg": data.get("cho_g_kg"),
+        "tabla_equivalencias": data.get("tabla_equivalencias"),
+        "incluir_equivalencias": data.get("incluir_equivalencias", 1),
+        "observaciones": data.get("observaciones"),
+    })
+    conn.commit()
+    pid = cur.lastrowid
+    conn.close()
+    return pid
+
+
+def update_pauta(pauta_id: int, data: dict):
+    """Actualiza los campos de requerimientos de una pauta existente."""
+    conn = get_connection()
+    conn.execute("""
+        UPDATE pautas SET
+            tipo_pauta=:tipo_pauta, nombre_pauta=:nombre_pauta,
+            peso_calculo=:peso_calculo, tmb=:tmb, fa=:fa, fa_key=:fa_key, get=:get,
+            prot_gr_kg=:prot_gr_kg, prot_total_g=:prot_total_g,
+            prot_total_kcal=:prot_total_kcal, prot_pct=:prot_pct,
+            lip_pct=:lip_pct, lip_total_kcal=:lip_total_kcal, lip_total_g=:lip_total_g,
+            cho_total_kcal=:cho_total_kcal, cho_total_g=:cho_total_g, cho_g_kg=:cho_g_kg,
+            tabla_equivalencias=:tabla_equivalencias,
+            incluir_equivalencias=:incluir_equivalencias,
+            observaciones=:observaciones
+        WHERE id=:id
+    """, {**data, "id": pauta_id})
+    conn.commit()
+    conn.close()
+
+
+def get_pauta(pauta_id: int) -> Optional[dict]:
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM pautas WHERE id=?", (pauta_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_pautas_paciente(paciente_id: int) -> list:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM pautas WHERE paciente_id=? ORDER BY fecha_creacion DESC",
+        (paciente_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_pauta(pauta_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM pautas WHERE id=?", (pauta_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Porciones ─────────────────────────────────────────────────────────────────
+
+def save_porciones(pauta_id: int, porciones: dict):
+    """
+    Guarda o reemplaza las porciones diarias de una pauta.
+    porciones: {grupo: cantidad_porciones}
+    """
+    conn = get_connection()
+    conn.execute("DELETE FROM pauta_porciones WHERE pauta_id=?", (pauta_id,))
+    for grupo, cantidad in porciones.items():
+        conn.execute(
+            "INSERT INTO pauta_porciones (pauta_id, grupo, porciones) VALUES (?,?,?)",
+            (pauta_id, grupo, cantidad or 0)
+        )
+    conn.commit()
+    conn.close()
+
+
+def get_porciones(pauta_id: int) -> dict:
+    """Retorna {grupo: porciones} para la pauta indicada."""
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT grupo, porciones FROM pauta_porciones WHERE pauta_id=?", (pauta_id,)
+    ).fetchall()
+    conn.close()
+    return {r["grupo"]: r["porciones"] for r in rows}
+
+
+# ── Distribución ──────────────────────────────────────────────────────────────
+
+def save_distribucion(pauta_id: int, distribucion: dict):
+    """
+    Guarda o reemplaza la distribución de porciones por tiempo de comida.
+    distribucion: {tiempo: {grupo: porciones}}
+    """
+    conn = get_connection()
+    conn.execute("DELETE FROM pauta_distribucion WHERE pauta_id=?", (pauta_id,))
+    for tiempo, grupos in distribucion.items():
+        for grupo, cantidad in grupos.items():
+            conn.execute(
+                "INSERT INTO pauta_distribucion (pauta_id, tiempo_comida, grupo, porciones) "
+                "VALUES (?,?,?,?)",
+                (pauta_id, tiempo, grupo, cantidad or 0)
+            )
+    conn.commit()
+    conn.close()
+
+
+def get_distribucion(pauta_id: int) -> dict:
+    """Retorna {tiempo: {grupo: porciones}} para la pauta indicada."""
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT tiempo_comida, grupo, porciones FROM pauta_distribucion WHERE pauta_id=?",
+        (pauta_id,)
+    ).fetchall()
+    conn.close()
+    result = {}
+    for r in rows:
+        t = r["tiempo_comida"]
+        if t not in result:
+            result[t] = {}
+        result[t][r["grupo"]] = r["porciones"]
+    return result
+
+
+def get_last_weight(paciente_id: int) -> Optional[float]:
+    """Retorna el último peso registrado en antropometría para el paciente."""
+    conn = get_connection()
+    row = conn.execute(
+        """SELECT weight_kg FROM anthropometrics
+           WHERE patient_id=? AND weight_kg IS NOT NULL
+           ORDER BY COALESCE(session_date, date) DESC LIMIT 1""",
+        (paciente_id,)
+    ).fetchone()
+    conn.close()
+    return row["weight_kg"] if row else None
+
+
+# ── Menú Ejemplos ─────────────────────────────────────────────────────────────
+
+def save_menu_opcion(pauta_id: int, tiempo_comida: str, opcion_num: int,
+                     alimentos: list, nombre_opcion: str = "") -> int:
+    """
+    Guarda (reemplaza) una opción de menú para un tiempo de comida.
+    alimentos: list of dicts con keys: nombre, cantidad_g, kcal, proteinas_g,
+               carbohidratos_g, grasas_g, fibra_g, alimento_id (optional)
+    Retorna el menu_id.
+    """
+    conn = get_connection()
+    # Eliminar opción existente
+    row = conn.execute(
+        "SELECT id FROM pauta_menu WHERE pauta_id=? AND tiempo_comida=? AND opcion_num=?",
+        (pauta_id, tiempo_comida, opcion_num)
+    ).fetchone()
+    if row:
+        conn.execute("DELETE FROM pauta_menu_alimentos WHERE menu_id=?", (row["id"],))
+        conn.execute("DELETE FROM pauta_menu WHERE id=?", (row["id"],))
+    # Insertar nueva
+    cur = conn.execute(
+        "INSERT INTO pauta_menu (pauta_id, tiempo_comida, opcion_num, nombre_opcion) VALUES (?,?,?,?)",
+        (pauta_id, tiempo_comida, opcion_num, nombre_opcion or "")
+    )
+    menu_id = cur.lastrowid
+    for alim in alimentos:
+        conn.execute(
+            """INSERT INTO pauta_menu_alimentos
+               (menu_id, nombre, nombre_usda_original, cantidad_g, kcal, proteinas_g, carbohidratos_g, grasas_g, fibra_g, alimento_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (menu_id, alim.get("nombre", ""), alim.get("nombre_usda_original", ""),
+             alim.get("cantidad_g", 100),
+             alim.get("kcal"), alim.get("proteinas_g"), alim.get("carbohidratos_g"),
+             alim.get("grasas_g"), alim.get("fibra_g"), alim.get("alimento_id"))
+        )
+    conn.commit()
+    conn.close()
+    return menu_id
+
+
+def get_menu_pauta(pauta_id: int) -> dict:
+    """
+    Retorna estructura completa del menú de una pauta.
+    {tiempo_comida: {opcion_num: {"nombre": str, "alimentos": [dict]}}}
+    """
+    conn = get_connection()
+    menus = conn.execute(
+        "SELECT * FROM pauta_menu WHERE pauta_id=? ORDER BY tiempo_comida, opcion_num",
+        (pauta_id,)
+    ).fetchall()
+    result = {}
+    for m in menus:
+        tc = m["tiempo_comida"]
+        op = m["opcion_num"]
+        alims = conn.execute(
+            "SELECT * FROM pauta_menu_alimentos WHERE menu_id=? ORDER BY id",
+            (m["id"],)
+        ).fetchall()
+        if tc not in result:
+            result[tc] = {}
+        result[tc][op] = {
+            "nombre": m["nombre_opcion"],
+            "alimentos": [dict(a) for a in alims]
+        }
+    conn.close()
+    return result
+
+
+def delete_menu_opcion(pauta_id: int, tiempo_comida: str, opcion_num: int):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id FROM pauta_menu WHERE pauta_id=? AND tiempo_comida=? AND opcion_num=?",
+        (pauta_id, tiempo_comida, opcion_num)
+    ).fetchone()
+    if row:
+        conn.execute("DELETE FROM pauta_menu WHERE id=?", (row["id"],))
+        conn.commit()
+    conn.close()
+
+
+# ── Plantillas de Pauta ───────────────────────────────────────────────────────
+
+def insert_pauta_plantilla(nombre: str, tipo_pauta: str, descripcion: str = "") -> int:
+    conn = get_connection()
+    cur = conn.execute(
+        "INSERT INTO pauta_plantillas (nombre, tipo_pauta, descripcion) VALUES (?,?,?)",
+        (nombre, tipo_pauta, descripcion or "")
+    )
+    pid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return pid
+
+
+def get_pauta_plantillas() -> list:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM pauta_plantillas ORDER BY nombre ASC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_plantilla_porciones(plantilla_id: int, porciones: dict):
+    conn = get_connection()
+    conn.execute("DELETE FROM plantilla_porciones WHERE plantilla_id=?", (plantilla_id,))
+    for grupo, cantidad in porciones.items():
+        conn.execute(
+            "INSERT INTO plantilla_porciones (plantilla_id, grupo, porciones) VALUES (?,?,?)",
+            (plantilla_id, grupo, cantidad or 0)
+        )
+    conn.commit()
+    conn.close()
+
+
+def get_plantilla_porciones(plantilla_id: int) -> dict:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT grupo, porciones FROM plantilla_porciones WHERE plantilla_id=?",
+        (plantilla_id,)
+    ).fetchall()
+    conn.close()
+    return {r["grupo"]: r["porciones"] for r in rows}
+
+
+def save_plantilla_distribucion(plantilla_id: int, distribucion: dict):
+    conn = get_connection()
+    conn.execute("DELETE FROM plantilla_distribucion WHERE plantilla_id=?", (plantilla_id,))
+    for tiempo, grupos in distribucion.items():
+        for grupo, cantidad in grupos.items():
+            conn.execute(
+                "INSERT INTO plantilla_distribucion (plantilla_id, tiempo_comida, grupo, porciones) VALUES (?,?,?,?)",
+                (plantilla_id, tiempo, grupo, cantidad or 0)
+            )
+    conn.commit()
+    conn.close()
+
+
+def get_plantilla_distribucion(plantilla_id: int) -> dict:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT tiempo_comida, grupo, porciones FROM plantilla_distribucion WHERE plantilla_id=?",
+        (plantilla_id,)
+    ).fetchall()
+    conn.close()
+    result = {}
+    for r in rows:
+        t = r["tiempo_comida"]
+        if t not in result:
+            result[t] = {}
+        result[t][r["grupo"]] = r["porciones"]
+    return result
+
+
+def delete_pauta_plantilla(plantilla_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM pauta_plantillas WHERE id=?", (plantilla_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Editor Tablas de Equivalencias ────────────────────────────────────────────
+
+def migrar_tablas_equivalencias():
+    """Importa TABLAS_EQUIVALENCIAS a BD si eq_grupos está vacía."""
+    conn = get_connection()
+    count = conn.execute("SELECT COUNT(*) FROM eq_grupos").fetchone()[0]
+    if count > 0:
+        conn.close()
+        return
+    from modules.pautas_alimentacion.tablas_equivalencias import TABLAS_EQUIVALENCIAS
+    orden_grupo = 0
+    for tipo_pauta, grupos in TABLAS_EQUIVALENCIAS.items():
+        for nombre_grupo, alimentos in grupos.items():
+            cur = conn.execute(
+                "INSERT INTO eq_grupos (tipo_pauta, nombre_grupo, orden) VALUES (?,?,?)",
+                (tipo_pauta, nombre_grupo, orden_grupo)
+            )
+            grupo_id = cur.lastrowid
+            for i, alimento in enumerate(alimentos):
+                partes = alimento.split(" — ", 1)
+                gramaje = partes[0].strip() if len(partes) == 2 else ""
+                descripcion = partes[1].strip() if len(partes) == 2 else alimento
+                conn.execute(
+                    "INSERT INTO eq_alimentos (grupo_id, gramaje, descripcion, orden) VALUES (?,?,?,?)",
+                    (grupo_id, gramaje, descripcion, i)
+                )
+            orden_grupo += 1
+    conn.commit()
+    conn.close()
+
+
+def eq_get_grupos(tipo_pauta: str) -> list:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, tipo_pauta, nombre_grupo, orden FROM eq_grupos WHERE tipo_pauta=? ORDER BY orden ASC",
+        (tipo_pauta,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def eq_get_alimentos(grupo_id: int) -> list:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, grupo_id, gramaje, descripcion, orden FROM eq_alimentos WHERE grupo_id=? ORDER BY orden ASC",
+        (grupo_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def eq_agregar_grupo(tipo_pauta: str, nombre_grupo: str) -> int:
+    conn = get_connection()
+    max_ord = conn.execute(
+        "SELECT COALESCE(MAX(orden),0)+1 FROM eq_grupos WHERE tipo_pauta=?", (tipo_pauta,)
+    ).fetchone()[0]
+    cur = conn.execute(
+        "INSERT INTO eq_grupos (tipo_pauta, nombre_grupo, orden) VALUES (?,?,?)",
+        (tipo_pauta, nombre_grupo, max_ord)
+    )
+    gid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return gid
+
+
+def eq_renombrar_grupo(grupo_id: int, nuevo_nombre: str):
+    conn = get_connection()
+    conn.execute("UPDATE eq_grupos SET nombre_grupo=? WHERE id=?", (nuevo_nombre, grupo_id))
+    conn.commit()
+    conn.close()
+
+
+def eq_eliminar_grupo(grupo_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM eq_grupos WHERE id=?", (grupo_id,))
+    conn.commit()
+    conn.close()
+
+
+def eq_mover_grupo(grupo_id: int, direccion: str):
+    conn = get_connection()
+    row = conn.execute("SELECT tipo_pauta, orden FROM eq_grupos WHERE id=?", (grupo_id,)).fetchone()
+    if not row:
+        conn.close()
+        return
+    tipo = row["tipo_pauta"]
+    orden_actual = row["orden"]
+    if direccion == "arriba":
+        vecino = conn.execute(
+            "SELECT id, orden FROM eq_grupos WHERE tipo_pauta=? AND orden < ? ORDER BY orden DESC LIMIT 1",
+            (tipo, orden_actual)
+        ).fetchone()
+    else:
+        vecino = conn.execute(
+            "SELECT id, orden FROM eq_grupos WHERE tipo_pauta=? AND orden > ? ORDER BY orden ASC LIMIT 1",
+            (tipo, orden_actual)
+        ).fetchone()
+    if vecino:
+        conn.execute("UPDATE eq_grupos SET orden=? WHERE id=?", (vecino["orden"], grupo_id))
+        conn.execute("UPDATE eq_grupos SET orden=? WHERE id=?", (orden_actual, vecino["id"]))
+        conn.commit()
+    conn.close()
+
+
+def eq_agregar_alimento(grupo_id: int, gramaje: str, descripcion: str) -> int:
+    conn = get_connection()
+    max_ord = conn.execute(
+        "SELECT COALESCE(MAX(orden),0)+1 FROM eq_alimentos WHERE grupo_id=?", (grupo_id,)
+    ).fetchone()[0]
+    cur = conn.execute(
+        "INSERT INTO eq_alimentos (grupo_id, gramaje, descripcion, orden) VALUES (?,?,?,?)",
+        (grupo_id, gramaje, descripcion, max_ord)
+    )
+    aid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return aid
+
+
+def eq_editar_alimento(alimento_id: int, gramaje: str, descripcion: str):
+    conn = get_connection()
+    conn.execute("UPDATE eq_alimentos SET gramaje=?, descripcion=? WHERE id=?",
+                 (gramaje, descripcion, alimento_id))
+    conn.commit()
+    conn.close()
+
+
+def eq_eliminar_alimento(alimento_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM eq_alimentos WHERE id=?", (alimento_id,))
+    conn.commit()
+    conn.close()
+
+
+def eq_mover_alimento(alimento_id: int, direccion: str):
+    conn = get_connection()
+    row = conn.execute("SELECT grupo_id, orden FROM eq_alimentos WHERE id=?", (alimento_id,)).fetchone()
+    if not row:
+        conn.close()
+        return
+    gid = row["grupo_id"]
+    orden_actual = row["orden"]
+    if direccion == "arriba":
+        vecino = conn.execute(
+            "SELECT id, orden FROM eq_alimentos WHERE grupo_id=? AND orden < ? ORDER BY orden DESC LIMIT 1",
+            (gid, orden_actual)
+        ).fetchone()
+    else:
+        vecino = conn.execute(
+            "SELECT id, orden FROM eq_alimentos WHERE grupo_id=? AND orden > ? ORDER BY orden ASC LIMIT 1",
+            (gid, orden_actual)
+        ).fetchone()
+    if vecino:
+        conn.execute("UPDATE eq_alimentos SET orden=? WHERE id=?", (vecino["orden"], alimento_id))
+        conn.execute("UPDATE eq_alimentos SET orden=? WHERE id=?", (orden_actual, vecino["id"]))
+        conn.commit()
+    conn.close()
+
+
+def eq_exportar_tabla(tipo_pauta: str) -> dict:
+    """Retorna {nombre_grupo: ["gramaje — descripcion", ...]} para el PDF."""
+    conn = get_connection()
+    grupos = conn.execute(
+        "SELECT id, nombre_grupo FROM eq_grupos WHERE tipo_pauta=? ORDER BY orden ASC",
+        (tipo_pauta,)
+    ).fetchall()
+    result = {}
+    for g in grupos:
+        alims = conn.execute(
+            "SELECT gramaje, descripcion FROM eq_alimentos WHERE grupo_id=? ORDER BY orden ASC",
+            (g["id"],)
+        ).fetchall()
+        items = []
+        for a in alims:
+            gram = a["gramaje"].strip()
+            desc = a["descripcion"].strip()
+            if gram:
+                items.append(f"{gram} — {desc}")
+            else:
+                items.append(desc)
+        result[g["nombre_grupo"]] = items
+    conn.close()
+    return result
+
+
+# ── Configuración IA por pauta ─────────────────────────────────────────────────
+
+def get_ia_config(pauta_id: int) -> dict:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM pauta_ia_config WHERE pauta_id=?", (pauta_id,)
+    ).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {"pauta_id": pauta_id, "ia_activada": 0, "ultimo_modelo": None, "ultima_generacion": None}
+
+
+def set_ia_activada(pauta_id: int, activada: bool):
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO pauta_ia_config (pauta_id, ia_activada) VALUES (?,?)
+        ON CONFLICT(pauta_id) DO UPDATE SET ia_activada=excluded.ia_activada
+    """, (pauta_id, 1 if activada else 0))
+    conn.commit()
+    conn.close()
+
+
+def set_ia_ultima_generacion(pauta_id: int, modelo: str):
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO pauta_ia_config (pauta_id, ia_activada, ultimo_modelo, ultima_generacion)
+        VALUES (?,1,?,?)
+        ON CONFLICT(pauta_id) DO UPDATE SET
+            ultimo_modelo=excluded.ultimo_modelo,
+            ultima_generacion=excluded.ultima_generacion
+    """, (pauta_id, modelo, now))
+    conn.commit()
+    conn.close()
+
+
+# ── Plantillas de menú de referencia ──────────────────────────────────────────
+
+def get_plantillas_ref(tipo_pauta: Optional[str] = None) -> list:
+    conn = get_connection()
+    if tipo_pauta:
+        rows = conn.execute(
+            "SELECT * FROM menu_plantillas_ref WHERE tipo_pauta=? ORDER BY kcal_objetivo",
+            (tipo_pauta,)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM menu_plantillas_ref ORDER BY tipo_pauta, kcal_objetivo"
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_plantilla_ref_completa(plantilla_id: int) -> Optional[dict]:
+    conn = get_connection()
+    p = conn.execute(
+        "SELECT * FROM menu_plantillas_ref WHERE id=?", (plantilla_id,)
+    ).fetchone()
+    if not p:
+        conn.close()
+        return None
+    tiempos = conn.execute(
+        "SELECT * FROM menu_plantilla_tiempos WHERE plantilla_id=? ORDER BY tiempo_comida",
+        (plantilla_id,)
+    ).fetchall()
+    result = dict(p)
+    result["tiempos"] = []
+    for t in tiempos:
+        t_dict = dict(t)
+        alims = conn.execute(
+            "SELECT * FROM menu_plantilla_alimentos WHERE tiempo_id=?", (t["id"],)
+        ).fetchall()
+        t_dict["alimentos"] = [dict(a) for a in alims]
+        result["tiempos"].append(t_dict)
+    conn.close()
+    return result
+
+
+def delete_plantilla_ref(plantilla_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM menu_plantillas_ref WHERE id=?", (plantilla_id,))
+    conn.commit()
+    conn.close()
