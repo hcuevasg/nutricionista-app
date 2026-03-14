@@ -606,6 +606,54 @@ def _generate_pauta_pdf(patient, pauta, nutritionist) -> bytes:
         ]))
         story.append(dist_t)
 
+    # ── Menú generado con IA ─────────────────────────────────────────
+    try:
+        menu = json.loads(pauta.menu_json or "{}") if pauta.menu_json else {}
+    except Exception:
+        menu = {}
+
+    if menu:
+        story.append(Spacer(1, 0.3*cm))
+        story.append(section("Ideas de Menú — Generado con IA"))
+
+        for key, label in _TIEMPOS_COMIDA:
+            tiempo_menu = menu.get(key)
+            if not tiempo_menu:
+                continue
+
+            opcion1 = tiempo_menu.get("opcion1", "")
+            opcion2 = tiempo_menu.get("opcion2", "")
+
+            tiempo_rows = [
+                [
+                    Paragraph(label, style("MnTL", fontSize=10, textColor=WHITE, fontName="Helvetica-Bold", leading=14)),
+                    Paragraph("", S_TD),
+                ],
+                [
+                    Paragraph("Opción 1", style("MnOL", fontSize=8, textColor=C_PRIMARY, fontName="Helvetica-Bold", leading=12)),
+                    Paragraph(opcion1, S_BODY),
+                ],
+                [
+                    Paragraph("Opción 2", style("MnOL2", fontSize=8, textColor=C_TERRA, fontName="Helvetica-Bold", leading=12)),
+                    Paragraph(opcion2, S_BODY),
+                ],
+            ]
+            menu_t = Table(tiempo_rows, colWidths=[2.5*cm, None])
+            menu_t.setStyle(TableStyle([
+                ("BACKGROUND",   (0, 0), (-1, 0), C_PRIMARY),
+                ("BACKGROUND",   (0, 1), (0, 1), _hex("#e8f0eb")),
+                ("BACKGROUND",   (0, 2), (0, 2), _hex("#fdf0ec")),
+                ("ROWBACKGROUNDS", (1, 1), (1, 2), [_hex("#f4f8f5"), _hex("#fdf8f6")]),
+                ("GRID",         (0, 0), (-1, -1), 0.3, C_BORDER),
+                ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING",   (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
+                ("SPAN",         (0, 0), (-1, 0)),
+            ]))
+            story.append(KeepTogether([menu_t, Spacer(1, 0.2*cm)]))
+
     # ── Notas ───────────────────────────────────────────────────────
     if pauta.notes:
         story.append(Spacer(1, 0.3*cm))
