@@ -4,7 +4,7 @@
 - ✅ **FASE 0:** Infrastructure boilerplate completada
 - ✅ **FASE 1:** Backend FastAPI core completado (auth, patients CRUD)
 - ✅ **FASE 2:** Frontend React pages y layout completados
-- 🔄 **FASE 3:** Database migration (pendiente)
+- ✅ **FASE 3:** Deploy completo — Railway (backend + PostgreSQL) + Vercel (frontend)
 
 ## 🎯 MVP Actual - Lo que Funciona
 
