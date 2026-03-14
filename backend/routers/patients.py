@@ -31,7 +31,7 @@ async def create_patient(
 ):
     """Create a new patient."""
     patient = models.Patient(
-        **request.dict(),
+        **request.model_dump(),
         nutritionist_id=current_user.id
     )
     db.add(patient)
@@ -74,7 +74,7 @@ async def update_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    for key, value in request.dict().items():
+    for key, value in request.model_dump().items():
         setattr(patient, key, value)
 
     db.commit()

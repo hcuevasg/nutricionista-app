@@ -47,7 +47,7 @@ async def create_meal_plan(
     for item in request.items:
         meal_item = models.MealItem(
             plan_id=meal_plan.id,
-            **item.dict()
+            **item.model_dump()
         )
         db.add(meal_item)
 
@@ -150,7 +150,7 @@ async def update_meal_plan(
     for item in request.items:
         meal_item = models.MealItem(
             plan_id=plan_id,
-            **item.dict()
+            **item.model_dump()
         )
         db.add(meal_item)
 

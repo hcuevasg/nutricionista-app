@@ -29,7 +29,7 @@ async def create_anthropometric(
         raise HTTPException(status_code=404, detail="Patient not found")
 
     anthropometric = models.Anthropometric(
-        **request.dict(),
+        **request.model_dump(),
         patient_id=patient_id
     )
     db.add(anthropometric)
@@ -115,7 +115,7 @@ async def update_anthropometric(
     if not anthropometric:
         raise HTTPException(status_code=404, detail="Evaluation not found")
 
-    for key, value in request.dict().items():
+    for key, value in request.model_dump().items():
         setattr(anthropometric, key, value)
 
     db.commit()
