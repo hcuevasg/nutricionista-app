@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
@@ -18,6 +18,8 @@ export default function PatientsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!token) return
+
     const fetchPatients = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/patients`, {
@@ -48,10 +50,8 @@ export default function PatientsPage() {
       }
     }
 
-    if (token) {
-      fetchPatients()
-    }
-  }, [token, logout, navigate])
+    fetchPatients()
+  }, [token])
 
   return (
     <Layout title="Pacientes">
