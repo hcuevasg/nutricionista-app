@@ -3,7 +3,7 @@ NutriApp Backend - FastAPI
 Multi-tenant nutrition management platform
 """
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
@@ -45,10 +45,9 @@ app = FastAPI(
 
 # CORS configuration
 origins = [
-    "http://localhost:3000",      # Local React dev
-    "http://localhost:5173",      # Vite default
-    "https://nutriapp.vercel.app", # Production frontend
-    "*"  # Allow all (restrict in production)
+    "http://localhost:3000",
+    "http://localhost:5173",
+    os.getenv("FRONTEND_URL", "https://nutricionista-app.vercel.app"),
 ]
 
 app.add_middleware(
