@@ -183,7 +183,7 @@ class PautasFrame(ctk.CTkFrame):
         # Wrapper con canvas para scroll horizontal+vertical
         wrap=ctk.CTkFrame(s2,fg_color="transparent");wrap.grid(row=1,column=0,sticky="nsew",padx=8,pady=(0,12))
         s2.grid_rowconfigure(1,weight=1);wrap.grid_columnconfigure(0,weight=1);wrap.grid_rowconfigure(0,weight=1)
-        import tkinter as tk as _tk_mod
+        import tkinter as _tk_mod
         bg_val=_CARD
         canvas=_tk_mod.Canvas(wrap,height=260,highlightthickness=0,bg=bg_val)
         h_sb=_tk_mod.Scrollbar(wrap,orient="horizontal",command=canvas.xview)
