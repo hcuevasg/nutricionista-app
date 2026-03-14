@@ -12,14 +12,14 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import routers (will create these)
-# from routers import auth, patients, anthropometrics, meal_plans, reports
+# Import routers
+from routers import auth, patients
 
 # Import database
-# from database import engine, Base
+from database import engine, Base
 
 # Create tables on startup
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
@@ -55,9 +55,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers (will add routes here)
-# app.include_router(auth.router, prefix="/auth", tags=["auth"])
-# app.include_router(patients.router, prefix="/patients", tags=["patients"])
+# Include routers
+app.include_router(auth.router)
+app.include_router(patients.router)
 
 
 @app.get("/")
