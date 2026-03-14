@@ -27,7 +27,7 @@ export default function Layout({ children, title }: LayoutProps) {
   return (
     <div className="flex h-screen bg-bg-light">
       {/* Sidebar */}
-      <div className="w-64 bg-primary text-white shadow-lg">
+      <div className="relative w-64 bg-primary text-white shadow-lg flex-shrink-0">
         <div className="p-6">
           <h1 className="text-2xl font-bold">NutriApp</h1>
           <p className="text-sm text-primary-dark mt-1">Gestión Nutricional</p>

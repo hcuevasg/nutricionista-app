@@ -34,11 +34,15 @@ async def get_stats(
         models.MealPlan.patient_id.in_(patient_ids)
     ).scalar()
 
+    total_pautas = db.query(func.count(models.Pauta.id)).filter(
+        models.Pauta.patient_id.in_(patient_ids)
+    ).scalar()
+
     return {
         "total_patients": total_patients or 0,
         "total_evaluations": total_evaluations or 0,
         "total_plans": total_plans or 0,
-        "total_pautas": 0,  # Fase 4
+        "total_pautas": total_pautas or 0,
     }
 
 

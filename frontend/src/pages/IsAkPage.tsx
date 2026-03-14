@@ -97,6 +97,7 @@ export default function IsAkPage() {
   const [soma, setSoma] = useState<SomatotypeResult | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -212,6 +213,25 @@ export default function IsAkPage() {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDownloadIsak = async (evalId: number, date: string) => {
+    setDownloadingId(evalId)
+    try {
+      const res = await fetch(`${API}/anthropometrics/${id}/${evalId}/pdf`, { headers: H })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ISAK_${patient?.name.replace(/ /g, '_') ?? id}_${date}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo descargar el PDF')
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -456,7 +476,7 @@ export default function IsAkPage() {
           <table className="w-full">
             <thead className="bg-bg-light border-b border-border">
               <tr>
-                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'Σ6 mm', 'IMC', 'Somatotipo'].map(h => (
+                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'Σ6 mm', 'IMC', 'Somatotipo', 'PDF'].map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
                     h === 'Fecha' || h === 'Nivel' ? 'text-left' : 'text-right'
                   }`}>{h}</th>
@@ -487,6 +507,15 @@ export default function IsAkPage() {
                     <td className="px-4 py-3 text-sm text-gray-700 text-right">{evBmi != null ? evBmi.toFixed(1) : '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-700 text-right">
                       {hasSoma ? `${ev.somatotype_endo}-${ev.somatotype_meso}-${ev.somatotype_ecto}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => handleDownloadIsak(ev.id, ev.date)}
+                        disabled={downloadingId === ev.id}
+                        className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                      >
+                        {downloadingId === ev.id ? '...' : '⬇ PDF'}
+                      </button>
                     </td>
                   </tr>
                 )

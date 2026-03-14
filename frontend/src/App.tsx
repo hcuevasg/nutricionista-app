@@ -12,6 +12,8 @@ import PatientDetailPage from './pages/PatientDetailPage'
 import IsAkPage from './pages/IsAkPage'
 import MealPlansPage from './pages/MealPlansPage'
 import MealPlanFormPage from './pages/MealPlanFormPage'
+import PautasPage from './pages/PautasPage'
+import PautaFormPage from './pages/PautaFormPage'
 import ConfigPage from './pages/ConfigPage'
 
 export default function App() {
@@ -32,6 +34,9 @@ export default function App() {
           <Route path="/patients/:id/plans" element={<PrivateRoute><MealPlansPage /></PrivateRoute>} />
           <Route path="/patients/:id/plans/new" element={<PrivateRoute><MealPlanFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/plans/:planId/edit" element={<PrivateRoute><MealPlanFormPage /></PrivateRoute>} />
+          <Route path="/patients/:id/pautas" element={<PrivateRoute><PautasPage /></PrivateRoute>} />
+          <Route path="/patients/:id/pautas/new" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
+          <Route path="/patients/:id/pautas/:pautaId" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/config" element={<PrivateRoute><ConfigPage /></PrivateRoute>} />
 
           {/* Redirect to dashboard by default */}

@@ -160,9 +160,12 @@ export default function PatientDetailPage() {
               >
                 + Plan alimenticio
               </Link>
-              <button className="w-full bg-sage hover:opacity-90 text-white py-2 rounded text-sm">
+              <Link
+                to={`/patients/${id}/pautas/new`}
+                className="block w-full bg-sage hover:opacity-90 text-white py-2 rounded text-sm text-center"
+              >
                 + Pauta nutricional
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -181,9 +184,12 @@ export default function PatientDetailPage() {
               >
                 Planes alimenticios
               </Link>
-              <button className="block w-full text-left px-3 py-2 rounded text-sm text-gray-400 cursor-not-allowed">
+              <Link
+                to={`/patients/${id}/pautas`}
+                className="block px-3 py-2 rounded text-sm text-gray-700 hover:bg-bg-light hover:text-primary"
+              >
                 Pautas nutricionales
-              </button>
+              </Link>
             </div>
           </div>
         </div>
