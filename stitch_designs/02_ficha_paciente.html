@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4b7c60",
+                        "terracotta": "#c76d4d",
+                        "background-light": "#f6f7f7",
+                        "background-dark": "#161c19",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>NutriApp - Ficha de Paciente</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex min-h-screen overflow-x-hidden">
+<!-- Sidebar -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/50 p-4 flex flex-col gap-6">
+<div class="flex items-center gap-3 px-2">
+<div class="bg-primary/20 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">nutrition</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-primary text-lg font-bold leading-tight">NutriApp</h1>
+<p class="text-slate-500 text-xs font-normal">Gestión Nutricional</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">dashboard</span>
+<p class="text-sm font-medium">Dashboard</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white shadow-sm">
+<span class="material-symbols-outlined">group</span>
+<p class="text-sm font-medium">Pacientes</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">calendar_month</span>
+<p class="text-sm font-medium">Calendario</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">bar_chart</span>
+<p class="text-sm font-medium">Reportes</p>
+</div>
+<div class="mt-auto pt-4 flex flex-col gap-1">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">settings</span>
+<p class="text-sm font-medium">Ajustes</p>
+</div>
+</div>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex overflow-hidden">
+<!-- Left Panel: Patient Profile (35%) -->
+<section class="w-[35%] border-r border-primary/10 p-8 flex flex-col items-center bg-white dark:bg-background-dark/20">
+<div class="relative mb-6">
+<div class="size-40 rounded-full border-4 border-primary/30 p-1">
+<img alt="Claudia Abarca Profile" class="size-full rounded-full object-cover" data-alt="Professional headshot of a young woman smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxiO2YC52qty3qlhdwfxTTYDBbrtUOxrs672b5ynqELDhhElSDDNdbdDjqNxgLn_ZDO-_o0d5S1Wfljd5NG9V7uF7QyTI8RtP-4ZdoVaZkSUeJkyHNMnpDJkdmmbuFwnxYQBhlMi7NsVnohJZ-77oOTjyI8J2u-U8bhXsC-137gS3-LKj9Ea34HlLSPp2ala5y1dJ38JqKMu3kOeENNS-TRH19F5Al_PqZoFEoDLHDoJTmVbAMSevdz0yv_31IMmarO8t5x6FzNec"/>
+</div>
+</div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Claudia Abarca</h2>
+<p class="text-slate-500 text-sm mb-6">29 años • IMC 26.6 • Sobrepeso Grado I</p>
+<div class="flex flex-col w-full gap-3 px-4">
+<button class="w-full py-2.5 px-4 bg-terracotta text-white rounded-lg font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+                        Editar Perfil
+                    </button>
+<button class="w-full py-2.5 px-4 bg-primary text-white rounded-lg font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+                        Nueva Evaluación
+                    </button>
+</div>
+<div class="mt-8 w-full px-4 flex flex-col gap-4">
+<div class="p-4 rounded-xl border border-primary/10 bg-primary/5">
+<p class="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Último IMC</p>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-bold text-primary">26.6</span>
+<span class="text-terracotta text-sm font-medium mb-1">+0.4%</span>
+</div>
+</div>
+<div class="p-4 rounded-xl border border-primary/10">
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Estado General</p>
+<p class="text-xl font-bold text-slate-900 dark:text-slate-100">Elevado</p>
+</div>
+</div>
+</section>
+<!-- Right Panel: Tabs & Data (65%) -->
+<section class="flex-1 flex flex-col bg-background-light dark:bg-background-dark">
+<!-- Tabs -->
+<div class="px-8 border-b border-primary/10 bg-white dark:bg-background-dark/50">
+<div class="flex gap-8">
+<button class="py-4 border-b-2 border-primary text-primary text-sm font-bold">ISAK 1</button>
+<button class="py-4 border-b-2 border-transparent text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors">ISAK 2</button>
+<button class="py-4 border-b-2 border-transparent text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors">Evolución</button>
+<button class="py-4 border-b-2 border-transparent text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors">Comparar</button>
+</div>
+</div>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8 flex flex-col gap-8">
+<!-- Session Selector -->
+<div class="flex gap-3">
+<div class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-medium cursor-pointer">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+                            Sesión 1
+                        </div>
+<div class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm font-medium cursor-pointer">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+                            Sesión 2
+                        </div>
+<div class="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-sm font-bold shadow-md">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+                            Sesión 3
+                        </div>
+</div>
+<!-- Results Overview -->
+<div class="grid grid-cols-3 gap-4">
+<div class="bg-white dark:bg-background-dark/40 p-5 rounded-xl border border-primary/10 shadow-sm">
+<p class="text-xs font-semibold text-slate-500 uppercase mb-2">Masa Grasa %</p>
+<div class="flex items-center justify-between">
+<span class="text-2xl font-bold">29.1%</span>
+<span class="px-2 py-1 bg-terracotta text-white text-[10px] font-bold rounded-full">ELEVADO</span>
+</div>
+</div>
+<div class="bg-white dark:bg-background-dark/40 p-5 rounded-xl border border-primary/10 shadow-sm">
+<p class="text-xs font-semibold text-slate-500 uppercase mb-2">Masa Grasa</p>
+<span class="text-2xl font-bold">21.8 kg</span>
+</div>
+<div class="bg-white dark:bg-background-dark/40 p-5 rounded-xl border border-primary/10 shadow-sm">
+<p class="text-xs font-semibold text-slate-500 uppercase mb-2">Masa Magra</p>
+<span class="text-2xl font-bold">53.2 kg</span>
+</div>
+</div>
+<!-- Data Sections -->
+<div class="grid grid-cols-2 gap-8">
+<!-- Perímetros -->
+<div class="space-y-4">
+<h3 class="text-base font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">straighten</span>
+                                Perímetros (cm)
+                            </h3>
+<div class="bg-white dark:bg-background-dark/40 rounded-xl overflow-hidden border border-primary/10">
+<table class="w-full text-sm">
+<tbody class="divide-y divide-primary/10">
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Cintura</td>
+<td class="px-4 py-3 text-right font-bold">82.5</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Cadera</td>
+<td class="px-4 py-3 text-right font-bold">104.2</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Brazo relajado</td>
+<td class="px-4 py-3 text-right font-bold">31.0</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Muslo medio</td>
+<td class="px-4 py-3 text-right font-bold">58.4</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Pliegues -->
+<div class="space-y-4">
+<h3 class="text-base font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">architecture</span>
+                                Pliegues (mm)
+                            </h3>
+<div class="bg-white dark:bg-background-dark/40 rounded-xl overflow-hidden border border-primary/10">
+<table class="w-full text-sm">
+<tbody class="divide-y divide-primary/10">
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Tricipital</td>
+<td class="px-4 py-3 text-right font-bold">18.0</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Subescapular</td>
+<td class="px-4 py-3 text-right font-bold">15.5</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Supraespinal</td>
+<td class="px-4 py-3 text-right font-bold">22.0</td>
+</tr>
+<tr>
+<td class="px-4 py-3 font-medium text-slate-600 dark:text-slate-400">Abdominal</td>
+<td class="px-4 py-3 text-right font-bold">28.5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Datos Básicos -->
+<div class="space-y-4">
+<h3 class="text-base font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">clinical_notes</span>
+                            Datos Básicos
+                        </h3>
+<div class="grid grid-cols-4 gap-4">
+<div class="bg-white dark:bg-background-dark/40 p-4 rounded-xl border border-primary/10 text-center">
+<p class="text-xs text-slate-500 mb-1">Peso (kg)</p>
+<p class="text-xl font-bold">75.0</p>
+</div>
+<div class="bg-white dark:bg-background-dark/40 p-4 rounded-xl border border-primary/10 text-center">
+<p class="text-xs text-slate-500 mb-1">Estatura (cm)</p>
+<p class="text-xl font-bold">168</p>
+</div>
+<div class="bg-white dark:bg-background-dark/40 p-4 rounded-xl border border-primary/10 text-center">
+<p class="text-xs text-slate-500 mb-1">Talla sentado</p>
+<p class="text-xl font-bold">88.5</p>
+</div>
+<div class="bg-white dark:bg-background-dark/40 p-4 rounded-xl border border-primary/10 text-center">
+<p class="text-xs text-slate-500 mb-1">Envergadura</p>
+<p class="text-xl font-bold">171</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+</body></html>

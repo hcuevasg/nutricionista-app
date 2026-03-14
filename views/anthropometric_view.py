@@ -111,7 +111,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         self._avatar_lbl = ctk.CTkLabel(
             p, text="?", width=80, height=80,
             corner_radius=40,
-            fg_color=("#8da39920", "#2a3d30"),
+            fg_color=("#8da399", "#2a3d30"),
             font=ctk.CTkFont(size=26, weight="bold"),
             text_color=("#4b7c60", "#6ec896")
         )
@@ -157,8 +157,8 @@ class AnthropometricFrame(ctk.CTkFrame):
         # IMC card
         imc_card = ctk.CTkFrame(
             p, corner_radius=10,
-            fg_color=("#4b7c6010", "#1a2e22"),
-            border_width=1, border_color=("#4b7c6030", "#2a4030")
+            fg_color=("#4b7c60", "#1a2e22"),
+            border_width=1, border_color=("#4b7c60", "#2a4030")
         )
         imc_card.grid(row=5, column=0, padx=16, pady=(0, 10), sticky="ew")
         imc_card.grid_columnconfigure(0, weight=1)
@@ -179,7 +179,7 @@ class AnthropometricFrame(ctk.CTkFrame):
         # Estado
         estado_card = ctk.CTkFrame(
             p, corner_radius=10,
-            fg_color=("transparent", "transparent"),
+            fg_color="transparent",
             border_width=1, border_color=("#E5EAE7", "#2a3d30")
         )
         estado_card.grid(row=6, column=0, padx=16, pady=(0, 20), sticky="ew")

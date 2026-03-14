@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4b7c60",
+                        "accent-terracotta": "#c66b49",
+                        "background-light": "#f6f7f7",
+                        "background-dark": "#161c19",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 flex-shrink-0 border-r border-primary/10 bg-white dark:bg-slate-900 flex flex-col h-full">
+<div class="p-6 flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">nutrition</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-primary text-base font-bold leading-none">NutriApp</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-normal">Panel de Nutrición</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-primary/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-primary/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">group</span>
+<span class="text-sm font-medium">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary border-l-4 border-primary rounded-r-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">scale</span>
+<span class="text-sm font-bold">Equivalencias</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-primary/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">description</span>
+<span class="text-sm font-medium">Pautas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-primary/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+<span class="text-sm font-medium">Ajustes</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-6 border-t border-primary/10">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-slate-200" data-alt="User profile placeholder"></div>
+<div>
+<p class="text-sm font-bold">Dr. Nutrition</p>
+<p class="text-xs text-slate-500">Premium Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-light dark:bg-background-dark overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-primary/10 bg-white dark:bg-slate-900 px-8 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white">Tablas de Equivalencias</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Buscar alimento..." type="text"/>
+</div>
+<button class="size-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Layout: Two Panels -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Panel (30%): Selectors -->
+<section class="w-[30%] border-r border-primary/10 bg-white dark:bg-slate-900 p-6 overflow-y-auto">
+<div class="mb-8">
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Tipo de pauta</h3>
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600">Estándar</button>
+<button class="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white">Vegano</button>
+<button class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600">Keto</button>
+<button class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600">Deportiva</button>
+</div>
+</div>
+<div>
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Grupos de Alimentos</h3>
+<div class="flex flex-col gap-2">
+<button class="flex items-center justify-between px-4 py-3 rounded-xl bg-primary/10 border-2 border-primary/20 text-primary font-bold transition-all">
+<span>Cereales y Tubérc.</span>
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+<button class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition-all text-left">
+<span>Frutas</span>
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+<button class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition-all text-left">
+<span>Verduras A y B</span>
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+<button class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition-all text-left">
+<span>Legumbres</span>
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+<button class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition-all text-left">
+<span>Frutos Secos</span>
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Panel (70%): List & Editor -->
+<section class="flex-1 p-8 overflow-y-auto">
+<div class="max-w-3xl mx-auto">
+<div class="flex items-center justify-between mb-6">
+<div>
+<h1 class="text-2xl font-bold text-slate-900 dark:text-white">Cereales y Tubérculos</h1>
+<p class="text-slate-500 text-sm">Equivalencias para 1 porción base (Vegano)</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined">print</span>
+</button>
+<button class="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+<!-- Food List Rows -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 overflow-hidden shadow-sm">
+<div class="flex items-center px-6 py-4 border-b border-primary/5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="w-24">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">160g</span>
+</div>
+<span class="flex-1 font-medium">Choclo</span>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+<div class="flex items-center px-6 py-4 border-b border-primary/5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="w-24">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">150g</span>
+</div>
+<span class="flex-1 font-medium">Papas</span>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+<div class="flex items-center px-6 py-4 border-b border-primary/5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="w-24">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">120g</span>
+</div>
+<span class="flex-1 font-medium">Arroz integral</span>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+<!-- Add New Section -->
+<div class="mt-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+<div class="flex items-end gap-4">
+<div class="flex-1 flex flex-col gap-2">
+<label class="text-xs font-bold text-slate-500 uppercase">Nombre del alimento</label>
+<input class="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary focus:border-primary" placeholder="Ej: Quinoa cocida" type="text"/>
+</div>
+<div class="w-32 flex flex-col gap-2">
+<label class="text-xs font-bold text-slate-500 uppercase">Gramaje (g)</label>
+<input class="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary focus:border-primary text-center" placeholder="100" type="number"/>
+</div>
+<button class="h-[38px] px-6 bg-accent-terracotta hover:bg-accent-terracotta/90 text-white font-bold rounded-lg transition-colors flex items-center gap-2">
+<span>Agregar</span>
+<span class="material-symbols-outlined text-lg">add</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Toast Notification -->
+<div class="fixed bottom-8 right-8 flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-xl shadow-2xl z-50">
+<span class="material-symbols-outlined">check_circle</span>
+<span class="font-medium text-sm">Alimento agregado ✓</span>
+<button class="ml-4 opacity-70 hover:opacity-100"><span class="material-symbols-outlined text-lg">close</span></button>
+</div>
+</body></html>

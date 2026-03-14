@@ -83,7 +83,7 @@ class PautasFrame(ctk.CTkFrame):
 
     def _build_form_inputs(self,p):
         r=0
-        sec=ctk.CTkFrame(p,fg_color=(_SG+"25","#2a3d30"),corner_radius=6)
+        sec=ctk.CTkFrame(p,fg_color=(_SG,"#2a3d30"),corner_radius=6)
         sec.grid(row=r,column=0,sticky="ew",padx=12,pady=(12,8));r+=1
         ctk.CTkLabel(sec,text="Datos del Paciente",font=ctk.CTkFont(size=12,weight="bold"),
             text_color=(_SG,"#6ec896")).pack(side="left",padx=12,pady=6)
@@ -106,7 +106,7 @@ class PautasFrame(ctk.CTkFrame):
         _lbl(p,"OBSERVACIONES",size=10,bold=True).grid(row=r,column=0,padx=14,pady=(6,2),sticky="w");r+=1
         ctk.CTkEntry(p,textvariable=self._var_obs,height=36,placeholder_text="Notas...",font=ctk.CTkFont(size=12)
             ).grid(row=r,column=0,padx=12,pady=(0,4),sticky="ew");r+=1
-        info=ctk.CTkFrame(p,fg_color=(_P+"15","#1a2e22"),corner_radius=8)
+        info=ctk.CTkFrame(p,fg_color=(_P,"#1a2e22"),corner_radius=8)
         info.grid(row=r,column=0,padx=12,pady=(6,8),sticky="ew");r+=1
         ctk.CTkLabel(info,text="Formula Oxford 2005 (Henry).",font=ctk.CTkFont(size=10),
             text_color=(_P,"#6ec896")).pack(padx=12,pady=8,anchor="w")
@@ -121,15 +121,15 @@ class PautasFrame(ctk.CTkFrame):
         gc=ctk.CTkFrame(parent,fg_color=(_TC,"#6b2d1e"),corner_radius=14)
         gc.grid(row=0,column=0,sticky="ew",pady=(8,8));gc.grid_columnconfigure(0,weight=1)
         ctk.CTkLabel(gc,text="GASTO ENERGETICO TOTAL (GET)",font=ctk.CTkFont(size=10,weight="bold"),
-            text_color="#ffffff99").grid(row=0,column=0,padx=20,pady=(16,2),sticky="w")
+            text_color="#aaaaaa").grid(row=0,column=0,padx=20,pady=(16,2),sticky="w")
         self._lbl_get=ctk.CTkLabel(gc,text="--",font=ctk.CTkFont(size=38,weight="bold"),text_color="white")
         self._lbl_get.grid(row=1,column=0,padx=20,pady=(0,2),sticky="w")
-        ctk.CTkLabel(gc,text="kcal/dia",font=ctk.CTkFont(size=14),text_color="#ffffffbb"
+        ctk.CTkLabel(gc,text="kcal/dia",font=ctk.CTkFont(size=14),text_color="#cccccc"
             ).grid(row=2,column=0,padx=22,pady=(0,8),sticky="w")
-        ctk.CTkFrame(gc,height=1,fg_color="#ffffff30").grid(row=3,column=0,sticky="ew",padx=20)
+        ctk.CTkFrame(gc,height=1,fg_color="#555555").grid(row=3,column=0,sticky="ew",padx=20)
         tr=ctk.CTkFrame(gc,fg_color="transparent");tr.grid(row=4,column=0,sticky="ew",padx=20,pady=(8,16))
         ctk.CTkLabel(tr,text="TASA METABOLICA BASAL",font=ctk.CTkFont(size=9,weight="bold"),
-            text_color="#ffffff80").pack(anchor="w")
+            text_color="#888888").pack(anchor="w")
         self._lbl_tmb=ctk.CTkLabel(tr,text="--",font=ctk.CTkFont(size=18,weight="bold"),text_color="white")
         self._lbl_tmb.pack(anchor="w")
         mc=ctk.CTkFrame(parent,fg_color=(_CARD,"#1a2620"),corner_radius=14,border_width=1,border_color=(_BD,"#2a3d30"))
@@ -179,17 +179,36 @@ class PautasFrame(ctk.CTkFrame):
         ctk.CTkLabel(s2,text="Distribucion por Tiempo de Comida",font=ctk.CTkFont(size=14,weight="bold")
             ).grid(row=0,column=0,padx=16,pady=(12,4),sticky="w")
         sd=db.get_distribucion(self._pauta_id) if self._pauta_id else {}
-        ds=ctk.CTkScrollableFrame(s2,fg_color="transparent",height=240,orientation="horizontal")
-        ds.grid(row=1,column=0,sticky="ew",padx=8,pady=(0,12))
         tiempos=[t[0] for t in TIEMPOS_COMIDA];tlabels=[t[1] for t in TIEMPOS_COMIDA]
-        ctk.CTkLabel(ds,text="Grupo",font=ctk.CTkFont(size=10,weight="bold"),width=120,anchor="w"
-            ).grid(row=0,column=0,padx=(4,2),pady=4)
+        # Wrapper con canvas para scroll horizontal+vertical
+        wrap=ctk.CTkFrame(s2,fg_color="transparent");wrap.grid(row=1,column=0,sticky="nsew",padx=8,pady=(0,12))
+        s2.grid_rowconfigure(1,weight=1);wrap.grid_columnconfigure(0,weight=1);wrap.grid_rowconfigure(0,weight=1)
+        import tkinter as tk as _tk_mod
+        bg_val=_CARD
+        canvas=_tk_mod.Canvas(wrap,height=260,highlightthickness=0,bg=bg_val)
+        h_sb=_tk_mod.Scrollbar(wrap,orient="horizontal",command=canvas.xview)
+        v_sb=_tk_mod.Scrollbar(wrap,orient="vertical",command=canvas.yview)
+        canvas.configure(xscrollcommand=h_sb.set,yscrollcommand=v_sb.set)
+        canvas.grid(row=0,column=0,sticky="nsew");v_sb.grid(row=0,column=1,sticky="ns");h_sb.grid(row=1,column=0,sticky="ew")
+        ds=ctk.CTkFrame(canvas,fg_color="transparent")
+        win_id=canvas.create_window((0,0),window=ds,anchor="nw")
+        ds.grid_columnconfigure(0,weight=2,minsize=120)
+        for _ci in range(1,len(tiempos)+1):
+            ds.grid_columnconfigure(_ci,weight=1,minsize=80)
+        def _on_ds_conf(e,c=canvas,w=win_id):
+            c.configure(scrollregion=c.bbox("all"))
+            if ds.winfo_reqwidth()<c.winfo_width(): c.itemconfig(w,width=c.winfo_width())
+        def _on_canvas_conf(e,c=canvas,w=win_id):
+            if ds.winfo_reqwidth()<e.width: c.itemconfig(w,width=e.width)
+        ds.bind("<Configure>",_on_ds_conf);canvas.bind("<Configure>",_on_canvas_conf)
+        ctk.CTkLabel(ds,text="Grupo",font=ctk.CTkFont(size=10,weight="bold"),anchor="w"
+            ).grid(row=0,column=0,padx=(4,2),pady=4,sticky="ew")
         for j,tl in enumerate(tlabels):
-            ctk.CTkLabel(ds,text=tl,font=ctk.CTkFont(size=10,weight="bold"),width=70,anchor="center"
-                ).grid(row=0,column=j+1,padx=2,pady=4)
+            ctk.CTkLabel(ds,text=tl,font=ctk.CTkFont(size=10,weight="bold"),anchor="center"
+                ).grid(row=0,column=j+1,padx=2,pady=4,sticky="ew")
         for i,grupo in enumerate(self._grupos_activos):
             ctk.CTkLabel(ds,text=NOMBRES_GRUPOS.get(grupo,grupo),font=ctk.CTkFont(size=10),
-                width=120,anchor="w",text_color=_MU).grid(row=i+1,column=0,padx=(4,2),pady=2,sticky="w")
+                anchor="w",text_color=_MU).grid(row=i+1,column=0,padx=(4,2),pady=2,sticky="ew")
             for j,tiempo in enumerate(tiempos):
                 val=0.0
                 if tiempo in sd and grupo in sd[tiempo]:
@@ -197,8 +216,8 @@ class PautasFrame(ctk.CTkFrame):
                     except: pass
                 vd=tk.DoubleVar(value=val);self._vars_dist[(grupo,tiempo)]=vd
                 vd.trace_add("write",lambda *_: self._schedule_save())
-                ctk.CTkEntry(ds,textvariable=vd,width=60,height=28,font=ctk.CTkFont(size=10)
-                    ).grid(row=i+1,column=j+1,padx=2,pady=2)
+                ctk.CTkEntry(ds,textvariable=vd,height=28,font=ctk.CTkFont(size=10)
+                    ).grid(row=i+1,column=j+1,padx=2,pady=2,sticky="ew")
         ctk.CTkButton(c,text="Verificar distribucion",height=36,font=ctk.CTkFont(size=12),
             fg_color=_P,hover_color=_PD,command=self._verificar_distribucion
             ).grid(row=2,column=0,padx=12,pady=8,sticky="w")
@@ -261,12 +280,12 @@ class PautasFrame(ctk.CTkFrame):
             sec.grid(row=i,column=0,sticky="ew",padx=12,pady=4);sec.grid_columnconfigure(0,weight=1)
             ctk.CTkLabel(sec,text=tl,font=ctk.CTkFont(size=13,weight="bold"),
                 text_color=(_P,"#6ec896")).grid(row=0,column=0,padx=14,pady=(10,6),sticky="w")
-            opciones=loaded.get(tk_,[{},{},{}])
-            while len(opciones)<3: opciones.append({})
+            opciones_dict=loaded.get(tk_,{})
+            opciones=[opciones_dict.get(j+1,{}) for j in range(3)]
             of=ctk.CTkFrame(sec,fg_color="transparent");of.grid(row=1,column=0,sticky="ew",padx=12,pady=(0,10))
             for j in range(3): of.grid_columnconfigure(j,weight=1)
             for j in range(3):
-                op=opciones[j] if j<len(opciones) else {}
+                op=opciones[j]
                 opf=ctk.CTkFrame(of,fg_color=(_BG,"#141f19"),corner_radius=8)
                 opf.grid(row=0,column=j,padx=4,pady=4,sticky="nsew");opf.grid_columnconfigure(0,weight=1)
                 ctk.CTkLabel(opf,text=f"Opcion {j+1}",font=ctk.CTkFont(size=10,weight="bold"),
@@ -343,7 +362,7 @@ class PautasFrame(ctk.CTkFrame):
             ctk.CTkLabel(sec,text=nombre,font=ctk.CTkFont(size=12,weight="bold"),
                 text_color=(_P,"#6ec896")).grid(row=0,column=0,padx=14,pady=(10,4),sticky="w")
             for j,item in enumerate(items):
-                bg=(_BG,"#141f19") if j%2==0 else ("transparent","transparent")
+                bg=(_BG,"#141f19") if j%2==0 else "transparent"
                 rf=ctk.CTkFrame(sec,fg_color=bg,corner_radius=4)
                 rf.grid(row=j+1,column=0,sticky="ew",padx=8,pady=1)
                 ctk.CTkLabel(rf,text=item,font=ctk.CTkFont(size=11),anchor="w"

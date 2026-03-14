@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4b7c60",
+                        "terracotta": "#c06c52",
+                        "sage": "#8da399",
+                        "background-light": "#F7F5F2",
+                        "background-dark": "#161c19",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-active { border-left: 4px solid #c06c52; background-color: rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex min-h-screen">
+<!-- Sidebar (220px) -->
+<aside class="w-[220px] bg-primary text-white flex flex-col fixed h-full z-10">
+<div class="p-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-3xl">eco</span>
+<h1 class="text-xl font-bold tracking-tight">NutriApp</h1>
+</div>
+<nav class="flex-1 mt-4">
+<div class="flex flex-col gap-1">
+<a class="sidebar-active flex items-center gap-3 px-6 py-3 transition-colors" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="text-sm font-medium">Inicio</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-sm font-medium">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-sm font-medium">Pautas</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-sm font-medium">Evaluaciones</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+</div>
+</nav>
+<!-- Patient Card at Bottom -->
+<div class="p-4 m-4 bg-white/10 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-sage flex items-center justify-center text-xs font-bold" data-alt="Avatar circle with sage background">JD</div>
+<div class="overflow-hidden">
+<p class="text-xs font-semibold truncate">Dr. Javier Díaz</p>
+<p class="text-[10px] opacity-70 truncate">Nutricionista Clínico</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-[220px] p-8">
+<!-- Header -->
+<header class="mb-8 flex justify-between items-center">
+<h2 class="text-3xl font-extrabold text-slate-900 dark:text-slate-100">Inicio</h2>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-slate-300 dark:bg-slate-700 overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Professional doctor profile headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoxsVB0fF1592cBILs01d6SwZlWTrfkspDxjvEXmnguvFNUw3XHtCT0QS5xUHZ8cOJWQAF5Ten6HEef4siS3onURT84DiQQJAHwc7C6oDR5Q9SV4SY0aApIZnGFJpteIXTm6nStshL3qu8sPj8vezSrAFJVUxkneHk6yHNKqiLFDmhUSPOPxLqqSs8LwwYazWgc34Vfj1C6dtsPuzs7pRdOsNnCBYYEpqWhZguJyjopi-JIC_HfQHv5Uk0sCWAWLc3IG2_BqhD_Is"/>
+</div>
+</div>
+</header>
+<!-- Summary Cards Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<!-- Card 1 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border-t-4 border-sage">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">Total Pacientes</p>
+<h3 class="text-2xl font-bold mt-1">128</h3>
+</div>
+<span class="material-symbols-outlined text-terracotta bg-terracotta/10 p-2 rounded-lg">group</span>
+</div>
+<p class="text-xs text-green-600 mt-4 flex items-center font-medium">
+<span class="material-symbols-outlined text-xs mr-1">trending_up</span> +12% vs mes anterior
+                    </p>
+</div>
+<!-- Card 2 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border-t-4 border-sage">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">Pautas este mes</p>
+<h3 class="text-2xl font-bold mt-1">45</h3>
+</div>
+<span class="material-symbols-outlined text-terracotta bg-terracotta/10 p-2 rounded-lg">description</span>
+</div>
+<p class="text-xs text-green-600 mt-4 flex items-center font-medium">
+<span class="material-symbols-outlined text-xs mr-1">trending_up</span> +5 nuevas hoy
+                    </p>
+</div>
+<!-- Card 3 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border-t-4 border-sage">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">Evaluaciones</p>
+<h3 class="text-2xl font-bold mt-1">12</h3>
+</div>
+<span class="material-symbols-outlined text-terracotta bg-terracotta/10 p-2 rounded-lg">assignment</span>
+</div>
+<p class="text-xs text-slate-500 mt-4 flex items-center font-medium">
+<span class="material-symbols-outlined text-xs mr-1">schedule</span> Programadas para hoy
+                    </p>
+</div>
+<!-- Card 4 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border-t-4 border-sage">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">Pendientes</p>
+<h3 class="text-2xl font-bold mt-1">8</h3>
+</div>
+<span class="material-symbols-outlined text-terracotta bg-terracotta/10 p-2 rounded-lg">priority_high</span>
+</div>
+<p class="text-xs text-terracotta mt-4 flex items-center font-medium">
+<span class="material-symbols-outlined text-xs mr-1">warning</span> Requieren revisión
+                    </p>
+</div>
+</div>
+<!-- Middle Row: Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+<!-- Pacientes Recientes -->
+<section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+<div class="flex justify-between items-center mb-6">
+<h4 class="text-lg font-bold">Pacientes recientes</h4>
+<button class="text-primary text-sm font-semibold hover:underline">Ver todos</button>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-sage/20 text-sage flex items-center justify-center font-bold text-lg">CA</div>
+<div>
+<p class="font-bold text-slate-800 dark:text-slate-200">Claudia Abarca</p>
+<p class="text-sm text-slate-500">Última consulta: Hace 2 días</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-sage/20 text-sage flex items-center justify-center font-bold text-lg">MR</div>
+<div>
+<p class="font-bold text-slate-800 dark:text-slate-200">Miguel Rojas</p>
+<p class="text-sm text-slate-500">Última consulta: Ayer</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-sage/20 text-sage flex items-center justify-center font-bold text-lg">EP</div>
+<div>
+<p class="font-bold text-slate-800 dark:text-slate-200">Elena Pérez</p>
+<p class="text-sm text-slate-500">Última consulta: Hace 5 días</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Actividad Reciente -->
+<section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+<h4 class="text-lg font-bold mb-6">Actividad reciente</h4>
+<div class="relative space-y-6 before:absolute before:inset-0 before:ml-2 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+<div class="relative flex items-center justify-between">
+<div class="flex items-center">
+<div class="absolute left-0 w-4 h-4 rounded-full bg-terracotta border-4 border-white dark:border-slate-900"></div>
+<div class="ml-8">
+<p class="text-sm font-semibold">Pauta nutricional creada</p>
+<p class="text-xs text-slate-500">Paciente: Claudia Abarca</p>
+</div>
+</div>
+<span class="text-xs text-slate-400 font-medium">10:30 AM</span>
+</div>
+<div class="relative flex items-center justify-between">
+<div class="flex items-center">
+<div class="absolute left-0 w-4 h-4 rounded-full bg-terracotta border-4 border-white dark:border-slate-900"></div>
+<div class="ml-8">
+<p class="text-sm font-semibold">Evaluación completada</p>
+<p class="text-xs text-slate-500">Paciente: Miguel Rojas</p>
+</div>
+</div>
+<span class="text-xs text-slate-400 font-medium">09:15 AM</span>
+</div>
+<div class="relative flex items-center justify-between">
+<div class="flex items-center">
+<div class="absolute left-0 w-4 h-4 rounded-full bg-terracotta border-4 border-white dark:border-slate-900"></div>
+<div class="ml-8">
+<p class="text-sm font-semibold">Nuevo paciente registrado</p>
+<p class="text-xs text-slate-500">Elena Pérez se unió al sistema</p>
+</div>
+</div>
+<span class="text-xs text-slate-400 font-medium">Ayer</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Bottom Row: Bar Chart -->
+<section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+<div class="flex justify-between items-center mb-8">
+<h4 class="text-lg font-bold">Evaluaciones por mes</h4>
+<select class="text-sm bg-background-light dark:bg-slate-800 border-none rounded-lg px-3 py-2 font-medium">
+<option>Últimos 6 meses</option>
+<option>Año 2023</option>
+</select>
+</div>
+<div class="flex items-end justify-between h-48 gap-4 px-4">
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[40%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">Ene</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[65%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">Feb</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[55%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">Mar</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[85%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">Abr</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[70%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">May</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-sage/20 rounded-t-lg relative h-[95%] transition-all group-hover:bg-primary/40">
+<div class="absolute bottom-0 w-full bg-sage rounded-t-lg h-full transition-all group-hover:bg-primary"></div>
+</div>
+<span class="text-xs font-medium text-slate-500">Jun</span>
+</div>
+</div>
+</section>
+</main>
+</div>
+</body></html>

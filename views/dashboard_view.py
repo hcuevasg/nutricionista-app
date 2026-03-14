@@ -205,7 +205,7 @@ class DashboardFrame(ctk.CTkFrame):
 
         avatar = ctk.CTkLabel(
             row, text=initials, width=44, height=44,
-            fg_color=(_C_SAGE + "40", "#2a3d30"),
+            fg_color=(_C_SAGE, "#2a3d30"),
             corner_radius=22,
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=(_C_PRIMARY, "#6ec896")
