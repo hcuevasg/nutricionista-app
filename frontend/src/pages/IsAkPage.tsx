@@ -103,12 +103,16 @@ export default function IsAkPage() {
 
   useEffect(() => {
     if (!token || !id) return
-    Promise.all([
-      fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/anthropometrics/${id}`, { headers: H }).then(r => r.json()),
-    ])
-      .then(([pat, evals]) => { setPatient(pat); setEvaluations(Array.isArray(evals) ? evals : []) })
-      .catch(() => setError('Error al cargar datos'))
+
+    fetch(`${API}/patients/${id}`, { headers: H })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+      .then(pat => setPatient(pat))
+      .catch(() => setError('Error al cargar paciente'))
+
+    fetch(`${API}/anthropometrics/${id}`, { headers: H })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+      .then(evals => setEvaluations(Array.isArray(evals) ? evals : []))
+      .catch(() => setEvaluations([]))
       .finally(() => setLoadingHistory(false))
   }, [id, token])
 
