@@ -3,9 +3,12 @@ NutriApp Backend - FastAPI
 Multi-tenant nutrition management platform
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from collections import defaultdict
+from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
@@ -13,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas
+from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings
 
 # Import database
 from database import engine, Base
@@ -80,6 +83,19 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS isak_level VARCHAR(20)",
         # pautas
         "ALTER TABLE pautas ADD COLUMN menu_json TEXT",
+        # audit_logs
+        """CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            nutritionist_id INTEGER REFERENCES nutritionists(id),
+            action VARCHAR(50),
+            resource VARCHAR(50),
+            resource_id INTEGER,
+            detail VARCHAR(500),
+            ip_address VARCHAR(45),
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_audit_logs_nutritionist_id ON audit_logs (nutritionist_id)",
+        "CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs (created_at)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -117,6 +133,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Rate limiting (in-memory, per IP) ────────────────────────────────────────
+_rate_store: dict[str, list[datetime]] = defaultdict(list)
+RATE_LIMIT_ROUTES = {"/auth/login", "/auth/register"}
+RATE_WINDOW = 60   # seconds
+RATE_MAX    = 10   # requests per window
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    if RATE_LIMIT_ENABLED and request.url.path in RATE_LIMIT_ROUTES:
+        forwarded = request.headers.get("x-forwarded-for")
+        ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+        now = datetime.utcnow()
+        window_start = now - timedelta(seconds=RATE_WINDOW)
+        _rate_store[ip] = [t for t in _rate_store[ip] if t > window_start]
+        if len(_rate_store[ip]) >= RATE_MAX:
+            return JSONResponse(status_code=429, content={"detail": "Demasiados intentos. Espera un momento."})
+        _rate_store[ip].append(now)
+    return await call_next(request)
+
 # Include routers
 app.include_router(auth.router)
 app.include_router(patients.router)
@@ -124,6 +160,7 @@ app.include_router(anthropometrics.router)
 app.include_router(meal_plans.router)
 app.include_router(dashboard.router)
 app.include_router(pautas.router)
+app.include_router(settings.router)
 
 
 @app.get("/")

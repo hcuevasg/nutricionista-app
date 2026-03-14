@@ -1,18 +1,19 @@
 """Authentication routes."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
 import models
 import schemas
 import auth as auth_module
+import audit
 from database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=schemas.LoginResponse)
-async def register(request: schemas.RegisterRequest, db: Session = Depends(get_db)):
+async def register(request: schemas.RegisterRequest, req: Request, db: Session = Depends(get_db)):
     """Register a new nutritionist."""
     # Check if user exists
     existing_user = db.query(models.Nutritionist).filter(
@@ -34,7 +35,8 @@ async def register(request: schemas.RegisterRequest, db: Session = Depends(get_d
 
     # Create token
     access_token = auth_module.create_access_token(data={"sub": user.id})
-
+    audit.log(db, action="register", resource="auth", nutritionist_id=user.id,
+               detail=f"Nuevo registro: {user.username}", request=req)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -47,18 +49,20 @@ async def register(request: schemas.RegisterRequest, db: Session = Depends(get_d
 
 
 @router.post("/login", response_model=schemas.LoginResponse)
-async def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+async def login(request: schemas.LoginRequest, req: Request, db: Session = Depends(get_db)):
     """Login nutritionist."""
     user = auth_module.authenticate_user(db, request.username, request.password)
     if not user:
+        audit.log(db, action="login_failed", resource="auth",
+                   detail=f"Intento fallido: {request.username}", request=req)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
 
-    # Create token
     access_token = auth_module.create_access_token(data={"sub": user.id})
-
+    audit.log(db, action="login", resource="auth", nutritionist_id=user.id,
+               detail=f"Login exitoso", request=req)
     return {
         "access_token": access_token,
         "token_type": "bearer",

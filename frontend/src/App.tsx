@@ -38,6 +38,7 @@ export default function App() {
           <Route path="/patients/:id/pautas" element={<PrivateRoute><PautasPage /></PrivateRoute>} />
           <Route path="/patients/:id/pautas/new" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/pautas/:pautaId" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
+          <Route path="/patients/:id/pautas/:pautaId/edit" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/config" element={<PrivateRoute><ConfigPage /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 

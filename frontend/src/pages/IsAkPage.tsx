@@ -3,6 +3,10 @@ import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ScatterChart, Scatter, ReferenceLine, Label,
+} from 'recharts'
+import {
   calcIsAk1, calcSomatotype, calcArmMuscleArea, calcWaistHeightRatio,
   calcBmi, bmiCategory, fatCategory, whtrCategory,
   type IsAk1Result, type SomatotypeResult,
@@ -18,6 +22,22 @@ interface Evaluation {
   fat_mass_pct?: number; fat_mass_kg?: number; lean_mass_kg?: number
   body_density?: number; sum_6_skinfolds?: number
   somatotype_endo?: number; somatotype_meso?: number; somatotype_ecto?: number
+  // Perímetros
+  arm_relaxed_cm?: number; arm_contracted_cm?: number; hip_glute_cm?: number
+  thigh_max_cm?: number; thigh_mid_cm?: number; calf_cm?: number
+  // Pliegues
+  triceps_mm?: number; subscapular_mm?: number; biceps_mm?: number; iliac_crest_mm?: number
+  supraspinal_mm?: number; abdominal_mm?: number; medial_thigh_mm?: number; max_calf_mm?: number
+  pectoral_mm?: number; axillary_mm?: number; front_thigh_mm?: number
+  // ISAK 2 perímetros
+  head_cm?: number; neck_cm?: number; chest_cm?: number; ankle_min_cm?: number
+  // Diámetros
+  humerus_width_cm?: number; femur_width_cm?: number; biacromial_cm?: number
+  biiliocrestal_cm?: number; ap_chest_cm?: number; transv_chest_cm?: number
+  foot_length_cm?: number; wrist_cm?: number; ankle_bimalleolar_cm?: number
+  // Longitudes
+  acromion_radial_cm?: number; radial_styloid_cm?: number
+  iliospinal_height_cm?: number; trochanter_tibial_cm?: number
   created_at: string
 }
 
@@ -98,6 +118,9 @@ export default function IsAkPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [downloadingComparativo, setDownloadingComparativo] = useState(false)
+  const [editingEvalId, setEditingEvalId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -150,13 +173,57 @@ export default function IsAkPage() {
 
   const set = (f: keyof FormState, v: string) => setForm(p => ({ ...p, [f]: v }))
 
-  const closeForm = () => { setShowForm(false); setForm(EMPTY_FORM); setResult(null); setSoma(null) }
+  const closeForm = () => {
+    setShowForm(false); setForm(EMPTY_FORM); setResult(null); setSoma(null)
+    setEditingEvalId(null)
+  }
+
+  const s = (v?: number | null) => v != null ? String(v) : ''
+
+  const handleStartEdit = (ev: Evaluation) => {
+    setEditingEvalId(ev.id)
+    setForm({
+      date: ev.date, isak_level: (ev.isak_level as IsakLevel) || 'ISAK 1',
+      weight_kg: s(ev.weight_kg), height_cm: s(ev.height_cm), waist_cm: s(ev.waist_cm),
+      arm_relaxed_cm: s(ev.arm_relaxed_cm), arm_contracted_cm: s(ev.arm_contracted_cm),
+      hip_glute_cm: s(ev.hip_glute_cm), thigh_max_cm: s(ev.thigh_max_cm),
+      thigh_mid_cm: s(ev.thigh_mid_cm), calf_cm: s(ev.calf_cm),
+      triceps_mm: s(ev.triceps_mm), subscapular_mm: s(ev.subscapular_mm),
+      biceps_mm: s(ev.biceps_mm), iliac_crest_mm: s(ev.iliac_crest_mm),
+      supraspinal_mm: s(ev.supraspinal_mm), abdominal_mm: s(ev.abdominal_mm),
+      medial_thigh_mm: s(ev.medial_thigh_mm), max_calf_mm: s(ev.max_calf_mm),
+      pectoral_mm: s(ev.pectoral_mm), axillary_mm: s(ev.axillary_mm),
+      front_thigh_mm: s(ev.front_thigh_mm), head_cm: s(ev.head_cm),
+      neck_cm: s(ev.neck_cm), chest_cm: s(ev.chest_cm), ankle_min_cm: s(ev.ankle_min_cm),
+      humerus_width_cm: s(ev.humerus_width_cm), femur_width_cm: s(ev.femur_width_cm),
+      biacromial_cm: s(ev.biacromial_cm), biiliocrestal_cm: s(ev.biiliocrestal_cm),
+      ap_chest_cm: s(ev.ap_chest_cm), transv_chest_cm: s(ev.transv_chest_cm),
+      foot_length_cm: s(ev.foot_length_cm), wrist_cm: s(ev.wrist_cm),
+      ankle_bimalleolar_cm: s(ev.ankle_bimalleolar_cm),
+      acromion_radial_cm: s(ev.acromion_radial_cm), radial_styloid_cm: s(ev.radial_styloid_cm),
+      iliospinal_height_cm: s(ev.iliospinal_height_cm), trochanter_tibial_cm: s(ev.trochanter_tibial_cm),
+    })
+    setShowForm(true)
+  }
+
+  const handleDeleteEval = async (evalId: number) => {
+    if (!confirm('¿Eliminar esta evaluación? Esta acción no se puede deshacer.')) return
+    setDeletingId(evalId)
+    try {
+      const res = await fetch(`${API}/anthropometrics/${id}/${evalId}`, { method: 'DELETE', headers: H })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      setEvaluations(prev => prev.filter(e => e.id !== evalId))
+    } catch {
+      setError('No se pudo eliminar la evaluación')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleSave = async () => {
     if (!result) { setError('Completa los 4 pliegues D&W (*) y el peso para guardar'); return }
     setSaving(true); setError(null)
 
-    const arm = pf(form.arm_relaxed_cm)
     const tri = pf(form.triceps_mm)
 
     const payload: Record<string, unknown> = {
@@ -199,15 +266,21 @@ export default function IsAkPage() {
     }
 
     try {
-      const res = await fetch(`${API}/anthropometrics?patient_id=${id}`, {
-        method: 'POST', headers: H, body: JSON.stringify(payload),
-      })
+      const url = editingEvalId
+        ? `${API}/anthropometrics/${id}/${editingEvalId}`
+        : `${API}/anthropometrics?patient_id=${id}`
+      const method = editingEvalId ? 'PUT' : 'POST'
+      const res = await fetch(url, { method, headers: H, body: JSON.stringify(payload) })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         throw new Error(d.detail ?? `Error ${res.status}`)
       }
       const saved = await res.json()
-      setEvaluations(prev => [saved, ...prev])
+      if (editingEvalId) {
+        setEvaluations(prev => prev.map(e => e.id === editingEvalId ? saved : e))
+      } else {
+        setEvaluations(prev => [saved, ...prev])
+      }
       closeForm()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
@@ -232,6 +305,25 @@ export default function IsAkPage() {
       setError('No se pudo descargar el PDF')
     } finally {
       setDownloadingId(null)
+    }
+  }
+
+  const handleDownloadComparativo = async () => {
+    setDownloadingComparativo(true)
+    try {
+      const res = await fetch(`${API}/anthropometrics/${id}/pdf/comparativo`, { headers: H })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ISAK_Comparativo_${patient?.name.replace(/ /g, '_') ?? id}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo descargar el PDF comparativo')
+    } finally {
+      setDownloadingComparativo(false)
     }
   }
 
@@ -262,7 +354,9 @@ export default function IsAkPage() {
       {showForm ? (
         <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-primary">Nueva Evaluación</h3>
+            <h3 className="text-lg font-bold text-primary">
+              {editingEvalId ? 'Editar Evaluación' : 'Nueva Evaluación'}
+            </h3>
             <button onClick={closeForm} className="text-text-muted hover:text-gray-700 text-sm">Cancelar</button>
           </div>
 
@@ -442,7 +536,7 @@ export default function IsAkPage() {
               onClick={handleSave} disabled={saving || !result}
               className="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : 'Guardar evaluación'}
+              {saving ? 'Guardando...' : editingEvalId ? 'Actualizar evaluación' : 'Guardar evaluación'}
             </button>
             <button
               onClick={closeForm}
@@ -463,10 +557,103 @@ export default function IsAkPage() {
         </div>
       )}
 
+      {/* Evolution chart — only shown when >= 2 evaluations */}
+      {evaluations.length >= 2 && (() => {
+        const chartData = [...evaluations].reverse().map(ev => ({
+          fecha: ev.date,
+          'Peso kg': ev.weight_kg ?? null,
+          '% Grasa': ev.fat_mass_pct ?? null,
+          'Magra kg': ev.lean_mass_kg ?? null,
+          'Σ6 mm': ev.sum_6_skinfolds ?? null,
+        }))
+        return (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 className="font-bold text-primary mb-4">Evolución</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5EAE7" />
+                <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="kg" tick={{ fontSize: 11 }} unit=" kg" width={52} />
+                <YAxis yAxisId="pct" orientation="right" tick={{ fontSize: 11 }} unit="%" width={40} />
+                <Tooltip contentStyle={{ fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line yAxisId="kg"  type="monotone" dataKey="Peso kg"  stroke="#4b7c60" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                <Line yAxisId="kg"  type="monotone" dataKey="Magra kg" stroke="#8da399" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                <Line yAxisId="pct" type="monotone" dataKey="% Grasa"  stroke="#c06c52" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })()}
+
+      {/* Somatocarta — ISAK 2 only */}
+      {(() => {
+        const somaEvals = evaluations.filter(
+          ev => ev.isak_level === 'ISAK 2' &&
+            ev.somatotype_endo != null && ev.somatotype_meso != null && ev.somatotype_ecto != null
+        )
+        if (somaEvals.length === 0) return null
+        const points = somaEvals.map(ev => ({
+          x: +(ev.somatotype_ecto! - ev.somatotype_endo!).toFixed(2),
+          y: +(2 * ev.somatotype_meso! - (ev.somatotype_endo! + ev.somatotype_ecto!)).toFixed(2),
+          label: ev.date,
+        }))
+        const CustomDot = (props: any) => {
+          const { cx, cy, payload } = props
+          return (
+            <g>
+              <circle cx={cx} cy={cy} r={6} fill="#4b7c60" stroke="white" strokeWidth={2} />
+              <text x={cx} y={cy - 10} textAnchor="middle" fontSize={10} fill="#6b7280">{payload.label}</text>
+            </g>
+          )
+        }
+        return (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 className="font-bold text-primary mb-1">Somatocarta — Heath & Carter</h3>
+            <p className="text-xs text-text-muted mb-4">Eje X: Ecto − Endo &nbsp;|&nbsp; Eje Y: 2×Meso − (Endo + Ecto)</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5EAE7" />
+                <XAxis type="number" dataKey="x" domain={[-8, 8]} tick={{ fontSize: 11 }}>
+                  <Label value="← Endomorfo · Ectomorfo →" position="bottom" style={{ fontSize: 11, fill: '#6b7280' }} />
+                </XAxis>
+                <YAxis type="number" dataKey="y" domain={[-8, 8]} tick={{ fontSize: 11 }}>
+                  <Label value="Mesomorfo →" angle={-90} position="insideLeft" style={{ fontSize: 11, fill: '#6b7280' }} />
+                </YAxis>
+                <ReferenceLine x={0} stroke="#8da399" strokeDasharray="4 4" />
+                <ReferenceLine y={0} stroke="#8da399" strokeDasharray="4 4" />
+                <Tooltip
+                  content={({ payload }) => {
+                    if (!payload?.length) return null
+                    const d = payload[0].payload
+                    return (
+                      <div className="bg-white border border-border rounded shadow p-2 text-xs">
+                        <p className="font-medium text-primary">{d.label}</p>
+                        <p>X: {d.x} · Y: {d.y}</p>
+                      </div>
+                    )
+                  }}
+                />
+                <Scatter data={points} shape={<CustomDot />} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })()}
+
       {/* History table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-border">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <h3 className="font-bold text-primary">Historial de evaluaciones</h3>
+          {evaluations.length >= 2 && (
+            <button
+              onClick={handleDownloadComparativo}
+              disabled={downloadingComparativo}
+              className="text-xs bg-terracotta hover:opacity-90 text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+            >
+              {downloadingComparativo ? 'Generando...' : '⬇ PDF Comparativo'}
+            </button>
+          )}
         </div>
         {loadingHistory ? (
           <div className="px-6 py-8 text-center text-text-muted text-sm">Cargando...</div>
@@ -476,7 +663,7 @@ export default function IsAkPage() {
           <table className="w-full">
             <thead className="bg-bg-light border-b border-border">
               <tr>
-                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'Σ6 mm', 'IMC', 'Somatotipo', 'PDF'].map(h => (
+                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'Σ6 mm', 'IMC', 'Somatotipo', 'PDF', 'Acciones'].map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
                     h === 'Fecha' || h === 'Nivel' ? 'text-left' : 'text-right'
                   }`}>{h}</th>
@@ -516,6 +703,23 @@ export default function IsAkPage() {
                       >
                         {downloadingId === ev.id ? '...' : '⬇ PDF'}
                       </button>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => handleStartEdit(ev)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEval(ev.id)}
+                          disabled={deletingId === ev.id}
+                          className="text-xs text-red-400 hover:underline disabled:opacity-50"
+                        >
+                          {deletingId === ev.id ? '...' : 'Eliminar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

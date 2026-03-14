@@ -108,6 +108,33 @@ async def get_pauta(
     return pauta
 
 
+@router.put("/{patient_id}/{pauta_id}", response_model=schemas.PautaResponse)
+async def update_pauta(
+    patient_id: int,
+    pauta_id: int,
+    request: schemas.PautaCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == current_user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta not found")
+    for key, value in request.model_dump().items():
+        setattr(pauta, key, value)
+    db.commit()
+    db.refresh(pauta)
+    return pauta
+
+
 @router.delete("/{patient_id}/{pauta_id}")
 async def delete_pauta(
     patient_id: int,
@@ -130,6 +157,31 @@ async def delete_pauta(
     db.delete(pauta)
     db.commit()
     return {"message": "Pauta deleted"}
+
+
+@router.patch("/{patient_id}/{pauta_id}/menu")
+async def update_menu(
+    patient_id: int,
+    pauta_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == current_user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta not found")
+    pauta.menu_json = json.dumps(body.get("menu", {}), ensure_ascii=False)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{patient_id}/{pauta_id}/pdf")
@@ -211,49 +263,59 @@ async def generar_menu_ia(
         raise HTTPException(status_code=400, detail="La pauta no tiene distribución por tiempos definida")
 
     tipo_label = TIPO_LABELS.get(pauta.tipo_pauta, pauta.tipo_pauta)
-    prompt = f"""Pauta nutricional {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día para paciente chileno.
+    prompt = f"""Pauta {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día, paciente chileno.
 
-Distribución de grupos de alimentos por tiempo de comida (p = porciones):
+Tiempos de comida y grupos:
 {chr(10).join(tiempos_info)}
 
-Genera ideas de menú concretas para cada tiempo de comida. Usa alimentos chilenos reales (pan marraqueta, cazuela, porotos, etc.) con cantidades en medidas caseras (tazas, cucharadas, unidades).
+Genera dos opciones de menú para CADA tiempo listado arriba.
+Responde SOLO con JSON, sin texto antes ni después, sin markdown.
 
-Responde ÚNICAMENTE con JSON válido, sin texto adicional, con exactamente este formato:
+Formato exacto (cada opción es un array de alimentos):
 {{
-  "desayuno": {{"opcion1": "...", "opcion2": "..."}},
-  "colacion1": {{"opcion1": "...", "opcion2": "..."}},
-  "almuerzo": {{"opcion1": "...", "opcion2": "..."}},
-  "colacion2": {{"opcion1": "...", "opcion2": "..."}},
-  "once": {{"opcion1": "...", "opcion2": "..."}},
-  "cena": {{"opcion1": "...", "opcion2": "..."}}
+  "desayuno": {{
+    "opcion1": [
+      {{"nombre": "Avena cocida", "cantidad": 180, "unidad": "g", "kcal_100": 71, "prot_100": 2.5, "cho_100": 12.0, "lip_100": 1.4}},
+      {{"nombre": "Leche semidescremada", "cantidad": 200, "unidad": "ml", "kcal_100": 45, "prot_100": 3.5, "cho_100": 4.8, "lip_100": 1.5}},
+      {{"nombre": "Plátano", "cantidad": 80, "unidad": "g", "kcal_100": 89, "prot_100": 1.1, "cho_100": 22.8, "lip_100": 0.3}}
+    ],
+    "opcion2": [
+      {{"nombre": "Pan marraqueta", "cantidad": 60, "unidad": "g", "kcal_100": 275, "prot_100": 9.0, "cho_100": 54.0, "lip_100": 2.0}},
+      {{"nombre": "Palta", "cantidad": 40, "unidad": "g", "kcal_100": 160, "prot_100": 2.0, "cho_100": 8.5, "lip_100": 14.7}},
+      {{"nombre": "Jugo naranja natural", "cantidad": 200, "unidad": "ml", "kcal_100": 45, "prot_100": 0.7, "cho_100": 10.4, "lip_100": 0.2}}
+    ]
+  }}
 }}
 
-Solo incluye los tiempos que aparecen en la distribución. Cada opción debe ser una descripción en 1 línea."""
+Reglas:
+- Incluye SOLO los tiempos listados, con las claves exactas (desayuno, colacion1, almuerzo, colacion2, once, cena)
+- Cada opción: 2 a 4 alimentos
+- Valores kcal_100/prot_100/cho_100/lip_100 = por 100g o 100ml del alimento crudo/tal cual
+- Alimentos chilenos reales: marraqueta, cazuela, porotos, plateada, yogur, quesillo, etc."""
 
     try:
         from groq import Groq
+        import re as _re
         client = Groq(api_key=api_key)
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Eres un nutricionista clínico experto en alimentación saludable chilena. Respondes SOLO con JSON válido, sin texto adicional."},
+                {"role": "system", "content": "Eres nutricionista clínico. Respondes ÚNICAMENTE con JSON válido, sin texto extra, sin markdown."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.7,
-            max_tokens=1500,
+            temperature=0.4,
+            max_tokens=4000,
         )
         raw = completion.choices[0].message.content.strip()
 
-        # Extraer JSON si viene con markdown code blocks
-        if "```" in raw:
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
+        # Extraer bloque JSON robusto: busca desde el primer { hasta el último }
+        match = _re.search(r'\{.*\}', raw, _re.DOTALL)
+        if match:
+            raw = match.group(0)
 
         menu = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="La IA no retornó un JSON válido. Intenta de nuevo.")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"La IA no retornó un JSON válido: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al conectar con Groq: {str(e)}")
 

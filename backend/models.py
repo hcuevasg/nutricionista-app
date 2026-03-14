@@ -183,6 +183,22 @@ class Pauta(Base):
     patient = relationship("Patient", back_populates="pautas")
 
 
+class AuditLog(Base):
+    """Registro de auditoría de acciones."""
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id"), nullable=True, index=True)
+    action = Column(String(50))        # login, logout, create, update, delete, export
+    resource = Column(String(50))      # patient, anthropometric, pauta, meal_plan, pdf
+    resource_id = Column(Integer, nullable=True)
+    detail = Column(String(500), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    nutritionist = relationship("Nutritionist")
+
+
 class MealItem(Base):
     """Item en plan alimenticio."""
     __tablename__ = "meal_items"

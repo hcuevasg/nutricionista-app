@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
@@ -83,6 +83,98 @@ function adecuacionColor(pct: number) {
   return 'text-red-600 bg-red-50'
 }
 
+// ── Menu types ─────────────────────────────────────────────────────────────
+
+interface MenuItem {
+  nombre: string
+  cantidad: number
+  unidad: string
+  kcal_100: number
+  prot_100: number
+  cho_100: number
+  lip_100: number
+}
+
+type MenuOpcion = MenuItem[]
+type MenuData = Record<string, { opcion1: MenuOpcion; opcion2: MenuOpcion }>
+
+function itemMacros(item: MenuItem) {
+  const f = item.cantidad / 100
+  return {
+    kcal: +(item.kcal_100 * f).toFixed(1),
+    prot: +(item.prot_100 * f).toFixed(1),
+    cho:  +(item.cho_100  * f).toFixed(1),
+    lip:  +(item.lip_100  * f).toFixed(1),
+  }
+}
+
+function opcionTotals(items: MenuOpcion) {
+  return items.reduce(
+    (acc, item) => {
+      const m = itemMacros(item)
+      return { kcal: +(acc.kcal + m.kcal).toFixed(1), prot: +(acc.prot + m.prot).toFixed(1), cho: +(acc.cho + m.cho).toFixed(1), lip: +(acc.lip + m.lip).toFixed(1) }
+    },
+    { kcal: 0, prot: 0, cho: 0, lip: 0 }
+  )
+}
+
+function isStructuredMenu(m: unknown): m is MenuData {
+  if (!m || typeof m !== 'object') return false
+  const first = Object.values(m as object)[0]
+  if (!first || typeof first !== 'object') return false
+  const op = (first as Record<string, unknown>).opcion1
+  return Array.isArray(op)
+}
+
+function StructuredOpcion({
+  items,
+  colorClass,
+  label,
+  labelColor,
+  onChange,
+}: {
+  items: MenuOpcion
+  colorClass: string
+  label: string
+  labelColor: string
+  onChange: (items: MenuOpcion) => void
+}) {
+  const totals = opcionTotals(items)
+  return (
+    <div className={`rounded-lg p-2 ${colorClass}`}>
+      <span className={`text-xs font-bold block mb-2 ${labelColor}`}>{label}</span>
+      <div className="space-y-1">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-1 text-xs">
+            <span className="flex-1 text-gray-700 truncate" title={item.nombre}>{item.nombre}</span>
+            <input
+              type="number"
+              value={item.cantidad}
+              min={0}
+              onChange={e => {
+                const next = [...items]
+                next[idx] = { ...item, cantidad: +e.target.value }
+                onChange(next)
+              }}
+              className="w-14 text-right border border-transparent focus:border-border rounded px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <span className="text-text-muted w-6 text-right">{item.unidad}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 pt-1 border-t border-black/10 flex gap-2 text-xs text-text-muted flex-wrap">
+        <span className="font-medium text-gray-600">{totals.kcal} kcal</span>
+        <span>·</span>
+        <span>P {totals.prot}g</span>
+        <span>·</span>
+        <span>C {totals.cho}g</span>
+        <span>·</span>
+        <span>G {totals.lip}g</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Small components ───────────────────────────────────────────────────────
 
 interface PautaData {
@@ -130,7 +222,9 @@ const SELECT = `${INPUT} bg-white`
 
 export default function PautaFormPage() {
   const { id, pautaId } = useParams<{ id: string; pautaId: string }>()
-  const isView = !!pautaId
+  const location = useLocation()
+  const isEdit = !!pautaId && location.pathname.endsWith('/edit')
+  const isView = !!pautaId && !isEdit
   const { token } = useAuth()
   const navigate = useNavigate()
 
@@ -142,8 +236,9 @@ export default function PautaFormPage() {
   })
   const [porciones, setPorciones] = useState<Record<string, number>>({})
   const [distribucion, setDistribucion] = useState<Record<string, Record<string, number>>>({})
-  const [menu, setMenu] = useState<Record<string, { opcion1: string; opcion2: string }>>({})
+  const [menu, setMenu] = useState<Record<string, { opcion1: string | MenuOpcion; opcion2: string | MenuOpcion }>>({})
   const [generatingMenu, setGeneratingMenu] = useState(false)
+  const [savingMenu, setSavingMenu] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -155,14 +250,14 @@ export default function PautaFormPage() {
   useEffect(() => {
     if (!token || !id) return
     const patientFetch = fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json())
-    const pautaFetch = isView
+    const pautaFetch = (isView || isEdit)
       ? fetch(`${API}/pautas/${id}/${pautaId}`, { headers: H }).then(r => r.json())
       : Promise.resolve(null)
 
     Promise.all([patientFetch, pautaFetch])
       .then(([pat, pauta]) => {
         setPatientName(pat.name ?? '')
-        if (pauta && isView) {
+        if (pauta && (isView || isEdit)) {
           setForm({
             name: pauta.name, date: pauta.date, tipo_pauta: pauta.tipo_pauta,
             sexo: pauta.sexo, edad: pauta.edad, peso: pauta.peso,
@@ -292,9 +387,11 @@ export default function PautaFormPage() {
     }
 
     try {
-      const res = await fetch(`${API}/pautas?patient_id=${id}`, {
-        method: 'POST', headers: H, body: JSON.stringify(payload),
-      })
+      const url = isEdit
+        ? `${API}/pautas/${id}/${pautaId}`
+        : `${API}/pautas?patient_id=${id}`
+      const method = isEdit ? 'PUT' : 'POST'
+      const res = await fetch(url, { method, headers: H, body: JSON.stringify(payload) })
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail ?? `Error ${res.status}`) }
       navigate(`/patients/${id}/pautas`)
     } catch (err) {
@@ -316,6 +413,21 @@ export default function PautaFormPage() {
       setError(err instanceof Error ? err.message : 'Error al generar menú')
     } finally {
       setGeneratingMenu(false)
+    }
+  }
+
+  const handleSaveMenu = async () => {
+    if (!pautaId) return
+    setSavingMenu(true); setError(null)
+    try {
+      const res = await fetch(`${API}/pautas/${id}/${pautaId}/menu`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ menu }),
+      })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+    } catch {
+      setError('No se pudo guardar el menú')
+    } finally {
+      setSavingMenu(false)
     }
   }
 
@@ -342,7 +454,7 @@ export default function PautaFormPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Layout title={isView ? 'Ver Pauta' : 'Nueva Pauta'}>
+    <Layout title={isEdit ? 'Editar Pauta' : isView ? 'Ver Pauta' : 'Nueva Pauta'}>
       <div className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/patients" className="hover:text-primary">Pacientes</Link>
         <span>/</span>
@@ -350,7 +462,7 @@ export default function PautaFormPage() {
         <span>/</span>
         <Link to={`/patients/${id}/pautas`} className="hover:text-primary">Pautas</Link>
         <span>/</span>
-        <span className="text-primary font-medium">{isView ? 'Ver' : 'Nueva'}</span>
+        <span className="text-primary font-medium">{isEdit ? 'Editar' : isView ? 'Ver' : 'Nueva'}</span>
       </div>
 
       {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
@@ -697,10 +809,16 @@ export default function PautaFormPage() {
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Ideas de Menú — IA</h3>
-                <button onClick={handleGenerarMenu} disabled={generatingMenu}
-                  className="text-xs text-primary hover:underline disabled:opacity-50">
-                  {generatingMenu ? 'Generando...' : 'Regenerar'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSaveMenu} disabled={savingMenu || generatingMenu}
+                    className="text-xs text-white bg-primary hover:bg-primary-dark px-3 py-1 rounded disabled:opacity-50">
+                    {savingMenu ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                  <button onClick={handleGenerarMenu} disabled={generatingMenu}
+                    className="text-xs text-primary hover:underline disabled:opacity-50">
+                    {generatingMenu ? 'Generando...' : 'Regenerar'}
+                  </button>
+                </div>
               </div>
               {generatingMenu ? (
                 <div className="flex items-center gap-3 py-6 justify-center text-text-muted text-sm">
@@ -710,8 +828,45 @@ export default function PautaFormPage() {
                   </svg>
                   Consultando IA...
                 </div>
+              ) : isStructuredMenu(menu) ? (
+                <div className="grid grid-cols-1 gap-4">
+                  <p className="text-xs text-text-muted">Edita las cantidades (g/ml) directamente y guarda los cambios.</p>
+                  {TIEMPOS_COMIDA.filter(({ key }) => menu[key]).map(({ key, label }) => {
+                    const td = menu[key] as { opcion1: MenuOpcion; opcion2: MenuOpcion }
+                    return (
+                      <div key={key} className="border border-border rounded-lg overflow-hidden">
+                        <div className="bg-primary/5 px-3 py-2">
+                          <span className="text-sm font-bold text-primary">{label}</span>
+                        </div>
+                        <div className="p-3 grid grid-cols-2 gap-3">
+                          <StructuredOpcion
+                            items={td.opcion1}
+                            colorClass="bg-primary/5 border border-primary/10"
+                            label="Opción 1"
+                            labelColor="text-primary"
+                            onChange={items => setMenu(prev => ({
+                              ...prev,
+                              [key]: { ...(prev[key] as { opcion1: MenuOpcion; opcion2: MenuOpcion }), opcion1: items },
+                            }))}
+                          />
+                          <StructuredOpcion
+                            items={td.opcion2}
+                            colorClass="bg-terracotta/5 border border-terracotta/10"
+                            label="Opción 2"
+                            labelColor="text-terracotta"
+                            onChange={items => setMenu(prev => ({
+                              ...prev,
+                              [key]: { ...(prev[key] as { opcion1: MenuOpcion; opcion2: MenuOpcion }), opcion2: items },
+                            }))}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4">
+                  <p className="text-xs text-text-muted">Puedes editar las opciones directamente y luego guardar los cambios.</p>
                   {TIEMPOS_COMIDA.filter(({ key }) => menu[key]).map(({ key, label }) => (
                     <div key={key} className="border border-border rounded-lg overflow-hidden">
                       <div className="bg-primary/5 px-3 py-2">
@@ -719,9 +874,17 @@ export default function PautaFormPage() {
                       </div>
                       <div className="p-3 grid grid-cols-2 gap-3">
                         {(['opcion1', 'opcion2'] as const).map((opt, i) => (
-                          <div key={opt} className={`rounded-lg p-3 text-sm text-gray-700 leading-relaxed ${i === 0 ? 'bg-primary/5 border border-primary/10' : 'bg-terracotta/5 border border-terracotta/10'}`}>
+                          <div key={opt} className={`rounded-lg p-2 ${i === 0 ? 'bg-primary/5 border border-primary/10' : 'bg-terracotta/5 border border-terracotta/10'}`}>
                             <span className={`text-xs font-bold block mb-1 ${i === 0 ? 'text-primary' : 'text-terracotta'}`}>Opción {i + 1}</span>
-                            {menu[key][opt]}
+                            <textarea
+                              value={typeof menu[key]?.[opt] === 'string' ? menu[key][opt] as string : ''}
+                              onChange={e => setMenu(prev => ({
+                                ...prev,
+                                [key]: { ...prev[key], [opt]: e.target.value },
+                              }))}
+                              rows={3}
+                              className="w-full text-sm text-gray-700 bg-transparent border border-transparent focus:border-border focus:bg-white rounded p-1 resize-none focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+                            />
                           </div>
                         ))}
                       </div>
@@ -799,47 +962,51 @@ export default function PautaFormPage() {
                 })}
               </div>
             )}
+
+            {(isEdit || !pautaId) && (
+              <div className="pt-3 border-t border-border flex flex-col gap-2">
+                <button onClick={handleSave} disabled={saving || macroError}
+                  className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50">
+                  {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear pauta'}
+                </button>
+                <Link to={isEdit ? `/patients/${id}/pautas/${pautaId}` : `/patients/${id}/pautas`}
+                  className="border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">
+                  Cancelar
+                </Link>
+              </div>
+            )}
+
+            {isView && (
+              <div className="pt-3 border-t border-border flex flex-col gap-2">
+                <Link to={`/patients/${id}/pautas/${pautaId}/edit`}
+                  className="border border-primary text-primary hover:bg-primary/5 py-3 rounded-lg font-medium text-center text-sm">
+                  Editar pauta
+                </Link>
+                <button onClick={handleGenerarMenu} disabled={generatingMenu}
+                  className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                  {generatingMenu ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Generando menú...
+                    </>
+                  ) : (
+                    <>✨ {Object.keys(menu).length > 0 ? 'Regenerar Menú IA' : 'Generar Menú con IA'}</>
+                  )}
+                </button>
+                <button onClick={handleDownloadPdf} disabled={downloading}
+                  className="bg-terracotta hover:opacity-90 text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                  {downloading ? 'Generando...' : '⬇ Descargar PDF'}
+                </button>
+                <Link to={`/patients/${id}/pautas`}
+                  className="block border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">
+                  ← Volver
+                </Link>
+              </div>
+            )}
           </div>
-
-          {!isView && (
-            <div className="flex flex-col gap-2">
-              <button onClick={handleSave} disabled={saving || macroError}
-                className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50">
-                {saving ? 'Guardando...' : 'Crear pauta'}
-              </button>
-              <Link to={`/patients/${id}/pautas`}
-                className="border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">
-                Cancelar
-              </Link>
-            </div>
-          )}
-
-          {isView && (
-            <div className="flex flex-col gap-2">
-              <button onClick={handleGenerarMenu} disabled={generatingMenu}
-                className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-                {generatingMenu ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Generando menú...
-                  </>
-                ) : (
-                  <>✨ {Object.keys(menu).length > 0 ? 'Regenerar Menú IA' : 'Generar Menú con IA'}</>
-                )}
-              </button>
-              <button onClick={handleDownloadPdf} disabled={downloading}
-                className="bg-terracotta hover:opacity-90 text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-                {downloading ? 'Generando...' : '⬇ Descargar PDF'}
-              </button>
-              <Link to={`/patients/${id}/pautas`}
-                className="block border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">
-                ← Volver
-              </Link>
-            </div>
-          )}
         </div>
 
       </div>

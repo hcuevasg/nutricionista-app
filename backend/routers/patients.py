@@ -6,6 +6,7 @@ from typing import List
 import models
 import schemas
 import auth
+import audit
 from database import get_db
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -16,7 +17,6 @@ async def list_patients(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    """List all patients for current user."""
     patients = db.query(models.Patient).filter(
         models.Patient.nutritionist_id == current_user.id
     ).all()
@@ -29,14 +29,12 @@ async def create_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    """Create a new patient."""
-    patient = models.Patient(
-        **request.model_dump(),
-        nutritionist_id=current_user.id
-    )
+    patient = models.Patient(**request.model_dump(), nutritionist_id=current_user.id)
     db.add(patient)
     db.commit()
     db.refresh(patient)
+    audit.log(db, action="create", resource="patient", nutritionist_id=current_user.id,
+               resource_id=patient.id, detail=patient.name)
     return patient
 
 
@@ -46,15 +44,12 @@ async def get_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    """Get patient details."""
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
         models.Patient.nutritionist_id == current_user.id
     ).first()
-
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-
     return patient
 
 
@@ -65,20 +60,18 @@ async def update_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    """Update patient."""
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
         models.Patient.nutritionist_id == current_user.id
     ).first()
-
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-
     for key, value in request.model_dump().items():
         setattr(patient, key, value)
-
     db.commit()
     db.refresh(patient)
+    audit.log(db, action="update", resource="patient", nutritionist_id=current_user.id,
+               resource_id=patient.id, detail=patient.name)
     return patient
 
 
@@ -88,16 +81,15 @@ async def delete_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    """Delete patient."""
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
         models.Patient.nutritionist_id == current_user.id
     ).first()
-
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-
+    name = patient.name
     db.delete(patient)
     db.commit()
-
+    audit.log(db, action="delete", resource="patient", nutritionist_id=current_user.id,
+               resource_id=patient_id, detail=name)
     return {"message": "Patient deleted"}

@@ -22,6 +22,7 @@ export default function Layout({ children, title }: LayoutProps) {
     { label: 'Planes', path: '/plans' },
     { label: 'Pautas', path: '/pautas' },
     { label: 'Reportes', path: '/reports' },
+    { label: 'Configuración', path: '/config' },
   ]
 
   return (
