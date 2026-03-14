@@ -24,14 +24,22 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 NutriApp Backend Starting...")
     try:
-        # Create all tables
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
     except Exception as e:
         print(f"⚠️ Database setup warning: {e}")
-        # Continue anyway - database might already exist
+
+    # Run migrations for existing tables
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE patients ALTER COLUMN sex TYPE VARCHAR(20)"))
+            conn.commit()
+            print("✅ Migration: sex column expanded")
+    except Exception:
+        pass  # Already migrated or column doesn't exist yet
+
     yield
-    # Shutdown
     print("🛑 NutriApp Backend Shutting down...")
 
 
