@@ -78,6 +78,8 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_meso FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_ecto FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS isak_level VARCHAR(20)",
+        # pautas
+        "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS menu_json TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

@@ -213,6 +213,7 @@ class PautaCreate(BaseModel):
     cho_pct: float
     porciones_json: str
     distribucion_json: str
+    menu_json: Optional[str] = None
     notes: Optional[str] = None
 
 

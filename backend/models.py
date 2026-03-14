@@ -176,6 +176,7 @@ class Pauta(Base):
     cho_pct = Column(Float)
     porciones_json = Column(Text)           # JSON: {grupo: porciones}
     distribucion_json = Column(Text)        # JSON: {tiempo: {grupo: porciones}}
+    menu_json = Column(Text, nullable=True) # JSON: {tiempo: {opcion1: str, opcion2: str}}
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

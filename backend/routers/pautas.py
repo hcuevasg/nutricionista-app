@@ -161,6 +161,108 @@ async def download_pauta_pdf(
     )
 
 
+# ── Generador de menú con IA (Groq) ─────────────────────────────────────────
+
+@router.post("/{patient_id}/{pauta_id}/generar-menu")
+async def generar_menu_ia(
+    patient_id: int,
+    pauta_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == current_user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta not found")
+
+    import os
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada en el servidor")
+
+    try:
+        porciones = json.loads(pauta.porciones_json or "{}") if pauta.porciones_json else {}
+        distribucion = json.loads(pauta.distribucion_json or "{}") if pauta.distribucion_json else {}
+    except Exception:
+        porciones = {}
+        distribucion = {}
+
+    # Construir descripción de tiempos con porciones
+    tiempos_info = []
+    for key, label in _TIEMPOS_COMIDA:
+        grupos_t = distribucion.get(key, {})
+        grupos_activos = [(g, float(p)) for g, p in grupos_t.items() if float(p or 0) > 0]
+        if not grupos_activos:
+            continue
+        grupos_str = ", ".join(
+            f"{_NOMBRES_GRUPOS.get(g, g)} {p:g}p" for g, p in grupos_activos
+        )
+        tiempos_info.append(f"- {label}: {grupos_str}")
+
+    if not tiempos_info:
+        raise HTTPException(status_code=400, detail="La pauta no tiene distribución por tiempos definida")
+
+    tipo_label = TIPO_LABELS.get(pauta.tipo_pauta, pauta.tipo_pauta)
+    prompt = f"""Pauta nutricional {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día para paciente chileno.
+
+Distribución de grupos de alimentos por tiempo de comida (p = porciones):
+{chr(10).join(tiempos_info)}
+
+Genera ideas de menú concretas para cada tiempo de comida. Usa alimentos chilenos reales (pan marraqueta, cazuela, porotos, etc.) con cantidades en medidas caseras (tazas, cucharadas, unidades).
+
+Responde ÚNICAMENTE con JSON válido, sin texto adicional, con exactamente este formato:
+{{
+  "desayuno": {{"opcion1": "...", "opcion2": "..."}},
+  "colacion1": {{"opcion1": "...", "opcion2": "..."}},
+  "almuerzo": {{"opcion1": "...", "opcion2": "..."}},
+  "colacion2": {{"opcion1": "...", "opcion2": "..."}},
+  "once": {{"opcion1": "...", "opcion2": "..."}},
+  "cena": {{"opcion1": "...", "opcion2": "..."}}
+}}
+
+Solo incluye los tiempos que aparecen en la distribución. Cada opción debe ser una descripción en 1 línea."""
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Eres un nutricionista clínico experto en alimentación saludable chilena. Respondes SOLO con JSON válido, sin texto adicional."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=1500,
+        )
+        raw = completion.choices[0].message.content.strip()
+
+        # Extraer JSON si viene con markdown code blocks
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        menu = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="La IA no retornó un JSON válido. Intenta de nuevo.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al conectar con Groq: {str(e)}")
+
+    pauta.menu_json = json.dumps(menu, ensure_ascii=False)
+    db.commit()
+    db.refresh(pauta)
+    return {"menu": menu}
+
+
 # ── PDF generation ──────────────────────────────────────────────────
 
 def _hex(h: str):

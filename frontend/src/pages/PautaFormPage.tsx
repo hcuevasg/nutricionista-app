@@ -142,6 +142,8 @@ export default function PautaFormPage() {
   })
   const [porciones, setPorciones] = useState<Record<string, number>>({})
   const [distribucion, setDistribucion] = useState<Record<string, Record<string, number>>>({})
+  const [menu, setMenu] = useState<Record<string, { opcion1: string; opcion2: string }>>({})
+  const [generatingMenu, setGeneratingMenu] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -170,6 +172,7 @@ export default function PautaFormPage() {
           })
           try { setPorciones(JSON.parse(pauta.porciones_json || '{}')) } catch {}
           try { setDistribucion(JSON.parse(pauta.distribucion_json || '{}')) } catch {}
+          try { if (pauta.menu_json) setMenu(JSON.parse(pauta.menu_json)) } catch {}
         } else {
           const bd = pat.birth_date ? new Date(pat.birth_date) : null
           const age = bd ? Math.max(0, new Date().getFullYear() - bd.getFullYear()) : 30
@@ -298,6 +301,21 @@ export default function PautaFormPage() {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleGenerarMenu = async () => {
+    if (!pautaId) return
+    setGeneratingMenu(true); setError(null)
+    try {
+      const res = await fetch(`${API}/pautas/${id}/${pautaId}/generar-menu`, { method: 'POST', headers: H })
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail ?? `Error ${res.status}`) }
+      const data = await res.json()
+      setMenu(data.menu ?? {})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al generar menú')
+    } finally {
+      setGeneratingMenu(false)
     }
   }
 
@@ -674,6 +692,46 @@ export default function PautaFormPage() {
             </div>
           )}
 
+          {/* 8. Menú generado con IA */}
+          {isView && (Object.keys(menu).length > 0 || generatingMenu) && (
+            <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Ideas de Menú — IA</h3>
+                <button onClick={handleGenerarMenu} disabled={generatingMenu}
+                  className="text-xs text-primary hover:underline disabled:opacity-50">
+                  {generatingMenu ? 'Generando...' : 'Regenerar'}
+                </button>
+              </div>
+              {generatingMenu ? (
+                <div className="flex items-center gap-3 py-6 justify-center text-text-muted text-sm">
+                  <svg className="animate-spin h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Consultando IA...
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {TIEMPOS_COMIDA.filter(({ key }) => menu[key]).map(({ key, label }) => (
+                    <div key={key} className="border border-border rounded-lg overflow-hidden">
+                      <div className="bg-primary/5 px-3 py-2">
+                        <span className="text-sm font-bold text-primary">{label}</span>
+                      </div>
+                      <div className="p-3 grid grid-cols-2 gap-3">
+                        {(['opcion1', 'opcion2'] as const).map((opt, i) => (
+                          <div key={opt} className={`rounded-lg p-3 text-sm text-gray-700 leading-relaxed ${i === 0 ? 'bg-primary/5 border border-primary/10' : 'bg-terracotta/5 border border-terracotta/10'}`}>
+                            <span className={`text-xs font-bold block mb-1 ${i === 0 ? 'text-primary' : 'text-terracotta'}`}>Opción {i + 1}</span>
+                            {menu[key][opt]}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         {/* ── Right column: summary + actions ──────────────────────────── */}
@@ -758,6 +816,20 @@ export default function PautaFormPage() {
 
           {isView && (
             <div className="flex flex-col gap-2">
+              <button onClick={handleGenerarMenu} disabled={generatingMenu}
+                className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                {generatingMenu ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Generando menú...
+                  </>
+                ) : (
+                  <>✨ {Object.keys(menu).length > 0 ? 'Regenerar Menú IA' : 'Generar Menú con IA'}</>
+                )}
+              </button>
               <button onClick={handleDownloadPdf} disabled={downloading}
                 className="bg-terracotta hover:opacity-90 text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
                 {downloading ? 'Generando...' : '⬇ Descargar PDF'}
