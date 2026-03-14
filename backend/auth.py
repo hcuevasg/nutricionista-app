@@ -1,10 +1,10 @@
 """Authentication logic."""
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from os import getenv
 import models
@@ -16,26 +16,29 @@ SECRET_KEY = getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = int(getenv("ACCESS_TOKEN_EXPIRE_DAYS", "7"))
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # HTTP Bearer
 security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
-    """Hash a password."""
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt(rounds=10)
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password using bcrypt."""
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT token."""
     to_encode = data.copy()
+    # Convert "sub" to string if it's an integer (PyJWT requirement)
+    if "sub" in to_encode and isinstance(to_encode["sub"], int):
+        to_encode["sub"] = str(to_encode["sub"])
+
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -59,13 +62,13 @@ def decode_token(token: str) -> dict:
 
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security),
+    credentials: Any = Depends(security),
     db: Session = Depends(get_db)
 ) -> models.Nutritionist:
     """Get current authenticated user."""
     token = credentials.credentials
     payload = decode_token(token)
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))  # Convert back from string
 
     user = db.query(models.Nutritionist).filter(models.Nutritionist.id == user_id).first()
     if not user:

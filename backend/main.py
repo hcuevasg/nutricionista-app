@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients
+from routers import auth, patients, anthropometrics, meal_plans
 
 # Import database
 from database import engine, Base
@@ -58,6 +58,8 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(patients.router)
+app.include_router(anthropometrics.router)
+app.include_router(meal_plans.router)
 
 
 @app.get("/")
