@@ -41,6 +41,7 @@ export default function PatientsPage() {
         const data = await response.json()
         setPatients(Array.isArray(data) ? data : [])
       } catch (err) {
+        console.error('Error fetching patients:', err)
         setError(err instanceof Error ? err.message : 'Error al cargar pacientes')
       } finally {
         setLoading(false)
