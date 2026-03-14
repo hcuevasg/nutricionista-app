@@ -30,14 +30,63 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Database setup warning: {e}")
 
     # Run migrations for existing tables
-    try:
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE patients ALTER COLUMN sex TYPE VARCHAR(20)"))
-            conn.commit()
-            print("✅ Migration: sex column expanded")
-    except Exception:
-        pass  # Already migrated or column doesn't exist yet
+    from sqlalchemy import text
+    migrations = [
+        # patients
+        "ALTER TABLE patients ALTER COLUMN sex TYPE VARCHAR(20)",
+        # anthropometrics — add all ISAK columns that may be missing
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS arm_relaxed_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS arm_contracted_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS hip_glute_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS thigh_max_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS thigh_mid_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS calf_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS triceps_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS subscapular_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS biceps_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS iliac_crest_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS supraspinal_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS abdominal_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS medial_thigh_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS max_calf_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS pectoral_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS axillary_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS front_thigh_mm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS head_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS neck_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS chest_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS ankle_min_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS humerus_width_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS femur_width_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS biacromial_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS biiliocrestal_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS ap_chest_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS transv_chest_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS foot_length_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS wrist_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS ankle_bimalleolar_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS acromion_radial_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS radial_styloid_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS iliospinal_height_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS trochanter_tibial_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS body_density FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS fat_mass_pct FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS fat_mass_kg FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS lean_mass_kg FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS sum_6_skinfolds FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_endo FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_meso FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_ecto FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS isak_level VARCHAR(20)",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+            except Exception:
+                pass
+        conn.commit()
+    print("✅ Migrations complete")
 
     yield
     print("🛑 NutriApp Backend Shutting down...")
