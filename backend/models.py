@@ -44,6 +44,7 @@ class Patient(Base):
     nutritionist = relationship("Nutritionist", back_populates="patients")
     anthropometrics = relationship("Anthropometric", back_populates="patient", cascade="all, delete-orphan")
     meal_plans = relationship("MealPlan", back_populates="patient", cascade="all, delete-orphan")
+    pautas = relationship("Pauta", back_populates="patient", cascade="all, delete-orphan")
 
 
 class Anthropometric(Base):
@@ -144,6 +145,41 @@ class MealPlan(Base):
     # Relationships
     patient = relationship("Patient", back_populates="meal_plans")
     items = relationship("MealItem", back_populates="meal_plan", cascade="all, delete-orphan")
+
+
+class Pauta(Base):
+    """Pauta de alimentación."""
+    __tablename__ = "pautas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), index=True)
+    name = Column(String(255))
+    date = Column(String)
+    tipo_pauta = Column(String(50))         # omnivoro, ovolacto, vegano, etc.
+    sexo = Column(String(20))
+    edad = Column(Integer)
+    peso = Column(Float)
+    fa_key = Column(String(50))             # sedentaria, liviana, moderada, intensa
+    tmb = Column(Float)
+    get_kcal = Column(Float)
+    kcal_objetivo = Column(Float)
+    ajuste_kcal = Column(Float, nullable=True)
+    prot_g_kg = Column(Float)
+    prot_g = Column(Float)
+    prot_kcal = Column(Float)
+    prot_pct = Column(Float)
+    lip_pct = Column(Float)
+    lip_g = Column(Float)
+    lip_kcal = Column(Float)
+    cho_g = Column(Float)
+    cho_kcal = Column(Float)
+    cho_pct = Column(Float)
+    porciones_json = Column(Text)           # JSON: {grupo: porciones}
+    distribucion_json = Column(Text)        # JSON: {tiempo: {grupo: porciones}}
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    patient = relationship("Patient", back_populates="pautas")
 
 
 class MealItem(Base):

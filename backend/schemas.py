@@ -186,3 +186,40 @@ class MealPlanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Pauta Schemas ──────────────────────────────────────────────────
+class PautaCreate(BaseModel):
+    name: str
+    date: str
+    tipo_pauta: str
+    sexo: str
+    edad: int
+    peso: float
+    fa_key: str
+    tmb: float
+    get_kcal: float
+    kcal_objetivo: float
+    ajuste_kcal: Optional[float] = None
+    prot_g_kg: float
+    prot_g: float
+    prot_kcal: float
+    prot_pct: float
+    lip_pct: float
+    lip_g: float
+    lip_kcal: float
+    cho_g: float
+    cho_kcal: float
+    cho_pct: float
+    porciones_json: str
+    distribucion_json: str
+    notes: Optional[str] = None
+
+
+class PautaResponse(PautaCreate):
+    id: int
+    patient_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
