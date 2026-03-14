@@ -47,7 +47,7 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
-    os.getenv("FRONTEND_URL", "https://nutricionista-app.vercel.app"),
+    "https://nutricionista-app.vercel.app",
 ]
 
 app.add_middleware(
