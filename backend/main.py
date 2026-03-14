@@ -18,14 +18,18 @@ from routers import auth, patients, anthropometrics, meal_plans
 # Import database
 from database import engine, Base
 
-# Create tables on startup
-Base.metadata.create_all(bind=engine)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 NutriApp Backend Starting...")
+    try:
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created/verified")
+    except Exception as e:
+        print(f"⚠️ Database setup warning: {e}")
+        # Continue anyway - database might already exist
     yield
     # Shutdown
     print("🛑 NutriApp Backend Shutting down...")
