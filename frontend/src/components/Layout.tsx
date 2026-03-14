@@ -61,9 +61,9 @@ export default function Layout({ children, title }: LayoutProps) {
         <div className="bg-white shadow sticky top-0 z-10">
           <div className="px-8 py-4 flex justify-between items-center">
             <h2 className="text-2xl font-bold text-primary">{title}</h2>
-            <div className="text-sm text-gray-600">
-              {user?.username}
-            </div>
+            <Link to="/profile" className="text-sm text-gray-600 hover:text-primary hover:underline">
+              {user?.name || user?.username}
+            </Link>
           </div>
         </div>
 

@@ -32,6 +32,16 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
 # ── Patient Schemas ───────────────────────────────────────────────
 class PatientCreate(BaseModel):
     name: str

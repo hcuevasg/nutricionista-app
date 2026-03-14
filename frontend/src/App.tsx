@@ -15,6 +15,7 @@ import MealPlanFormPage from './pages/MealPlanFormPage'
 import PautasPage from './pages/PautasPage'
 import PautaFormPage from './pages/PautaFormPage'
 import ConfigPage from './pages/ConfigPage'
+import ProfilePage from './pages/ProfilePage'
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/patients/:id/pautas/new" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/pautas/:pautaId" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/config" element={<PrivateRoute><ConfigPage /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 
           {/* Redirect to dashboard by default */}
           <Route path="/" element={<Navigate to="/dashboard" />} />

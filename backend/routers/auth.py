@@ -74,3 +74,41 @@ async def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
 async def get_current_user(current_user: models.Nutritionist = Depends(auth_module.get_current_user)):
     """Get current user."""
     return current_user
+
+
+@router.put("/profile", response_model=schemas.UserResponse)
+async def update_profile(
+    request: schemas.ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth_module.get_current_user),
+):
+    """Update name and/or email."""
+    if request.name is not None:
+        current_user.name = request.name
+    if request.email is not None:
+        existing = db.query(models.Nutritionist).filter(
+            models.Nutritionist.email == request.email,
+            models.Nutritionist.id != current_user.id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email ya registrado")
+        current_user.email = request.email
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.put("/password")
+async def change_password(
+    request: schemas.PasswordChange,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth_module.get_current_user),
+):
+    """Change password."""
+    if not auth_module.verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    if len(request.new_password) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres")
+    current_user.password_hash = auth_module.hash_password(request.new_password)
+    db.commit()
+    return {"message": "Contraseña actualizada"}
