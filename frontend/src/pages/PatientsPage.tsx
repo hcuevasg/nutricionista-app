@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 
 interface Patient {
@@ -23,27 +23,17 @@ export default function PatientsPage() {
     const fetchPatients = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/patients`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` },
         })
-
         if (response.status === 401) {
           logout()
           navigate('/login')
           return
         }
-
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}`)
-        }
-
+        if (!response.ok) throw new Error(`Error ${response.status}`)
         const data = await response.json()
         setPatients(Array.isArray(data) ? data : [])
       } catch (err) {
-        console.error('Error fetching patients:', err)
         setError(err instanceof Error ? err.message : 'Error al cargar pacientes')
       } finally {
         setLoading(false)
@@ -63,9 +53,12 @@ export default function PatientsPage() {
             className="px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <button className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg">
+        <Link
+          to="/patients/new"
+          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg"
+        >
           + Nuevo Paciente
-        </button>
+        </Link>
       </div>
 
       {error && (
@@ -103,8 +96,9 @@ export default function PatientsPage() {
                   <td className="px-6 py-4 text-sm text-gray-700">{patient.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{patient.email || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{patient.phone || '-'}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <button className="text-primary hover:underline">Ver</button>
+                  <td className="px-6 py-4 text-sm flex gap-3">
+                    <Link to={`/patients/${patient.id}`} className="text-primary hover:underline">Ver</Link>
+                    <Link to={`/patients/${patient.id}/edit`} className="text-text-muted hover:underline">Editar</Link>
                   </td>
                 </tr>
               ))

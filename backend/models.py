@@ -60,7 +60,15 @@ class Anthropometric(Base):
     height_cm = Column(Float, nullable=True)
     waist_cm = Column(Float, nullable=True)
 
-    # Pliegues cutáneos (mm) - ISAK 1
+    # Perímetros (cm) — ISAK 1+2
+    arm_relaxed_cm = Column(Float, nullable=True)
+    arm_contracted_cm = Column(Float, nullable=True)
+    hip_glute_cm = Column(Float, nullable=True)
+    thigh_max_cm = Column(Float, nullable=True)
+    thigh_mid_cm = Column(Float, nullable=True)
+    calf_cm = Column(Float, nullable=True)
+
+    # Pliegues cutáneos (mm) — ISAK 1+2
     triceps_mm = Column(Float, nullable=True)
     subscapular_mm = Column(Float, nullable=True)
     biceps_mm = Column(Float, nullable=True)
@@ -70,11 +78,43 @@ class Anthropometric(Base):
     medial_thigh_mm = Column(Float, nullable=True)
     max_calf_mm = Column(Float, nullable=True)
 
+    # Pliegues adicionales (mm) — ISAK 2
+    pectoral_mm = Column(Float, nullable=True)
+    axillary_mm = Column(Float, nullable=True)
+    front_thigh_mm = Column(Float, nullable=True)
+
+    # Perímetros adicionales (cm) — ISAK 2
+    head_cm = Column(Float, nullable=True)
+    neck_cm = Column(Float, nullable=True)
+    chest_cm = Column(Float, nullable=True)
+    ankle_min_cm = Column(Float, nullable=True)
+
+    # Diámetros óseos (cm) — ISAK 2
+    humerus_width_cm = Column(Float, nullable=True)
+    femur_width_cm = Column(Float, nullable=True)
+    biacromial_cm = Column(Float, nullable=True)
+    biiliocrestal_cm = Column(Float, nullable=True)
+    ap_chest_cm = Column(Float, nullable=True)
+    transv_chest_cm = Column(Float, nullable=True)
+    foot_length_cm = Column(Float, nullable=True)
+    wrist_cm = Column(Float, nullable=True)
+    ankle_bimalleolar_cm = Column(Float, nullable=True)
+
+    # Longitudes (cm) — ISAK 2
+    acromion_radial_cm = Column(Float, nullable=True)
+    radial_styloid_cm = Column(Float, nullable=True)
+    iliospinal_height_cm = Column(Float, nullable=True)
+    trochanter_tibial_cm = Column(Float, nullable=True)
+
     # Calculados
     body_density = Column(Float, nullable=True)
     fat_mass_pct = Column(Float, nullable=True)
     fat_mass_kg = Column(Float, nullable=True)
     lean_mass_kg = Column(Float, nullable=True)
+    sum_6_skinfolds = Column(Float, nullable=True)
+    somatotype_endo = Column(Float, nullable=True)
+    somatotype_meso = Column(Float, nullable=True)
+    somatotype_ecto = Column(Float, nullable=True)
 
     # ISAK Level
     isak_level = Column(String(20), default="ISAK 1")

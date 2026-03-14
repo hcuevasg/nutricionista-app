@@ -64,9 +64,22 @@ class PatientResponse(PatientCreate):
 class AnthropometricCreate(BaseModel):
     date: str
     session_date: Optional[str] = None
+    isak_level: str = "ISAK 1"
+
+    # Datos básicos
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
     waist_cm: Optional[float] = None
+
+    # Perímetros (cm) — ISAK 1+2
+    arm_relaxed_cm: Optional[float] = None
+    arm_contracted_cm: Optional[float] = None
+    hip_glute_cm: Optional[float] = None
+    thigh_max_cm: Optional[float] = None
+    thigh_mid_cm: Optional[float] = None
+    calf_cm: Optional[float] = None
+
+    # Pliegues cutáneos (mm) — ISAK 1+2
     triceps_mm: Optional[float] = None
     subscapular_mm: Optional[float] = None
     biceps_mm: Optional[float] = None
@@ -75,16 +88,49 @@ class AnthropometricCreate(BaseModel):
     abdominal_mm: Optional[float] = None
     medial_thigh_mm: Optional[float] = None
     max_calf_mm: Optional[float] = None
-    isak_level: str = "ISAK 1"
+
+    # Pliegues adicionales (mm) — ISAK 2
+    pectoral_mm: Optional[float] = None
+    axillary_mm: Optional[float] = None
+    front_thigh_mm: Optional[float] = None
+
+    # Perímetros adicionales (cm) — ISAK 2
+    head_cm: Optional[float] = None
+    neck_cm: Optional[float] = None
+    chest_cm: Optional[float] = None
+    ankle_min_cm: Optional[float] = None
+
+    # Diámetros óseos (cm) — ISAK 2
+    humerus_width_cm: Optional[float] = None
+    femur_width_cm: Optional[float] = None
+    biacromial_cm: Optional[float] = None
+    biiliocrestal_cm: Optional[float] = None
+    ap_chest_cm: Optional[float] = None
+    transv_chest_cm: Optional[float] = None
+    foot_length_cm: Optional[float] = None
+    wrist_cm: Optional[float] = None
+    ankle_bimalleolar_cm: Optional[float] = None
+
+    # Longitudes (cm) — ISAK 2
+    acromion_radial_cm: Optional[float] = None
+    radial_styloid_cm: Optional[float] = None
+    iliospinal_height_cm: Optional[float] = None
+    trochanter_tibial_cm: Optional[float] = None
+
+    # Calculados (computed in frontend, stored for history)
+    body_density: Optional[float] = None
+    fat_mass_pct: Optional[float] = None
+    fat_mass_kg: Optional[float] = None
+    lean_mass_kg: Optional[float] = None
+    sum_6_skinfolds: Optional[float] = None
+    somatotype_endo: Optional[float] = None
+    somatotype_meso: Optional[float] = None
+    somatotype_ecto: Optional[float] = None
 
 
 class AnthropometricResponse(AnthropometricCreate):
     id: int
     patient_id: int
-    body_density: Optional[float] = None
-    fat_mass_pct: Optional[float] = None
-    fat_mass_kg: Optional[float] = None
-    lean_mass_kg: Optional[float] = None
     created_at: datetime
 
     class Config:

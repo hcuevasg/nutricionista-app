@@ -64,10 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
+    console.log('📤 AuthContext.logout() called')
+    console.trace('Logout call stack:')
     setUser(null)
     setToken(null)
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    console.log('✅ Logout complete - user and token cleared')
   }
 
   return (

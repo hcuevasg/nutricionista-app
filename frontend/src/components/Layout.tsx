@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 interface LayoutProps {
@@ -35,13 +35,13 @@ export default function Layout({ children, title }: LayoutProps) {
 
         <nav className="mt-8">
           {menuItems.map((item) => (
-            <a
+            <Link
               key={item.path}
-              href={item.path}
+              to={item.path}
               className="block px-6 py-3 hover:bg-primary-dark transition-colors text-sm"
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
