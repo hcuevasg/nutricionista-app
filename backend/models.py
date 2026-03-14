@@ -29,7 +29,7 @@ class Patient(Base):
     name = Column(String(255))
     birth_date = Column(String)
     age = Column(Integer, nullable=True)
-    sex = Column(String(1))  # M/F
+    sex = Column(String(20))  # M/F or Masculino/Femenino
     height_cm = Column(Float, nullable=True)
     weight_kg = Column(Float, nullable=True)
     phone = Column(String(20), nullable=True)
