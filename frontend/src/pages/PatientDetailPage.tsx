@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 
 interface Patient {
   id: number
@@ -41,26 +42,35 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
   )
 }
 
+interface Evaluation {
+  id: number; date: string
+  weight_kg?: number | null; fat_mass_pct?: number | null; lean_mass_kg?: number | null
+}
+
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { token } = useAuth()
   const navigate = useNavigate()
   const [patient, setPatient] = useState<Patient | null>(null)
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const API = import.meta.env.VITE_API_URL
+  const H = { Authorization: `Bearer ${token}` }
+
   useEffect(() => {
     if (!token || !id) return
-    fetch(`${import.meta.env.VITE_API_URL}/patients/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`Error ${r.status}`)
-        return r.json()
-      })
+    fetch(`${API}/patients/${id}`, { headers: H })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
       .then(setPatient)
       .catch(() => setError('No se pudo cargar el paciente'))
       .finally(() => setLoading(false))
+
+    fetch(`${API}/anthropometrics/${id}`, { headers: H })
+      .then(r => r.ok ? r.json() : [])
+      .then(evals => setEvaluations(Array.isArray(evals) ? evals : []))
+      .catch(() => {})
   }, [id, token])
 
   if (loading) {
@@ -129,6 +139,8 @@ export default function PatientDetailPage() {
               </div>
             )}
           </div>
+
+          <IsAkEvolutionChart evaluations={evaluations} />
         </div>
 
         {/* Sidebar */}
