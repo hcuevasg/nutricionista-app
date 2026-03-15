@@ -219,6 +219,7 @@ export default function IsAkPage() {
       tibiale_height_cm: s(ev.tibiale_height_cm), arm_span_cm: s(ev.arm_span_cm),
     })
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleDeleteEval = async (evalId: number) => {
@@ -634,7 +635,7 @@ export default function IsAkPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all"
           >
             + Nueva evaluacion
@@ -747,7 +748,7 @@ export default function IsAkPage() {
             <div className="text-4xl mb-2">&#128203;</div>
             <p className="font-medium">No hay evaluaciones registradas.</p>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => { setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
               className="inline-block bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold"
             >
               + Crear primera evaluacion
