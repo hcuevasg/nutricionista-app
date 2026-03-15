@@ -81,8 +81,10 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_meso FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS somatotype_ecto FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS isak_level VARCHAR(20)",
+        # patients
+        "ALTER TABLE patients ADD COLUMN IF NOT EXISTS allergies TEXT",
         # pautas
-        "ALTER TABLE pautas ADD COLUMN menu_json TEXT",
+        "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS menu_json TEXT",
         # audit_logs
         """CREATE TABLE IF NOT EXISTS audit_logs (
             id SERIAL PRIMARY KEY,
