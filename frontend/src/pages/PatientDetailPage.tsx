@@ -57,8 +57,28 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 }
 
 interface Evaluation {
-  id: number; date: string
-  weight_kg?: number | null; fat_mass_pct?: number | null; lean_mass_kg?: number | null
+  id: number; date: string; isak_level?: string
+  // Básicos
+  weight_kg?: number | null; height_cm?: number | null; waist_cm?: number | null
+  // Composición corporal
+  body_density?: number | null; fat_mass_pct?: number | null; fat_mass_kg?: number | null
+  lean_mass_kg?: number | null; sum_6_skinfolds?: number | null
+  // Somatotipo
+  somatotype_endo?: number | null; somatotype_meso?: number | null; somatotype_ecto?: number | null
+  // Pliegues ISAK 1+2
+  triceps_mm?: number | null; subscapular_mm?: number | null; biceps_mm?: number | null
+  iliac_crest_mm?: number | null; supraspinal_mm?: number | null; abdominal_mm?: number | null
+  medial_thigh_mm?: number | null; max_calf_mm?: number | null
+  // Pliegues ISAK 2
+  pectoral_mm?: number | null; axillary_mm?: number | null; front_thigh_mm?: number | null
+  // Perímetros
+  arm_relaxed_cm?: number | null; arm_contracted_cm?: number | null; hip_glute_cm?: number | null
+  thigh_max_cm?: number | null; calf_cm?: number | null
+  // Diámetros y longitudes ISAK 2
+  humerus_width_cm?: number | null; femur_width_cm?: number | null
+  biacromial_cm?: number | null; biiliocrestal_cm?: number | null
+  acromion_radial_cm?: number | null; radial_styloid_cm?: number | null
+  iliospinal_height_cm?: number | null; trochanter_tibial_cm?: number | null
 }
 
 function calcBMI(weight?: number | null, height_cm?: number | null): number | null {
@@ -375,37 +395,110 @@ export default function PatientDetailPage() {
             </>
           )}
 
-          {activeTab === 'pliegues' && (
-            <div className="bg-white rounded-xl shadow-sm border border-border p-6">
-              <p className="text-text-muted text-sm">
-                Selecciona una evaluación del historial para ver los pliegues cutáneos.
-              </p>
-              <div className="mt-4">
-                <Link
-                  to={`/patients/${id}/isak`}
-                  className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm"
-                >
-                  Ver evaluaciones ISAK
-                </Link>
+          {activeTab === 'pliegues' && (() => {
+            const ev = evaluations[selectedEvalIdx]
+            if (!ev) return (
+              <div className="bg-white rounded-xl border border-border p-6 text-sm text-text-muted">
+                Sin evaluaciones registradas.
               </div>
-            </div>
-          )}
+            )
+            const f = (v?: number | null) => v != null ? `${v} mm` : '—'
+            const rows: [string, string][] = [
+              ['Tríceps',           f(ev.triceps_mm)],
+              ['Subescapular',      f(ev.subscapular_mm)],
+              ['Bíceps',            f(ev.biceps_mm)],
+              ['Cresta iliaca',     f(ev.iliac_crest_mm)],
+              ['Supraespinal',      f(ev.supraspinal_mm)],
+              ['Abdominal',         f(ev.abdominal_mm)],
+              ['Muslo medial',      f(ev.medial_thigh_mm)],
+              ['Pantorrilla máx.',  f(ev.max_calf_mm)],
+            ]
+            if (ev.isak_level === 'ISAK 2') {
+              rows.push(
+                ['Pectoral',        f(ev.pectoral_mm)],
+                ['Axilar medio',    f(ev.axillary_mm)],
+                ['Muslo anterior',  f(ev.front_thigh_mm)],
+              )
+            }
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border bg-bg-light flex items-center justify-between">
+                  <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Pliegues Cutáneos — {ev.date}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ev.isak_level === 'ISAK 2' ? 'bg-primary/10 text-primary' : 'bg-sage/20 text-gray-600'}`}>{ev.isak_level ?? 'ISAK 1'}</span>
+                </div>
+                <table className="w-full">
+                  <tbody className="divide-y divide-gray-100">
+                    {rows.map(([label, val]) => (
+                      <tr key={label} className="hover:bg-bg-light/50">
+                        <td className="px-5 py-3 text-sm text-text-muted w-1/2">{label}</td>
+                        <td className="px-5 py-3 text-sm font-semibold text-gray-800 text-right">{val}</td>
+                      </tr>
+                    ))}
+                    {ev.sum_6_skinfolds != null && (
+                      <tr className="bg-primary/5">
+                        <td className="px-5 py-3 text-sm font-bold text-primary">Σ6 Pliegues</td>
+                        <td className="px-5 py-3 text-sm font-bold text-primary text-right">{ev.sum_6_skinfolds} mm</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
 
-          {activeTab === 'resultados' && (
-            <div className="bg-white rounded-xl shadow-sm border border-border p-6">
-              <p className="text-text-muted text-sm">
-                Los resultados calculados aparecen en las evaluaciones ISAK individuales.
-              </p>
-              <div className="mt-4">
-                <Link
-                  to={`/patients/${id}/isak`}
-                  className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm"
-                >
-                  Ver evaluaciones ISAK
-                </Link>
+          {activeTab === 'resultados' && (() => {
+            const ev = evaluations[selectedEvalIdx]
+            if (!ev) return (
+              <div className="bg-white rounded-xl border border-border p-6 text-sm text-text-muted">
+                Sin evaluaciones registradas.
               </div>
-            </div>
-          )}
+            )
+            const evBmi = ev.weight_kg && ev.height_cm ? +((ev.weight_kg / ((ev.height_cm / 100) ** 2)).toFixed(1)) : null
+            const f = (v?: number | null, d = 1) => v != null ? v.toFixed(d) : '—'
+            const rows: [string, string, boolean][] = [
+              ['Densidad corporal',   ev.body_density    != null ? `${f(ev.body_density, 4)} g/mL` : '—', false],
+              ['% Masa grasa',        ev.fat_mass_pct    != null ? `${f(ev.fat_mass_pct)}%`         : '—', true],
+              ['Masa grasa (kg)',     ev.fat_mass_kg     != null ? `${f(ev.fat_mass_kg)} kg`        : '—', false],
+              ['Masa magra (kg)',     ev.lean_mass_kg    != null ? `${f(ev.lean_mass_kg)} kg`       : '—', true],
+              ['IMC',                 evBmi              != null ? `${evBmi}`                        : '—', false],
+              ['Cintura (cm)',        ev.waist_cm        != null ? `${ev.waist_cm} cm`               : '—', false],
+            ]
+            return (
+              <div className="space-y-4">
+                <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border bg-bg-light flex items-center justify-between">
+                    <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Composición Corporal — {ev.date}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ev.isak_level === 'ISAK 2' ? 'bg-primary/10 text-primary' : 'bg-sage/20 text-gray-600'}`}>{ev.isak_level ?? 'ISAK 1'}</span>
+                  </div>
+                  <table className="w-full">
+                    <tbody className="divide-y divide-gray-100">
+                      {rows.map(([label, val, highlight]) => (
+                        <tr key={label} className={highlight ? 'bg-primary/5' : 'hover:bg-bg-light/50'}>
+                          <td className={`px-5 py-3 text-sm w-1/2 ${highlight ? 'font-bold text-primary' : 'text-text-muted'}`}>{label}</td>
+                          <td className={`px-5 py-3 text-sm text-right ${highlight ? 'font-bold text-primary' : 'font-semibold text-gray-800'}`}>{val}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {ev.somatotype_endo != null && (
+                  <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border bg-bg-light">
+                      <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Somatotipo — Heath & Carter</span>
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-gray-100">
+                      {[['Endomorfia', ev.somatotype_endo], ['Mesomorfia', ev.somatotype_meso], ['Ectomorfia', ev.somatotype_ecto]].map(([label, val]) => (
+                        <div key={String(label)} className="p-5 text-center">
+                          <p className="text-xs text-text-muted uppercase tracking-wide mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-primary">{val != null ? Number(val).toFixed(2) : '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </Layout>
