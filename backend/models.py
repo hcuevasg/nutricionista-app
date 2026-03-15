@@ -107,6 +107,8 @@ class Anthropometric(Base):
     radial_styloid_cm = Column(Float, nullable=True)
     iliospinal_height_cm = Column(Float, nullable=True)
     trochanter_tibial_cm = Column(Float, nullable=True)
+    tibiale_height_cm = Column(Float, nullable=True)
+    arm_span_cm = Column(Float, nullable=True)
 
     # Calculados
     body_density = Column(Float, nullable=True)

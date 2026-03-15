@@ -10,6 +10,11 @@ import {
 import {
   calcIsAk1, calcSomatotype, calcArmMuscleArea, calcWaistHeightRatio,
   calcBmi, bmiCategory, fatCategory, whtrCategory,
+  calcWaistHipRatio, calcAdiposeMuscularRatio, calcConicityIndex,
+  calcBoneMassMartin, calcMuscleBoneRatio,
+  calcIresUpper, calcIresLower, calcIntermembralIndex, calcBrachialIndex,
+  calcCruralIndex, calcCormicIndex, calcSkeletalIndexManouvrier,
+  calcAcromioIliacIndex, calcRelativeWingspan,
   type IsAk1Result, type SomatotypeResult,
 } from '../utils/calculations'
 
@@ -39,6 +44,7 @@ interface Evaluation {
   // Longitudes
   acromion_radial_cm?: number; radial_styloid_cm?: number
   iliospinal_height_cm?: number; trochanter_tibial_cm?: number
+  tibiale_height_cm?: number; arm_span_cm?: number
   created_at: string
 }
 
@@ -65,6 +71,7 @@ interface FormState {
   // Longitudes — ISAK 2
   acromion_radial_cm: string; radial_styloid_cm: string
   iliospinal_height_cm: string; trochanter_tibial_cm: string
+  tibiale_height_cm: string; arm_span_cm: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -81,6 +88,7 @@ const EMPTY_FORM: FormState = {
   foot_length_cm: '', wrist_cm: '', ankle_bimalleolar_cm: '',
   acromion_radial_cm: '', radial_styloid_cm: '',
   iliospinal_height_cm: '', trochanter_tibial_cm: '',
+  tibiale_height_cm: '', arm_span_cm: '',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -208,6 +216,7 @@ export default function IsAkPage() {
       ankle_bimalleolar_cm: s(ev.ankle_bimalleolar_cm),
       acromion_radial_cm: s(ev.acromion_radial_cm), radial_styloid_cm: s(ev.radial_styloid_cm),
       iliospinal_height_cm: s(ev.iliospinal_height_cm), trochanter_tibial_cm: s(ev.trochanter_tibial_cm),
+      tibiale_height_cm: s(ev.tibiale_height_cm), arm_span_cm: s(ev.arm_span_cm),
     })
     setShowForm(true)
   }
@@ -267,6 +276,8 @@ export default function IsAkPage() {
         radial_styloid_cm: pf(form.radial_styloid_cm),
         iliospinal_height_cm: pf(form.iliospinal_height_cm),
         trochanter_tibial_cm: pf(form.trochanter_tibial_cm),
+        tibiale_height_cm: pf(form.tibiale_height_cm),
+        arm_span_cm: pf(form.arm_span_cm),
         somatotype_endo: soma?.endo ?? null,
         somatotype_meso: soma?.meso ?? null,
         somatotype_ecto: soma?.ecto ?? null,
@@ -345,6 +356,24 @@ export default function IsAkPage() {
   const difBrBc = pf(form.arm_contracted_cm) != null && pf(form.arm_relaxed_cm) != null
     ? Math.round(((pf(form.arm_contracted_cm)! - pf(form.arm_relaxed_cm)!) + Number.EPSILON) * 10) / 10
     : null
+
+  // Índices disponibles desde mediciones básicas (ISAK 1+2)
+  const waistHipRatio = calcWaistHipRatio(pf(form.waist_cm), pf(form.hip_glute_cm))
+  const adiposeMuscular = result ? calcAdiposeMuscularRatio(result.fat_mass_kg, result.lean_mass_kg) : null
+  const conicityIdx = calcConicityIndex(pf(form.waist_cm), pf(form.weight_kg), pf(form.height_cm))
+
+  // Índices ISAK 2
+  const boneMass = calcBoneMassMartin(pf(form.height_cm), pf(form.humerus_width_cm), pf(form.femur_width_cm))
+  const muscleBone = result ? calcMuscleBoneRatio(result.lean_mass_kg, boneMass) : null
+  const iresUpper = calcIresUpper(pf(form.acromion_radial_cm), pf(form.radial_styloid_cm), pf(form.height_cm))
+  const iresLower = calcIresLower(pf(form.iliospinal_height_cm), pf(form.height_cm))
+  const intermembral = calcIntermembralIndex(pf(form.acromion_radial_cm), pf(form.radial_styloid_cm), pf(form.iliospinal_height_cm))
+  const brachial = calcBrachialIndex(pf(form.radial_styloid_cm), pf(form.acromion_radial_cm))
+  const crural = calcCruralIndex(pf(form.tibiale_height_cm), pf(form.trochanter_tibial_cm))
+  const cormic = calcCormicIndex(pf(form.height_cm), pf(form.iliospinal_height_cm))
+  const skeletal = calcSkeletalIndexManouvrier(pf(form.iliospinal_height_cm), pf(form.height_cm))
+  const acromioIliac = calcAcromioIliacIndex(pf(form.biacromial_cm), pf(form.biiliocrestal_cm))
+  const wingspan = calcRelativeWingspan(pf(form.arm_span_cm), pf(form.height_cm))
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -484,6 +513,8 @@ export default function IsAkPage() {
                       <Field label="Radio-estiloide" value={form.radial_styloid_cm} onChange={v => set('radial_styloid_cm', v)} />
                       <Field label="Iliospinal (pierna)" value={form.iliospinal_height_cm} onChange={v => set('iliospinal_height_cm', v)} />
                       <Field label="Trocanter-tibial" value={form.trochanter_tibial_cm} onChange={v => set('trochanter_tibial_cm', v)} />
+                      <Field label="Tibiale (altura tibia)" value={form.tibiale_height_cm} onChange={v => set('tibiale_height_cm', v)} />
+                      <Field label="Envergadura (arm span)" value={form.arm_span_cm} onChange={v => set('arm_span_cm', v)} />
                     </div>
                   </CollapsibleSection>
                 </>
@@ -514,9 +545,12 @@ export default function IsAkPage() {
                   />
                   <ResultCard label="Masa grasa (kg)" value={`${result.fat_mass_kg} kg`} />
                   <ResultCard label="Masa magra (kg)" value={`${result.lean_mass_kg} kg`} highlight />
-                  {bmi != null && <ResultCard label="IMC (kg/m2)" value={`${bmi}`} sub={bmiCategory(bmi)} />}
+                  {bmi != null && <ResultCard label="IMC / Body Mass Index" value={`${bmi}`} sub={bmiCategory(bmi)} />}
                   {whtr != null && <ResultCard label="Indice Cin./Talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
                   {amb != null && <ResultCard label="Area Musc. Brazo" value={`${amb} cm2`} />}
+                  {waistHipRatio != null && <ResultCard label="Coc. Cintura-Cadera" value={`${waistHipRatio}`} />}
+                  {adiposeMuscular != null && <ResultCard label="Coc. Adiposo-Muscular" value={`${adiposeMuscular}`} />}
+                  {conicityIdx != null && <ResultCard label="Indice de Conicidad" value={`${conicityIdx}`} />}
                   {age && (
                     <p className="text-xs text-text-muted pt-1">
                       Edad: {age} anos | Sexo: {patient?.sex}
@@ -530,22 +564,48 @@ export default function IsAkPage() {
               )}
 
               {form.isak_level === 'ISAK 2' && (
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
-                    Somatotipo -- Heath &amp; Carter (1990)
-                  </h4>
-                  {soma ? (
-                    <div className="grid grid-cols-3 gap-2">
-                      <ResultCard label="Endomorfia" value={`${soma.endo}`} />
-                      <ResultCard label="Mesomorfia" value={`${soma.meso}`} />
-                      <ResultCard label="Ectomorfia" value={`${soma.ecto}`} />
+                <>
+                  <div className="mt-4 space-y-2">
+                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+                      Somatotipo -- Heath &amp; Carter (1990)
+                    </h4>
+                    {soma ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        <ResultCard label="Endomorfia" value={`${soma.endo}`} />
+                        <ResultCard label="Mesomorfia" value={`${soma.meso}`} />
+                        <ResultCard label="Ectomorfia" value={`${soma.ecto}`} />
+                      </div>
+                    ) : (
+                      <div className="text-xs text-text-muted bg-bg-light rounded-lg p-3">
+                        Requiere: triceps, subescapular, supraespinal, diametros humero y femur, brazo contraido, pantorrilla y su pliegue, altura y peso.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+                      Indices ISAK 2
+                    </h4>
+                    <div className="space-y-1.5">
+                      {boneMass != null && <ResultCard label="Masa Osea (Martin 1990)" value={`${boneMass} kg`} />}
+                      {muscleBone != null && <ResultCard label="Coc. Musculo-Hueso" value={`${muscleBone}`} highlight />}
+                      {iresUpper != null && <ResultCard label="I.R.E.S. Superior" value={`${iresUpper}`} />}
+                      {iresLower != null && <ResultCard label="I.R.E.S. Inferior" value={`${iresLower}`} />}
+                      {intermembral != null && <ResultCard label="Indice Intermembral" value={`${intermembral}`} />}
+                      {brachial != null && <ResultCard label="Indice Braquial" value={`${brachial}`} />}
+                      {crural != null && <ResultCard label="Indice Crural" value={`${crural}`} />}
+                      {cormic != null && <ResultCard label="Indice Cormico" value={`${cormic}`} />}
+                      {skeletal != null && <ResultCard label="Indice Esqueletico (Manouvrier)" value={`${skeletal}`} />}
+                      {acromioIliac != null && <ResultCard label="Indice Acromio-Iliaco" value={`${acromioIliac}`} />}
+                      {wingspan != null && <ResultCard label="Envergadura Relativa" value={`${wingspan}`} />}
+                      {boneMass == null && muscleBone == null && iresUpper == null && cormic == null && (
+                        <div className="text-xs text-text-muted bg-bg-light rounded-lg p-3">
+                          Completa longitudes y diametros oseos para ver los indices ISAK 2.
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-xs text-text-muted bg-bg-light rounded-lg p-3">
-                      Requiere: triceps, subescapular, supraespinal, diametros humero y femur, brazo contraido, pantorrilla y su pliegue, altura y peso.
-                    </div>
-                  )}
-                </div>
+                  </div>
+                </>
               )}
             </div>
           </div>

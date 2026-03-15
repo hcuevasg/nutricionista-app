@@ -138,6 +138,8 @@ class AnthropometricCreate(BaseModel):
     radial_styloid_cm: Optional[float] = None
     iliospinal_height_cm: Optional[float] = None
     trochanter_tibial_cm: Optional[float] = None
+    tibiale_height_cm: Optional[float] = None
+    arm_span_cm: Optional[float] = None
 
     # Calculados (computed in frontend, stored for history)
     body_density: Optional[float] = None

@@ -72,6 +72,8 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS radial_styloid_cm FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS iliospinal_height_cm FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS trochanter_tibial_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS tibiale_height_cm FLOAT",
+        "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS arm_span_cm FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS body_density FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS fat_mass_pct FLOAT",
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS fat_mass_kg FLOAT",

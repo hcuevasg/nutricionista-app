@@ -235,6 +235,98 @@ export function bmiCategory(bmi: number): string {
   return 'Obesidad III'
 }
 
+// ── ISAK 2 — Índices Antropométricos ─────────────────────────────────────────
+
+/** Cociente Cintura-Cadera */
+export function calcWaistHipRatio(waist_cm: number | null, hip_cm: number | null): number | null {
+  if (!validNum(waist_cm) || !validNum(hip_cm) || hip_cm! <= 0) return null
+  return round(waist_cm! / hip_cm!, 2)
+}
+
+/** Cociente Adiposo-Muscular = grasa_kg / magra_kg */
+export function calcAdiposeMuscularRatio(fat_kg: number | null, lean_kg: number | null): number | null {
+  if (!validNum(fat_kg) || !validNum(lean_kg) || lean_kg! <= 0) return null
+  return round(fat_kg! / lean_kg!, 3)
+}
+
+/** Índice de Conicidad = waist / (0.109 × √(weight / height_m)) */
+export function calcConicityIndex(waist_cm: number | null, weight_kg: number | null, height_cm: number | null): number | null {
+  if (!validNum(waist_cm) || !validNum(weight_kg) || !validNum(height_cm) || weight_kg! <= 0 || height_cm! <= 0) return null
+  const denom = 0.109 * Math.sqrt(weight_kg! / (height_cm! / 100))
+  if (denom <= 0) return null
+  return round(waist_cm! / denom, 3)
+}
+
+/** Masa ósea — Martin (1990): 3.02 × (h_m × humero_m × femur_m × 400)^0.712 */
+export function calcBoneMassMartin(height_cm: number | null, humerus_cm: number | null, femur_cm: number | null): number | null {
+  if (!validNum(height_cm) || !validNum(humerus_cm) || !validNum(femur_cm)) return null
+  if (height_cm! <= 0 || humerus_cm! <= 0 || femur_cm! <= 0) return null
+  const val = (height_cm! / 100) * (humerus_cm! / 100) * (femur_cm! / 100) * 400
+  return round(3.02 * Math.pow(val, 0.712), 2)
+}
+
+/** Cociente Músculo-Hueso = masa_magra / masa_ósea */
+export function calcMuscleBoneRatio(lean_kg: number | null, bone_kg: number | null): number | null {
+  if (!validNum(lean_kg) || !validNum(bone_kg) || bone_kg! <= 0) return null
+  return round(lean_kg! / bone_kg!, 2)
+}
+
+/** I.R.E.S. Superior = (acromion_radial + radial_styloid) / height × 100 */
+export function calcIresUpper(acromion_radial_cm: number | null, radial_styloid_cm: number | null, height_cm: number | null): number | null {
+  if (!validNum(acromion_radial_cm) || !validNum(radial_styloid_cm) || !validNum(height_cm) || height_cm! <= 0) return null
+  return round((acromion_radial_cm! + radial_styloid_cm!) / height_cm! * 100, 2)
+}
+
+/** I.R.E.S. Inferior = iliospinal_height / height × 100 */
+export function calcIresLower(iliospinal_cm: number | null, height_cm: number | null): number | null {
+  if (!validNum(iliospinal_cm) || !validNum(height_cm) || height_cm! <= 0) return null
+  return round(iliospinal_cm! / height_cm! * 100, 2)
+}
+
+/** Índice Intermembral = (acromion_radial + radial_styloid) / iliospinal × 100 */
+export function calcIntermembralIndex(acromion_radial_cm: number | null, radial_styloid_cm: number | null, iliospinal_cm: number | null): number | null {
+  if (!validNum(acromion_radial_cm) || !validNum(radial_styloid_cm) || !validNum(iliospinal_cm) || iliospinal_cm! <= 0) return null
+  return round((acromion_radial_cm! + radial_styloid_cm!) / iliospinal_cm! * 100, 2)
+}
+
+/** Índice Braquial = radial_styloid / acromion_radial × 100 */
+export function calcBrachialIndex(radial_styloid_cm: number | null, acromion_radial_cm: number | null): number | null {
+  if (!validNum(radial_styloid_cm) || !validNum(acromion_radial_cm) || acromion_radial_cm! <= 0) return null
+  return round(radial_styloid_cm! / acromion_radial_cm! * 100, 2)
+}
+
+/** Índice Crural = tibiale_height / trochanter_tibial × 100 */
+export function calcCruralIndex(tibiale_cm: number | null, trochanter_tibial_cm: number | null): number | null {
+  if (!validNum(tibiale_cm) || !validNum(trochanter_tibial_cm) || trochanter_tibial_cm! <= 0) return null
+  return round(tibiale_cm! / trochanter_tibial_cm! * 100, 2)
+}
+
+/** Índice Córmico = (height - iliospinal) / height × 100 */
+export function calcCormicIndex(height_cm: number | null, iliospinal_cm: number | null): number | null {
+  if (!validNum(height_cm) || !validNum(iliospinal_cm) || height_cm! <= 0) return null
+  return round((height_cm! - iliospinal_cm!) / height_cm! * 100, 2)
+}
+
+/** Índice Esquelético De Manouvrier = iliospinal / (height - iliospinal) × 100 */
+export function calcSkeletalIndexManouvrier(iliospinal_cm: number | null, height_cm: number | null): number | null {
+  if (!validNum(iliospinal_cm) || !validNum(height_cm) || height_cm! <= 0) return null
+  const trunk = height_cm! - iliospinal_cm!
+  if (trunk <= 0) return null
+  return round(iliospinal_cm! / trunk * 100, 2)
+}
+
+/** Índice Acromio-Ilíaco = biacromial / biiliocrestal × 100 */
+export function calcAcromioIliacIndex(biacromial_cm: number | null, biiliocrestal_cm: number | null): number | null {
+  if (!validNum(biacromial_cm) || !validNum(biiliocrestal_cm) || biiliocrestal_cm! <= 0) return null
+  return round(biacromial_cm! / biiliocrestal_cm! * 100, 2)
+}
+
+/** Envergadura Relativa = arm_span / height × 100 */
+export function calcRelativeWingspan(arm_span_cm: number | null, height_cm: number | null): number | null {
+  if (!validNum(arm_span_cm) || !validNum(height_cm) || height_cm! <= 0) return null
+  return round(arm_span_cm! / height_cm! * 100, 2)
+}
+
 // ── Clasificación % grasa ─────────────────────────────────────────────────────
 
 export function fatCategory(pct: number, sex: string): string {
