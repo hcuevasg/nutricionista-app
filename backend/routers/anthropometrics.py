@@ -451,7 +451,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         Spacer(0.3*cm, 1),
         metric_card(fmt(bmi_val) if bmi_val else "—", "IMC", "Índice de masa corporal", C_TERRA, bmi_note),
         Spacer(0.3*cm, 1),
-        metric_card(fmt(ev.fat_mass_pct) if ev.fat_mass_pct else "—", "%", "Masa grasa", C_AMBER),
+        metric_card(fmt(ev.fat_mass_pct) if (ev.fat_mass_pct is not None and ev.fat_mass_pct > 0) else "—", "%", "Masa grasa", C_AMBER),
         Spacer(0.3*cm, 1),
         metric_card(fmt(ev.lean_mass_kg) if ev.lean_mass_kg else "—", "kg", "Masa magra", C_SAGE),
     ]], colWidths=[
@@ -472,7 +472,8 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     bars = []
     lean_pct = None
     if ev.lean_mass_kg and ev.weight_kg and float(ev.weight_kg) > 0:
-        lean_pct = float(ev.lean_mass_kg) / float(ev.weight_kg) * 100
+        raw = float(ev.lean_mass_kg) / float(ev.weight_kg) * 100
+        lean_pct = min(raw, 99.9)  # clamp — lean > weight means bad data
     b1 = progress_bar("Masa magra",  lean_pct,         C_PRIMARY)
     b2 = progress_bar("Masa grasa",  ev.fat_mass_pct,  C_TERRA)
     if b1 or b2:
