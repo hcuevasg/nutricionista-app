@@ -589,7 +589,7 @@ export default function IsAkPage() {
                     </h4>
                     <div className="space-y-1.5">
                       {boneMass != null && <ResultCard label="Masa Osea (Martin 1990)" value={`${boneMass} kg`} />}
-                      {muscleBone != null && <ResultCard label="Coc. Musculo-Hueso" value={`${muscleBone}`} highlight />}
+                      {muscleBone != null && <ResultCard label="Indice Musculo Oseo (IMO)" value={`${muscleBone}`} highlight />}
                       {iresUpper != null && <ResultCard label="I.R.E.S. Superior" value={`${iresUpper}`} />}
                       {iresLower != null && <ResultCard label="I.R.E.S. Inferior" value={`${iresLower}`} />}
                       {intermembral != null && <ResultCard label="Indice Intermembral" value={`${intermembral}`} />}
