@@ -320,8 +320,10 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
     # Resultados composición corporal
     story.append(Paragraph("Composición Corporal — Durnin & Womersley (1974)", S_SEC))
+    sigma4_vals = [ev.biceps_mm, ev.triceps_mm, ev.subscapular_mm, ev.iliac_crest_mm]
+    sigma4 = f"{sum(float(v) for v in sigma4_vals):.1f} mm" if all(v is not None for v in sigma4_vals) else "—"
     cc_rows = [
-        ["Σ4 pliegues D&W", "—" if ev.body_density is None else "calculado"],
+        ["Σ4 pliegues D&W", sigma4],
         ["Densidad corporal", f"{fmt(ev.body_density, 4)} g/mL"],
         ["% Masa grasa", f"{fmt(ev.fat_mass_pct)} %"],
         ["Masa grasa", f"{fmt(ev.fat_mass_kg)} kg"],
