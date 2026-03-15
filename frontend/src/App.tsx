@@ -18,6 +18,8 @@ import PautaFormPage from './pages/PautaFormPage'
 import ConfigPage from './pages/ConfigPage'
 import ProfilePage from './pages/ProfilePage'
 import AntecedentesPage from './pages/AntecedentesPage'
+import RecetasPage from './pages/RecetasPage'
+import RecetaFormPage from './pages/RecetaFormPage'
 
 export default function App() {
   return (
@@ -43,6 +45,9 @@ export default function App() {
           <Route path="/patients/:id/pautas/:pautaId" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/pautas/:pautaId/edit" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/antecedentes" element={<PrivateRoute><AntecedentesPage /></PrivateRoute>} />
+          <Route path="/recetas" element={<PrivateRoute><RecetasPage /></PrivateRoute>} />
+          <Route path="/recetas/new" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
+          <Route path="/recetas/:recetaId/edit" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
           <Route path="/config" element={<PrivateRoute><ConfigPage /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 

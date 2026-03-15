@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes
+from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes, recetas
 
 # Import database
 from database import engine, Base
@@ -156,6 +156,39 @@ async def lifespan(app: FastAPI):
         )""",
         "CREATE INDEX IF NOT EXISTS ix_audit_logs_nutritionist_id ON audit_logs (nutritionist_id)",
         "CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs (created_at)",
+        # recetas
+        """CREATE TABLE IF NOT EXISTS recetas (
+            id SERIAL PRIMARY KEY,
+            nutritionist_id INTEGER REFERENCES nutritionists(id) ON DELETE CASCADE,
+            nombre VARCHAR(255) NOT NULL,
+            descripcion TEXT,
+            categoria VARCHAR(100) DEFAULT 'General',
+            porciones_rinde INTEGER DEFAULT 1,
+            notas TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_recetas_nutritionist_id ON recetas (nutritionist_id)",
+        """CREATE TABLE IF NOT EXISTS receta_ingredientes (
+            id SERIAL PRIMARY KEY,
+            receta_id INTEGER REFERENCES recetas(id) ON DELETE CASCADE,
+            nombre_alimento VARCHAR(255) NOT NULL,
+            gramos FLOAT DEFAULT 100,
+            medida_casera VARCHAR(100),
+            calorias FLOAT DEFAULT 0,
+            proteinas_g FLOAT DEFAULT 0,
+            carbohidratos_g FLOAT DEFAULT 0,
+            grasas_g FLOAT DEFAULT 0,
+            fibra_g FLOAT DEFAULT 0
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_receta_ingredientes_receta_id ON receta_ingredientes (receta_id)",
+        """CREATE TABLE IF NOT EXISTS receta_equivalencias (
+            id SERIAL PRIMARY KEY,
+            receta_id INTEGER REFERENCES recetas(id) ON DELETE CASCADE,
+            grupo VARCHAR(100) NOT NULL,
+            porciones FLOAT DEFAULT 0
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_receta_equivalencias_receta_id ON receta_equivalencias (receta_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -224,6 +257,7 @@ app.include_router(dashboard.router)
 app.include_router(pautas.router)
 app.include_router(settings.router)
 app.include_router(antecedentes.router)
+app.include_router(recetas.router)
 
 
 @app.get("/")

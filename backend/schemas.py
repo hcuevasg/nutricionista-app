@@ -312,3 +312,59 @@ class AntecedentesResponse(AntecedentesBase):
 
     class Config:
         from_attributes = True
+
+
+# ── Receta Schemas ─────────────────────────────────────────────────
+class RecetaIngredienteCreate(BaseModel):
+    nombre_alimento: str
+    gramos: float = 100
+    medida_casera: Optional[str] = None
+    calorias: float = 0
+    proteinas_g: float = 0
+    carbohidratos_g: float = 0
+    grasas_g: float = 0
+    fibra_g: float = 0
+
+
+class RecetaIngredienteResponse(RecetaIngredienteCreate):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class RecetaEquivalenciaItem(BaseModel):
+    grupo: str
+    porciones: float
+
+
+class RecetaCreate(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    categoria: str = "General"
+    porciones_rinde: int = 1
+    notas: Optional[str] = None
+
+
+class RecetaUpdate(RecetaCreate):
+    ingredientes: Optional[List[RecetaIngredienteCreate]] = None
+    equivalencias: Optional[List[RecetaEquivalenciaItem]] = None
+
+
+class RecetaResponse(RecetaCreate):
+    id: int
+    nutritionist_id: int
+    created_at: datetime
+    ingredientes: List[RecetaIngredienteResponse] = []
+    equivalencias: List[RecetaEquivalenciaItem] = []
+
+    class Config:
+        from_attributes = True
+
+
+class RecetaListItem(RecetaCreate):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

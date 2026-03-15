@@ -18,6 +18,7 @@ class Nutritionist(Base):
 
     # Relationships
     patients = relationship("Patient", back_populates="nutritionist", cascade="all, delete-orphan")
+    recetas = relationship("Receta", back_populates="nutritionist", cascade="all, delete-orphan")
 
 
 class Patient(Base):
@@ -294,3 +295,52 @@ class MealItem(Base):
 
     # Relationship
     meal_plan = relationship("MealPlan", back_populates="items")
+
+
+class Receta(Base):
+    """Receta personalizada del nutricionista."""
+    __tablename__ = "recetas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id"), index=True)
+    nombre = Column(String(255), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    categoria = Column(String(100), default="General")
+    porciones_rinde = Column(Integer, default=1)
+    notas = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    nutritionist = relationship("Nutritionist", back_populates="recetas")
+    ingredientes = relationship("RecetaIngrediente", back_populates="receta", cascade="all, delete-orphan")
+    equivalencias = relationship("RecetaEquivalencia", back_populates="receta", cascade="all, delete-orphan")
+
+
+class RecetaIngrediente(Base):
+    """Ingrediente de una receta con sus macros."""
+    __tablename__ = "receta_ingredientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receta_id = Column(Integer, ForeignKey("recetas.id"), index=True)
+    nombre_alimento = Column(String(255), nullable=False)
+    gramos = Column(Float, default=100)
+    medida_casera = Column(String(100), nullable=True)
+    calorias = Column(Float, default=0)
+    proteinas_g = Column(Float, default=0)
+    carbohidratos_g = Column(Float, default=0)
+    grasas_g = Column(Float, default=0)
+    fibra_g = Column(Float, default=0)
+
+    receta = relationship("Receta", back_populates="ingredientes")
+
+
+class RecetaEquivalencia(Base):
+    """Equivalencia de 1 porción de receta en grupos alimentarios."""
+    __tablename__ = "receta_equivalencias"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receta_id = Column(Integer, ForeignKey("recetas.id"), index=True)
+    grupo = Column(String(100), nullable=False)
+    porciones = Column(Float, default=0)
+
+    receta = relationship("Receta", back_populates="equivalencias")

@@ -10,6 +10,7 @@ interface LayoutProps {
 const menuItems = [
   { label: 'Dashboard',     path: '/dashboard', icon: '⊞' },
   { label: 'Pacientes',     path: '/patients',  icon: '◉' },
+  { label: 'Recetas',       path: '/recetas',   icon: '🍳' },
   { label: 'Configuración', path: '/config',    icon: '⊕' },
 ]
 
