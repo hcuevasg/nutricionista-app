@@ -262,8 +262,15 @@ async def generar_menu_ia(
     if not tiempos_info:
         raise HTTPException(status_code=400, detail="La pauta no tiene distribución por tiempos definida")
 
+    import json as _json
+    try:
+        _allergies = _json.loads(patient.allergies or "[]") if patient.allergies else []
+    except Exception:
+        _allergies = []
+    allergy_line = f"\nRESTRICCIONES — ALERGIAS: El paciente tiene alergia a {", ".join(_allergies)}. NO incluir NINGÚN alimento que contenga estos ingredientes ni derivados.\n" if _allergies else ""
+
     tipo_label = TIPO_LABELS.get(pauta.tipo_pauta, pauta.tipo_pauta)
-    prompt = f"""Pauta {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día, paciente chileno.
+    prompt = f"""Pauta {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día, paciente chileno.{allergy_line}
 
 Tiempos de comida y grupos:
 {chr(10).join(tiempos_info)}

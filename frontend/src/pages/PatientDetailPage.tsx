@@ -4,6 +4,19 @@ import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 
+const ALLERGY_LABELS: Record<string, string> = {
+  gluten:       'Gluten',
+  lacteos:      'Lácteos',
+  huevo:        'Huevo',
+  mariscos:     'Mariscos',
+  pescado:      'Pescado',
+  frutos_secos: 'Frutos Secos',
+  mani:         'Maní',
+  soya:         'Soya',
+  sulfitos:     'Sulfitos',
+  fructosa:     'Fructosa',
+}
+
 interface Patient {
   id: number
   name: string
@@ -16,6 +29,7 @@ interface Patient {
   address?: string
   occupation?: string
   notes?: string
+  allergies?: string[]
   created_at: string
 }
 
@@ -170,6 +184,14 @@ export default function PatientDetailPage() {
                     Grasa: {lastEval.fat_mass_pct.toFixed(1)}%
                   </div>
                 )}
+                {patient.allergies && patient.allergies.length > 0 && patient.allergies.map((key) => (
+                  <div
+                    key={key}
+                    className="bg-terracotta/10 text-terracotta border border-terracotta/20 text-xs font-semibold px-2 py-0.5 rounded-full"
+                  >
+                    ⚠ {ALLERGY_LABELS[key] ?? key}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

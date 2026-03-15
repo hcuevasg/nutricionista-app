@@ -1,4 +1,5 @@
 """Patient routes."""
+import json as _json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -10,6 +11,12 @@ import audit
 from database import get_db
 
 router = APIRouter(prefix="/patients", tags=["patients"])
+
+
+def _serialize(data: dict) -> dict:
+    """Serialize list fields to JSON strings for DB storage."""
+    data['allergies'] = _json.dumps(data.get('allergies') or [])
+    return data
 
 
 @router.get("", response_model=List[schemas.PatientResponse])
@@ -29,7 +36,8 @@ async def create_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    patient = models.Patient(**request.model_dump(), nutritionist_id=current_user.id)
+    data = _serialize(request.model_dump())
+    patient = models.Patient(**data, nutritionist_id=current_user.id)
     db.add(patient)
     db.commit()
     db.refresh(patient)
@@ -66,7 +74,8 @@ async def update_patient(
     ).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-    for key, value in request.model_dump().items():
+    data = _serialize(request.model_dump())
+    for key, value in data.items():
         setattr(patient, key, value)
     db.commit()
     db.refresh(patient)

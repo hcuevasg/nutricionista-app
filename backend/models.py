@@ -37,6 +37,7 @@ class Patient(Base):
     address = Column(String(255), nullable=True)
     occupation = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
+    allergies = Column(Text, nullable=True)  # JSON array: ["gluten", "lacteos", ...]
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

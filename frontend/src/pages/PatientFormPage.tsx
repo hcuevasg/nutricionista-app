@@ -14,7 +14,21 @@ interface PatientFormData {
   address: string
   occupation: string
   notes: string
+  allergies: string[]
 }
+
+const ALERGIAS_OPCIONES = [
+  { key: 'gluten',       label: 'Gluten' },
+  { key: 'lacteos',      label: 'Lácteos' },
+  { key: 'huevo',        label: 'Huevo' },
+  { key: 'mariscos',     label: 'Mariscos' },
+  { key: 'pescado',      label: 'Pescado' },
+  { key: 'frutos_secos', label: 'Frutos Secos' },
+  { key: 'mani',         label: 'Maní' },
+  { key: 'soya',         label: 'Soya' },
+  { key: 'sulfitos',     label: 'Sulfitos' },
+  { key: 'fructosa',     label: 'Fructosa' },
+]
 
 const EMPTY_FORM: PatientFormData = {
   name: '',
@@ -27,6 +41,7 @@ const EMPTY_FORM: PatientFormData = {
   address: '',
   occupation: '',
   notes: '',
+  allergies: [],
 }
 
 const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
@@ -77,6 +92,7 @@ export default function PatientFormPage() {
           address: data.address ?? '',
           occupation: data.occupation ?? '',
           notes: data.notes ?? '',
+          allergies: Array.isArray(data.allergies) ? data.allergies : [],
         })
       })
       .catch(() => setError('Error al cargar el paciente'))
@@ -90,6 +106,14 @@ export default function PatientFormPage() {
 
   const set = (field: keyof PatientFormData, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
+
+  const toggleAllergy = (key: string) =>
+    setForm((prev) => ({
+      ...prev,
+      allergies: prev.allergies.includes(key)
+        ? prev.allergies.filter((a) => a !== key)
+        : [...prev.allergies, key],
+    }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,6 +135,7 @@ export default function PatientFormPage() {
       address: form.address.trim() || null,
       occupation: form.occupation.trim() || null,
       notes: form.notes.trim() || null,
+      allergies: form.allergies,
     }
 
     const url = isEditing
@@ -306,6 +331,32 @@ export default function PatientFormPage() {
             className={`${INPUT} resize-none`}
             placeholder="Antecedentes medicos, alergias, restricciones alimentarias..."
           />
+        </section>
+
+        {/* Alergias e Intolerancias */}
+        <section className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">
+            Alergias e Intolerancias
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {ALERGIAS_OPCIONES.map((op) => {
+              const selected = form.allergies.includes(op.key)
+              return (
+                <button
+                  key={op.key}
+                  type="button"
+                  onClick={() => toggleAllergy(op.key)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                    selected
+                      ? 'bg-terracotta text-white border-terracotta'
+                      : 'bg-white text-gray-600 border-border hover:border-terracotta/50'
+                  }`}
+                >
+                  {op.label}
+                </button>
+              )
+            })}
+          </div>
         </section>
 
         {/* Acciones */}

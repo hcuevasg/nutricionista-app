@@ -54,6 +54,7 @@ class PatientCreate(BaseModel):
     address: Optional[str] = None
     occupation: Optional[str] = None
     notes: Optional[str] = None
+    allergies: Optional[List[str]] = []
 
 
 class PatientUpdate(PatientCreate):
@@ -68,6 +69,17 @@ class PatientResponse(PatientCreate):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        # Deserialize allergies JSON string → list when reading from DB
+        if hasattr(obj, 'allergies') and isinstance(obj.allergies, str):
+            import json
+            try:
+                obj.allergies = json.loads(obj.allergies)
+            except Exception:
+                obj.allergies = []
+        return super().model_validate(obj, *args, **kwargs)
 
 
 # ── Anthropometric Schemas ────────────────────────────────────────
