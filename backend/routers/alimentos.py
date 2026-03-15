@@ -21,7 +21,7 @@ _NID = {
 }
 
 
-def _parse_food(food: dict) -> dict | None:
+def _parse_food(food: dict):
     """Convierte un food dict de USDA al formato interno (por 100g)."""
     nutrientes = {v: 0.0 for v in _NID.values()}
     for fn in food.get("foodNutrients", []):
