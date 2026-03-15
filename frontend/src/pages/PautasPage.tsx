@@ -129,9 +129,9 @@ export default function PautasPage() {
       {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
 
       {/* Pautas table */}
-      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden overflow-x-auto">
         {loading ? (
-          <table className="w-full"><tbody><SkeletonTableRows cols={8} rows={4} /></tbody></table>
+          <table className="w-full min-w-[700px]"><tbody><SkeletonTableRows cols={8} rows={4} /></tbody></table>
         ) : pautas.length === 0 ? (
           <div className="p-10 text-center text-text-muted text-sm space-y-4">
             <div className="text-4xl mb-2">⊡</div>
@@ -144,7 +144,7 @@ export default function PautasPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 {['Nombre', 'Fecha', 'Tipo', 'Kcal obj.', 'Proteínas', 'Lípidos', 'CHO', 'PDF', 'Acciones'].map(h => (

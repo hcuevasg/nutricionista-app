@@ -141,11 +141,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Main 10-col grid: table 7 + sidebar 3 */}
-      <div className="mt-8 grid grid-cols-10 gap-8">
+      {/* Main grid: table + sidebar */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-10 gap-6 lg:gap-8">
 
-        {/* Left: Recent patients table (7 cols) */}
-        <section className="col-span-10 lg:col-span-7 space-y-4">
+        {/* Left: Recent patients table */}
+        <section className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-800">Últimos pacientes atendidos</h3>
             <Link to="/patients" className="text-sm text-primary font-semibold hover:underline">
@@ -153,9 +153,9 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden overflow-x-auto">
             {loading ? (
-              <table className="w-full"><tbody><SkeletonTableRows cols={5} rows={4} /></tbody></table>
+              <table className="w-full min-w-[520px]"><tbody><SkeletonTableRows cols={5} rows={4} /></tbody></table>
             ) : recent.length === 0 ? (
               <div className="p-8 text-center text-text-muted text-sm space-y-3">
                 <p>No hay pacientes registrados aún.</p>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[520px] text-left">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     {['Paciente', 'Edad / Sexo', 'Última evaluación', 'Estado', ''].map(h => (
@@ -225,8 +225,8 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Right: Quick actions sidebar (3 cols) */}
-        <aside className="col-span-10 lg:col-span-3 space-y-6">
+        {/* Right: Quick actions sidebar */}
+        <aside className="lg:col-span-3 space-y-6">
           {/* Quick access buttons */}
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-gray-800">Accesos Rápidos</h3>

@@ -58,20 +58,20 @@ export default function PatientsPage() {
 
   return (
     <Layout title="Pacientes">
-      <div className="flex justify-between items-center mb-6">
-        <div className="relative">
+      <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center mb-6">
+        <div className="relative w-full sm:w-72">
           <input
             type="text"
             placeholder="Buscar por nombre, email o teléfono..."
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 w-72 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="pl-9 pr-4 py-2 w-full border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">🔍</span>
         </div>
         <Link
           to="/patients/new"
-          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium"
+          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium flex-shrink-0"
         >
           + Nuevo Paciente
         </Link>
@@ -83,8 +83,8 @@ export default function PatientsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[480px]">
           <thead className="bg-bg-light border-b border-border">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th>
