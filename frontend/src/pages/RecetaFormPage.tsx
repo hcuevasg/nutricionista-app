@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -51,8 +51,29 @@ interface Ingrediente {
 
 type Equivalencias = Record<string, string>
 
+interface AlimentoResult {
+  fdcId: number
+  nombre: string
+  calorias_100g: number
+  proteinas_100g: number
+  carbohidratos_100g: number
+  grasas_100g: number
+  fibra_100g: number
+}
+
 function emptyIng(): Ingrediente {
   return { nombre_alimento: '', gramos: '100', medida_casera: '', calorias: '', proteinas_g: '', carbohidratos_g: '', grasas_g: '', fibra_g: '' }
+}
+
+function calcMacros(food: AlimentoResult, gramos: number) {
+  const f = gramos / 100
+  return {
+    calorias:        String(Math.round(food.calorias_100g * f)),
+    proteinas_g:     String(Math.round(food.proteinas_100g * f * 10) / 10),
+    carbohidratos_g: String(Math.round(food.carbohidratos_100g * f * 10) / 10),
+    grasas_g:        String(Math.round(food.grasas_100g * f * 10) / 10),
+    fibra_g:         String(Math.round(food.fibra_100g * f * 10) / 10),
+  }
 }
 
 function pf(v: string) { const n = parseFloat(v); return isNaN(n) ? 0 : n }
@@ -82,6 +103,12 @@ export default function RecetaFormPage() {
   // Ingredientes
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([])
   const [newIng, setNewIng] = useState<Ingrediente>(emptyIng())
+  const [selectedFood, setSelectedFood] = useState<AlimentoResult | null>(null)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState<AlimentoResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Equivalencias
   const [equiv, setEquiv] = useState<Equivalencias>(
@@ -150,11 +177,44 @@ export default function RecetaFormPage() {
     return { kcal, prot, cho, fat }
   }, [equiv])
 
+  // Debounced food search
+  useEffect(() => {
+    if (searchRef.current) clearTimeout(searchRef.current)
+    if (searchQ.length < 2) { setSearchResults([]); return }
+    searchRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(`${API}/alimentos/search?q=${encodeURIComponent(searchQ)}`, { headers: H })
+        const data = await res.json()
+        setSearchResults(Array.isArray(data) ? data : [])
+      } catch { setSearchResults([]) }
+      finally { setSearching(false) }
+    }, 350)
+  }, [searchQ])
+
+  // Recalculate macros when grams change and a food is selected
+  useEffect(() => {
+    if (!selectedFood) return
+    const g = parseFloat(newIng.gramos) || 100
+    setNewIng(p => ({ ...p, ...calcMacros(selectedFood, g) }))
+  }, [newIng.gramos, selectedFood])
+
+  const selectFood = (food: AlimentoResult) => {
+    const g = parseFloat(newIng.gramos) || 100
+    setSelectedFood(food)
+    setSearchQ(food.nombre)
+    setSearchResults([])
+    setNewIng(p => ({ ...p, nombre_alimento: food.nombre, ...calcMacros(food, g) }))
+  }
+
   // Add ingrediente
   const addIngrediente = () => {
     if (!newIng.nombre_alimento.trim()) return
     setIngredientes(prev => [...prev, { ...newIng }])
     setNewIng(emptyIng())
+    setSearchQ('')
+    setSelectedFood(null)
+    setSearchResults([])
   }
 
   const removeIngrediente = (idx: number) =>
@@ -271,11 +331,35 @@ export default function RecetaFormPage() {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Agregar ingrediente</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                <div className="col-span-2">
-                  <label className={LABEL}>Alimento</label>
-                  <input value={newIng.nombre_alimento}
-                    onChange={e => setNewIng(p => ({ ...p, nombre_alimento: e.target.value }))}
-                    placeholder="Ej: Harina integral" className={INPUT} />
+                <div className="col-span-2 relative" ref={dropdownRef}>
+                  <label className={LABEL}>Buscar alimento</label>
+                  <div className="relative">
+                    <input
+                      value={searchQ}
+                      onChange={e => { setSearchQ(e.target.value); setSelectedFood(null); setNewIng(p => ({ ...p, nombre_alimento: e.target.value })) }}
+                      placeholder="Ej: harina integral, pollo, arroz…"
+                      className={INPUT + ' pr-8'}
+                      autoComplete="off"
+                    />
+                    {searching && <span className="absolute right-2 top-2.5 text-gray-400 text-xs">…</span>}
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                      {searchResults.map(food => (
+                        <button
+                          key={food.fdcId}
+                          type="button"
+                          onClick={() => selectFood(food)}
+                          className="w-full text-left px-3 py-2 hover:bg-primary/5 border-b border-border last:border-0"
+                        >
+                          <p className="text-sm font-medium text-gray-800 truncate">{food.nombre}</p>
+                          <p className="text-xs text-gray-400">
+                            {food.calorias_100g} kcal · {food.proteinas_100g}g prot · {food.carbohidratos_100g}g CHO · {food.grasas_100g}g grasas <span className="text-gray-300">(por 100g)</span>
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className={LABEL}>Gramos</label>
