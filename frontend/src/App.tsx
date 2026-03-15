@@ -20,6 +20,7 @@ import ProfilePage from './pages/ProfilePage'
 import AntecedentesPage from './pages/AntecedentesPage'
 import RecetasPage from './pages/RecetasPage'
 import RecetaFormPage from './pages/RecetaFormPage'
+import IsAkReportPage from './pages/IsAkReportPage'
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/patients/:id" element={<PrivateRoute><PatientDetailPage /></PrivateRoute>} />
           <Route path="/patients/:id/edit" element={<PrivateRoute><PatientFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/isak" element={<PrivateRoute><IsAkPage /></PrivateRoute>} />
+          <Route path="/patients/:id/isak/:evalId/report" element={<PrivateRoute><IsAkReportPage /></PrivateRoute>} />
           <Route path="/patients/:id/plans" element={<PrivateRoute><MealPlansPage /></PrivateRoute>} />
           <Route path="/patients/:id/plans/new" element={<PrivateRoute><MealPlanFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/plans/:planId/edit" element={<PrivateRoute><MealPlanFormPage /></PrivateRoute>} />

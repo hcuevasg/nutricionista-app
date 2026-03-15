@@ -803,13 +803,21 @@ export default function IsAkPage() {
                       {hasSoma ? `${ev.somatotype_endo}-${ev.somatotype_meso}-${ev.somatotype_ecto}` : '--'}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <button
-                        onClick={() => handleDownloadIsak(ev.id, ev.date)}
-                        disabled={downloadingId === ev.id}
-                        className="text-xs font-bold text-terracotta hover:underline disabled:opacity-50"
-                      >
-                        {downloadingId === ev.id ? '...' : '\u2B07 PDF'}
-                      </button>
+                      <div className="flex gap-2 justify-end">
+                        <Link
+                          to={`/patients/${id}/isak/${ev.id}/report`}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Ver Informe
+                        </Link>
+                        <button
+                          onClick={() => handleDownloadIsak(ev.id, ev.date)}
+                          disabled={downloadingId === ev.id}
+                          className="text-xs font-bold text-terracotta hover:underline disabled:opacity-50"
+                        >
+                          {downloadingId === ev.id ? '...' : '\u2B07 PDF clásico'}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex gap-2 justify-start">
