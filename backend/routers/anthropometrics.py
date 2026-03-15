@@ -368,6 +368,64 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         story.append(section_table(["Perímetro", "Valor"], p_rows, [8*cm, None]))
         story.append(Spacer(1, 0.3*cm))
 
+    # Índices antropométricos
+    def _idx(a, b, mult=1, decimals=2):
+        if a is None or b is None or b == 0: return "—"
+        return f"{(float(a) / float(b) * mult):.{decimals}f}"
+
+    # Índices básicos (disponibles ISAK 1+2)
+    idx_basic = []
+    if ev.waist_cm and ev.hip_glute_cm:
+        idx_basic.append(["Cociente Cintura-Cadera", _idx(ev.waist_cm, ev.hip_glute_cm)])
+    if ev.fat_mass_kg and ev.lean_mass_kg:
+        idx_basic.append(["Cociente Adiposo-Muscular", _idx(ev.fat_mass_kg, ev.lean_mass_kg, decimals=3)])
+    if ev.waist_cm and ev.weight_kg and ev.height_cm:
+        import math as _math
+        h_m = ev.height_cm / 100
+        denom = 0.109 * _math.sqrt(ev.weight_kg / h_m)
+        if denom > 0:
+            idx_basic.append(["Índice de Conicidad", f"{ev.waist_cm / denom:.3f}"])
+    if idx_basic:
+        story.append(Paragraph("Índices Básicos", S_SEC))
+        story.append(section_table(["Índice", "Valor"], idx_basic, [8*cm, None]))
+        story.append(Spacer(1, 0.3*cm))
+
+    # Índices ISAK 2
+    if ev.isak_level == "ISAK 2":
+        import math as _math
+        idx2 = []
+        # Masa ósea Martin 1990
+        if ev.height_cm and ev.humerus_width_cm and ev.femur_width_cm:
+            val = (ev.height_cm/100) * (ev.humerus_width_cm/100) * (ev.femur_width_cm/100) * 400
+            bone_mass = 3.02 * (val ** 0.712)
+            idx2.append(["Masa Ósea (Martin 1990)", f"{bone_mass:.2f} kg"])
+            if ev.lean_mass_kg:
+                idx2.append(["Índice Músculo Óseo (IMO)", f"{ev.lean_mass_kg / bone_mass:.2f}"])
+        # Longitudes
+        if ev.acromion_radial_cm and ev.radial_styloid_cm and ev.height_cm:
+            idx2.append(["I.R.E.S. Superior", f"{(ev.acromion_radial_cm + ev.radial_styloid_cm) / ev.height_cm * 100:.2f}"])
+        if ev.iliospinal_height_cm and ev.height_cm:
+            idx2.append(["I.R.E.S. Inferior", f"{ev.iliospinal_height_cm / ev.height_cm * 100:.2f}"])
+        if ev.acromion_radial_cm and ev.radial_styloid_cm and ev.iliospinal_height_cm:
+            idx2.append(["Índice Intermembral", f"{(ev.acromion_radial_cm + ev.radial_styloid_cm) / ev.iliospinal_height_cm * 100:.2f}"])
+        if ev.radial_styloid_cm and ev.acromion_radial_cm:
+            idx2.append(["Índice Braquial", _idx(ev.radial_styloid_cm, ev.acromion_radial_cm, 100)])
+        if hasattr(ev, 'tibiale_height_cm') and ev.tibiale_height_cm and ev.trochanter_tibial_cm:
+            idx2.append(["Índice Crural", _idx(ev.tibiale_height_cm, ev.trochanter_tibial_cm, 100)])
+        if ev.iliospinal_height_cm and ev.height_cm:
+            trunk = ev.height_cm - ev.iliospinal_height_cm
+            if trunk > 0:
+                idx2.append(["Índice Córmico", f"{(ev.height_cm - ev.iliospinal_height_cm) / ev.height_cm * 100:.2f}"])
+                idx2.append(["Índice Esquelético (Manouvrier)", f"{ev.iliospinal_height_cm / trunk * 100:.2f}"])
+        if ev.biacromial_cm and ev.biiliocrestal_cm:
+            idx2.append(["Índice Acromio-Ilíaco", _idx(ev.biacromial_cm, ev.biiliocrestal_cm, 100)])
+        if hasattr(ev, 'arm_span_cm') and ev.arm_span_cm and ev.height_cm:
+            idx2.append(["Envergadura Relativa", _idx(ev.arm_span_cm, ev.height_cm, 100)])
+        if idx2:
+            story.append(Paragraph("Índices ISAK 2", S_SEC))
+            story.append(section_table(["Índice", "Valor"], idx2, [8*cm, None]))
+            story.append(Spacer(1, 0.3*cm))
+
     # Somatotipo ISAK 2
     if ev.isak_level == "ISAK 2" and ev.somatotype_endo is not None:
         story.append(Paragraph("Somatotipo — Heath & Carter (1990)", S_SEC))
