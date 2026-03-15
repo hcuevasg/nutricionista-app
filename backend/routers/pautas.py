@@ -267,7 +267,8 @@ async def generar_menu_ia(
         _allergies = _json.loads(patient.allergies or "[]") if patient.allergies else []
     except Exception:
         _allergies = []
-    allergy_line = f"\nRESTRICCIONES — ALERGIAS: El paciente tiene alergia a {", ".join(_allergies)}. NO incluir NINGÚN alimento que contenga estos ingredientes ni derivados.\n" if _allergies else ""
+    _allergy_str = ", ".join(_allergies)
+    allergy_line = f"\nRESTRICCIONES — ALERGIAS: El paciente tiene alergia a {_allergy_str}. NO incluir NINGÚN alimento que contenga estos ingredientes ni derivados.\n" if _allergies else ""
 
     tipo_label = TIPO_LABELS.get(pauta.tipo_pauta, pauta.tipo_pauta)
     prompt = f"""Pauta {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día, paciente chileno.{allergy_line}
