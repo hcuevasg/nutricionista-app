@@ -1,10 +1,19 @@
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 interface LayoutProps {
   children: React.ReactNode
   title: string
 }
+
+const menuItems = [
+  { label: 'Dashboard',     path: '/dashboard', icon: '⊞' },
+  { label: 'Pacientes',     path: '/patients',  icon: '👥' },
+  { label: 'Evaluaciones',  path: '/isak',      icon: '📏' },
+  { label: 'Planes',        path: '/plans',     icon: '🥗' },
+  { label: 'Pautas',        path: '/pautas',    icon: '📋' },
+  { label: 'Configuración', path: '/config',    icon: '⚙️'  },
+]
 
 export default function Layout({ children, title }: LayoutProps) {
   const { logout, user } = useAuth()
@@ -15,56 +24,59 @@ export default function Layout({ children, title }: LayoutProps) {
     navigate('/login')
   }
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/dashboard' },
-    { label: 'Pacientes', path: '/patients' },
-    { label: 'ISAK', path: '/isak' },
-    { label: 'Planes', path: '/plans' },
-    { label: 'Pautas', path: '/pautas' },
-    { label: 'Reportes', path: '/reports' },
-    { label: 'Configuración', path: '/config' },
-  ]
-
   return (
     <div className="flex h-screen bg-bg-light">
       {/* Sidebar */}
-      <div className="relative w-64 bg-primary text-white shadow-lg flex-shrink-0">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold">NutriApp</h1>
-          <p className="text-sm text-primary-dark mt-1">Gestión Nutricional</p>
+      <div className="relative w-60 bg-primary text-white shadow-lg flex-shrink-0 flex flex-col">
+        <div className="p-6 pb-4">
+          <h1 className="text-xl font-bold tracking-tight">NutriApp</h1>
+          <p className="text-xs mt-0.5 opacity-60">Gestión Nutricional</p>
         </div>
 
-        <nav className="mt-8">
+        <nav className="flex-1 px-3 py-2 space-y-0.5">
           {menuItems.map((item) => (
-            <Link
+            <NavLink
               key={item.path}
               to={item.path}
-              className="block px-6 py-3 hover:bg-primary-dark transition-colors text-sm"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? 'bg-white/20 font-semibold text-white'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white'
+                }`
+              }
             >
+              <span className="text-base leading-none w-5 text-center">{item.icon}</span>
               {item.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-primary-dark">
+        <div className="p-4 border-t border-white/10">
+          <Link
+            to="/profile"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/75 hover:bg-white/10 hover:text-white transition-colors mb-2"
+          >
+            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+              {(user?.name || user?.username || '?').slice(0, 1).toUpperCase()}
+            </div>
+            <span className="truncate">{user?.name || user?.username}</span>
+          </Link>
           <button
             onClick={handleLogout}
-            className="w-full bg-terracotta hover:bg-opacity-90 text-white py-2 rounded text-sm"
+            className="w-full text-center text-xs text-white/50 hover:text-white/90 py-1 transition-colors"
           >
-            Logout
+            Cerrar sesión
           </button>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 overflow-auto">
-        {/* Top navbar */}
-        <div className="bg-white shadow sticky top-0 z-10">
-          <div className="px-8 py-4 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-primary">{title}</h2>
-            <Link to="/profile" className="text-sm text-gray-600 hover:text-primary hover:underline">
-              {user?.name || user?.username}
-            </Link>
+        {/* Top bar */}
+        <div className="bg-white border-b border-border sticky top-0 z-10">
+          <div className="px-8 py-4">
+            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
           </div>
         </div>
 

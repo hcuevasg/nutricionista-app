@@ -118,12 +118,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
-origins = [
+# CORS configuration — add FRONTEND_URL env var in production
+_extra = os.getenv("FRONTEND_URL", "")
+origins = list(filter(None, [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://nutricionista-app.vercel.app",
-]
+    _extra,
+]))
 
 app.add_middleware(
     CORSMiddleware,
