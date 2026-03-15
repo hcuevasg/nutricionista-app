@@ -159,15 +159,24 @@ export default function IsAkReportPage() {
     })
   }, [id, evalId, token, API])
 
-  const handleExportPNG = async () => {
-    if (!reportRef.current) return
-    setExporting(true)
-    await new Promise(r => setTimeout(r, 100))
-    const canvas = await html2canvas(reportRef.current, {
+  const captureCanvas = async () => {
+    if (!reportRef.current) return null
+    // Wait for fonts (Material Symbols, Inter) to be ready before capturing
+    await document.fonts.ready
+    await new Promise(r => setTimeout(r, 200))
+    return html2canvas(reportRef.current, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: '#F7F5F2',
+      logging: false,
     })
+  }
+
+  const handleExportPNG = async () => {
+    setExporting(true)
+    const canvas = await captureCanvas()
+    if (!canvas) { setExporting(false); return }
     const link = document.createElement('a')
     link.download = `ISAK_${patient?.name?.replace(/\s+/g, '_')}_${ev?.date}.png`
     link.href = canvas.toDataURL('image/png')
@@ -176,14 +185,9 @@ export default function IsAkReportPage() {
   }
 
   const handleExportPDF = async () => {
-    if (!reportRef.current) return
     setExporting(true)
-    await new Promise(r => setTimeout(r, 100))
-    const canvas = await html2canvas(reportRef.current, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#F7F5F2',
-    })
+    const canvas = await captureCanvas()
+    if (!canvas) { setExporting(false); return }
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pdfW = pdf.internal.pageSize.getWidth()
@@ -206,9 +210,13 @@ export default function IsAkReportPage() {
     ? ev.weight_kg / Math.pow(ev.height_cm / 100, 2)
     : null
 
-  const leanPct = ev.lean_mass_kg && ev.weight_kg && ev.weight_kg > 0
-    ? Math.min((ev.lean_mass_kg / ev.weight_kg) * 100, 99.9)
+  // Only compute lean% if lean < weight (avoid bad data showing 99.9%)
+  const leanPct = ev.lean_mass_kg && ev.weight_kg && ev.weight_kg > 0 &&
+    ev.lean_mass_kg < ev.weight_kg
+    ? (ev.lean_mass_kg / ev.weight_kg) * 100
     : null
+
+  const leanDataOk = ev.lean_mass_kg && ev.weight_kg && ev.lean_mass_kg < ev.weight_kg
 
   const tmb = ev.tmb ?? calcBMR(patient, ev)
 
@@ -371,14 +379,14 @@ export default function IsAkReportPage() {
                 label="% Masa Grasa"
                 value={ev.fat_mass_pct && ev.fat_mass_pct > 0 ? fmt(ev.fat_mass_pct) : '—'}
                 unit="%"
-                note={ev.fat_mass_kg ? `${fmt(ev.fat_mass_kg)} kg masa grasa` : undefined}
+                note={ev.fat_mass_kg && ev.fat_mass_kg > 0 ? `${fmt(ev.fat_mass_kg)} kg masa grasa` : undefined}
                 border="border-terracotta"
                 icon="opacity"
                 iconColor="text-terracotta"
               />
               <MetricCard
                 label="Masa Magra"
-                value={ev.lean_mass_kg ? fmt(ev.lean_mass_kg) : '—'}
+                value={leanDataOk && ev.lean_mass_kg ? fmt(ev.lean_mass_kg) : '—'}
                 unit="kg"
                 note={leanPct ? `${leanPct.toFixed(1)}% del peso total` : undefined}
                 border="border-primary"
@@ -460,7 +468,7 @@ export default function IsAkReportPage() {
                   Distribución Corporal
                 </h3>
                 <div className="flex-1 flex flex-col gap-4 bg-white rounded-lg p-5 border border-slate-200">
-                  <ProgressBar label="Masa Magra" pct={leanPct} color={C_PRIMARY} />
+                  {leanDataOk && <ProgressBar label="Masa Magra" pct={leanPct} color={C_PRIMARY} />}
                   <ProgressBar label="Masa Grasa" pct={ev.fat_mass_pct ?? null} color={C_TERRA} />
                   {ev.body_density != null && (
                     <div className="mt-2 pt-3 border-t border-slate-100">
