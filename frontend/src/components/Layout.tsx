@@ -9,9 +9,6 @@ interface LayoutProps {
 const menuItems = [
   { label: 'Dashboard',     path: '/dashboard', icon: '⊞' },
   { label: 'Pacientes',     path: '/patients',  icon: '◉' },
-  { label: 'Evaluaciones',  path: '/isak',      icon: '⊙' },
-  { label: 'Planes',        path: '/plans',     icon: '⊛' },
-  { label: 'Pautas',        path: '/pautas',    icon: '⊡' },
   { label: 'Configuración', path: '/config',    icon: '⊕' },
 ]
 

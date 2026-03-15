@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { useToast } from '../context/ToastContext'
@@ -115,6 +115,7 @@ function fmt(v: number | null | undefined, d = 1): string {
 
 export default function IsAkPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const { token } = useAuth()
 
   const [patient, setPatient] = useState<Patient | null>(null)
@@ -153,6 +154,17 @@ export default function IsAkPage() {
       .catch(() => setEvaluations([]))
       .finally(() => setLoadingHistory(false))
   }, [id, token])
+
+  // Auto-open edit form when ?edit=ID is in the URL
+  useEffect(() => {
+    if (!loadingHistory && evaluations.length > 0) {
+      const editId = searchParams.get('edit')
+      if (editId) {
+        const ev = evaluations.find(e => e.id === Number(editId))
+        if (ev) handleStartEdit(ev)
+      }
+    }
+  }, [loadingHistory])
 
   // Auto-calculate ISAK 1 results on field change
   useEffect(() => {

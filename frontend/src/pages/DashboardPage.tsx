@@ -110,7 +110,7 @@ export default function DashboardPage() {
             label="Total Pacientes"
             value={stats?.total_patients ?? 0}
             borderColor="border-primary"
-            badge="+12%"
+            badge="Pacientes"
             badgeColor="text-primary bg-primary/10"
             icon="◉"
           />
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             label="Evaluaciones ISAK"
             value={stats?.total_evaluations ?? 0}
             borderColor="border-terracotta"
-            badge="Meta: 80"
+            badge="ISAK 1+2"
             badgeColor="text-terracotta bg-terracotta/10"
             icon="⊙"
           />
@@ -126,7 +126,7 @@ export default function DashboardPage() {
             label="Planes Alimenticios"
             value={stats?.total_plans ?? 0}
             borderColor="border-[#d9a441]"
-            badge="Pendientes"
+            badge="Planes"
             badgeColor="text-amber-600 bg-amber-100"
             icon="⊛"
           />
@@ -134,7 +134,7 @@ export default function DashboardPage() {
             label="Pautas Nutricionales"
             value={stats?.total_pautas ?? 0}
             borderColor="border-sage"
-            badge="85% Retención"
+            badge="Pautas IA"
             badgeColor="text-green-600 bg-green-100"
             icon="⊡"
           />
@@ -232,58 +232,53 @@ export default function DashboardPage() {
             <h3 className="text-lg font-bold text-gray-800">Accesos Rápidos</h3>
             <div className="grid grid-cols-1 gap-3">
               <Link
-                to="/patients"
+                to="/patients/new"
                 className="flex items-center gap-3 p-4 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all shadow-md"
               >
-                <span className="bg-white/20 p-2 rounded-lg text-base leading-none">⊡</span>
-                <span className="font-medium">Nueva pauta</span>
+                <span className="bg-white/20 p-2 rounded-lg text-base leading-none">◉</span>
+                <span className="font-medium">Nuevo paciente</span>
               </Link>
               <Link
                 to="/patients"
                 className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/40 hover:bg-bg-light transition-all shadow-sm group"
               >
                 <span className="text-primary bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-base leading-none">⊙</span>
-                <span className="font-medium text-gray-700">Nueva evaluación</span>
+                <span className="font-medium text-gray-700">Nueva evaluación ISAK</span>
               </Link>
               <Link
                 to="/patients"
                 className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/40 hover:bg-bg-light transition-all shadow-sm group"
               >
-                <span className="text-primary bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-base leading-none">◉</span>
-                <span className="font-medium text-gray-700">Buscar paciente</span>
+                <span className="text-primary bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-base leading-none">⊡</span>
+                <span className="font-medium text-gray-700">Nueva pauta nutricional</span>
               </Link>
             </div>
           </div>
 
-          {/* Upcoming actions card */}
+          {/* Resumen de actividad */}
           <div className="bg-primary/5 rounded-xl p-6 border border-primary/10 relative overflow-hidden">
             <div className="relative z-10">
-              <h3 className="text-lg font-bold text-primary mb-4">
-                Próximas Acciones
-              </h3>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="w-1 bg-terracotta rounded-full flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">Revisión de pauta pendiente</p>
-                    <p className="text-xs text-text-muted">Hoy</p>
-                  </div>
+              <h3 className="text-lg font-bold text-primary mb-4">Resumen</h3>
+              {stats == null ? (
+                <p className="text-sm text-text-muted">Cargando...</p>
+              ) : (
+                <div className="space-y-3">
+                  {[
+                    { label: 'Pacientes activos', value: stats.total_patients, color: 'bg-primary' },
+                    { label: 'Evaluaciones totales', value: stats.total_evaluations, color: 'bg-terracotta' },
+                    { label: 'Planes alimenticios', value: stats.total_plans, color: 'bg-[#d9a441]' },
+                    { label: 'Pautas con IA', value: stats.total_pautas, color: 'bg-sage' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${color}`}></div>
+                        <span className="text-sm text-gray-700">{label}</span>
+                      </div>
+                      <span className="text-sm font-bold text-gray-800">{value}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex gap-3">
-                  <div className="w-1 bg-[#d9a441] rounded-full flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">Evaluación ISAK programada</p>
-                    <p className="text-xs text-text-muted">Mañana</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-1 bg-primary rounded-full flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">Generar informe mensual</p>
-                    <p className="text-xs text-text-muted">Esta semana</p>
-                  </div>
-                </div>
-              </div>
+              )}
               <Link
                 to="/patients"
                 className="mt-6 w-full block py-2 bg-white text-primary text-xs font-bold rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-all text-center"
@@ -291,7 +286,6 @@ export default function DashboardPage() {
                 Ver todos los pacientes
               </Link>
             </div>
-            {/* Subtle background motif */}
             <div className="absolute -bottom-4 -right-4 text-primary/5 select-none text-[120px] leading-none">
               ✦
             </div>
