@@ -37,6 +37,7 @@ export default function PautasPage() {
   const [pautas, setPautas] = useState<Pauta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}` }
@@ -59,6 +60,25 @@ export default function PautasPage() {
     if (!confirm('¿Eliminar esta pauta?')) return
     await fetch(`${API}/pautas/${id}/${pautaId}`, { method: 'DELETE', headers: H })
     setPautas(prev => prev.filter(p => p.id !== pautaId))
+  }
+
+  const handleDownloadPdf = async (p: Pauta) => {
+    setDownloadingId(p.id)
+    try {
+      const res = await fetch(`${API}/pautas/${id}/${p.id}/pdf`, { headers: H })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Pauta_${p.name.replace(/ /g, '_')}_${p.date}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo descargar el PDF')
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   return (
@@ -95,7 +115,7 @@ export default function PautasPage() {
           <table className="w-full">
             <thead className="bg-bg-light border-b border-border">
               <tr>
-                {['Nombre', 'Fecha', 'Tipo', 'Kcal obj.', 'Prot.', 'Lip.', 'CHO', 'Acciones'].map(h => (
+                {['Nombre', 'Fecha', 'Tipo', 'Kcal obj.', 'Prot.', 'Lip.', 'CHO', 'PDF', 'Acciones'].map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
                     ['Kcal obj.', 'Prot.', 'Lip.', 'CHO'].includes(h) ? 'text-right' : 'text-left'
                   }`}>{h}</th>
@@ -116,6 +136,15 @@ export default function PautasPage() {
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.prot_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.prot_pct)}%)</span></td>
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.lip_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.lip_pct)}%)</span></td>
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.cho_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.cho_pct)}%)</span></td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleDownloadPdf(p)}
+                      disabled={downloadingId === p.id}
+                      className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                    >
+                      {downloadingId === p.id ? '...' : '⬇ PDF'}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-3 text-sm">
                       <Link to={`/patients/${id}/pautas/${p.id}`} className="text-primary hover:underline">Ver</Link>

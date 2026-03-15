@@ -25,6 +25,7 @@ export default function MealPlansPage() {
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}` }
@@ -44,6 +45,25 @@ export default function MealPlansPage() {
     if (!confirm('¿Eliminar este plan?')) return
     await fetch(`${API}/meal-plans/${id}/${planId}`, { method: 'DELETE', headers: H })
     setPlans(prev => prev.filter(p => p.id !== planId))
+  }
+
+  const handleDownloadPdf = async (plan: MealPlan) => {
+    setDownloadingId(plan.id)
+    try {
+      const res = await fetch(`${API}/meal-plans/${id}/${plan.id}/pdf`, { headers: H })
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Plan_${plan.name.replace(/ /g, '_')}_${plan.date}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo descargar el PDF')
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   return (
@@ -80,7 +100,7 @@ export default function MealPlansPage() {
           <table className="w-full">
             <thead className="bg-bg-light border-b border-border">
               <tr>
-                {['Plan', 'Fecha', 'Objetivo', 'Kcal', 'Prot.', 'Carbos', 'Grasas', 'Acciones'].map(h => (
+                {['Plan', 'Fecha', 'Objetivo', 'Kcal', 'Prot.', 'Carbos', 'Grasas', 'PDF', 'Acciones'].map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
                     ['Kcal','Prot.','Carbos','Grasas'].includes(h) ? 'text-right' : 'text-left'
                   }`}>{h}</th>
@@ -97,6 +117,15 @@ export default function MealPlansPage() {
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.protein_g)}g</td>
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.carbs_g)}g</td>
                   <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.fat_g)}g</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleDownloadPdf(plan)}
+                      disabled={downloadingId === plan.id}
+                      className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                    >
+                      {downloadingId === plan.id ? '...' : '⬇ PDF'}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-3 text-sm">
                       <Link to={`/patients/${id}/plans/${plan.id}/edit`} className="text-primary hover:underline">Ver / Editar</Link>
