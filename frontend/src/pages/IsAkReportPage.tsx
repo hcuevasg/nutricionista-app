@@ -53,6 +53,11 @@ interface Evaluation {
   somatotype_endo?: number
   somatotype_meso?: number
   somatotype_ecto?: number
+  // Bone diameters (ISAK 2)
+  humerus_width_cm?: number
+  femur_width_cm?: number
+  biacromial_cm?: number
+  biiliocrestal_cm?: number
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -133,6 +138,115 @@ function ProgressBar({ label, pct, color }: { label: string; pct: number | null;
   )
 }
 
+// ── Somatocarta SVG ────────────────────────────────────────────────────────────
+
+interface SomatocartaProps {
+  endo: number
+  meso: number
+  ecto: number
+  date: string
+}
+
+function SomatocartaSVG({ endo, meso, ecto, date }: SomatocartaProps) {
+  const W = 400, H = 300, PAD = 40
+  const toSvgX = (v: number) => PAD + (v + 8) / 16 * (W - 2 * PAD)
+  const toSvgY = (v: number) => PAD + (8 - v) / 16 * (H - 2 * PAD)
+
+  const x = ecto - endo
+  const y = 2 * meso - (endo + ecto)
+  const px = toSvgX(x)
+  const py = toSvgY(y)
+
+  const C_PRIMARY = '#4b7c60'
+  const C_SAGE = '#8da399'
+
+  // Grid lines every 1 unit from -8 to 8
+  const gridLines: JSX.Element[] = []
+  for (let v = -8; v <= 8; v++) {
+    const gx = toSvgX(v)
+    const gy = toSvgY(v)
+    gridLines.push(
+      <line key={`vg${v}`} x1={gx} y1={PAD} x2={gx} y2={H - PAD} stroke="#E5EAE7" strokeWidth="0.8" />,
+      <line key={`hg${v}`} x1={PAD} y1={gy} x2={W - PAD} y2={gy} stroke="#E5EAE7" strokeWidth="0.8" />
+    )
+  }
+
+  const cx0 = toSvgX(0)
+  const cy0 = toSvgY(0)
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} 340`}
+      width="100%"
+      style={{ maxWidth: W, display: 'block', margin: '0 auto' }}
+    >
+      {/* Background */}
+      <rect width={W} height={340} fill="#F7F5F2" rx="12" />
+
+      {/* Title */}
+      <text
+        x={W / 2}
+        y={22}
+        textAnchor="middle"
+        fontSize="11"
+        fontWeight="700"
+        fill={C_PRIMARY}
+        fontFamily="Inter, sans-serif"
+      >
+        Somatocarta — Heath &amp; Carter (1990)
+      </text>
+
+      {/* Grid */}
+      {gridLines}
+
+      {/* Crosshair dashed */}
+      <line x1={cx0} y1={PAD} x2={cx0} y2={H - PAD} stroke={C_SAGE} strokeWidth="1.5" strokeDasharray="4,3" />
+      <line x1={PAD} y1={cy0} x2={W - PAD} y2={cy0} stroke={C_SAGE} strokeWidth="1.5" strokeDasharray="4,3" />
+
+      {/* Region labels */}
+      <text x={W / 2} y={PAD + 14} textAnchor="middle" fontSize="9" fill="#6b7280" fontFamily="Inter, sans-serif">
+        Central / Mesomorfo
+      </text>
+      <text x={PAD + 18} y={cy0 + 4} textAnchor="middle" fontSize="9" fill="#6b7280" fontFamily="Inter, sans-serif" transform={`rotate(-90, ${PAD + 14}, ${cy0})`}>
+        Endomórfico
+      </text>
+      <text x={W - PAD - 18} y={cy0 + 4} textAnchor="middle" fontSize="9" fill="#6b7280" fontFamily="Inter, sans-serif" transform={`rotate(90, ${W - PAD - 14}, ${cy0})`}>
+        Ectomórfico
+      </text>
+
+      {/* Patient point */}
+      <circle cx={px} cy={py} r={8} fill={C_PRIMARY} stroke="white" strokeWidth={2} />
+      {/* Date label above point */}
+      <text x={px} y={py - 12} textAnchor="middle" fontSize="9" fill={C_PRIMARY} fontWeight="600" fontFamily="Inter, sans-serif">
+        {date}
+      </text>
+
+      {/* X-axis label */}
+      <text x={W / 2} y={H - PAD + 22} textAnchor="middle" fontSize="10" fill="#6b7280" fontFamily="Inter, sans-serif">
+        ← Endomorfo | Ectomorfo →
+      </text>
+
+      {/* Y-axis label (rotated) */}
+      <text
+        x={14}
+        y={PAD + (H - 2 * PAD) / 2}
+        textAnchor="middle"
+        fontSize="10"
+        fill="#6b7280"
+        fontFamily="Inter, sans-serif"
+        transform={`rotate(-90, 14, ${PAD + (H - 2 * PAD) / 2})`}
+      >
+        ← Ectomorfo | Mesomorfo →
+      </text>
+
+      {/* Coordinate annotation */}
+      <text x={px + 10} y={py + 4} fontSize="8" fill="#6b7280" fontFamily="Inter, sans-serif">
+        ({x.toFixed(1)}, {y.toFixed(1)})
+      </text>
+    </svg>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function IsAkReportPage() {
@@ -143,6 +257,7 @@ export default function IsAkReportPage() {
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [ev, setEv] = useState<Evaluation | null>(null)
+  const [prevEv, setPrevEv] = useState<Evaluation | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
@@ -152,9 +267,17 @@ export default function IsAkReportPage() {
     Promise.all([
       fetch(`${API}/patients/${id}`, { headers }).then(r => r.json()),
       fetch(`${API}/anthropometrics/${id}/${evalId}`, { headers }).then(r => r.json()),
-    ]).then(([p, e]) => {
+      fetch(`${API}/anthropometrics/${id}`, { headers }).then(r => r.json()),
+    ]).then(([p, e, allEvals]) => {
       setPatient(p)
       setEv(e)
+      // allEvals is sorted by date desc; find the evaluation just before the current one
+      if (Array.isArray(allEvals)) {
+        const currentIdx = allEvals.findIndex((ev: Evaluation) => String(ev.id) === String(evalId))
+        if (currentIdx !== -1 && currentIdx + 1 < allEvals.length) {
+          setPrevEv(allEvals[currentIdx + 1])
+        }
+      }
       setLoading(false)
     })
   }, [id, evalId, token, API])
@@ -231,15 +354,23 @@ export default function IsAkReportPage() {
   const ageStr = patient.age ? `${patient.age} años · ` : ''
 
   // Key perimeters for the anthropometry table
-  const perimRows: [string, number | undefined][] = [
-    ['Cintura', ev.waist_cm],
-    ['Cadera / Glúteo', ev.hip_glute_cm],
-    ['Brazo contraído', ev.arm_contracted_cm],
-    ['Brazo relajado', ev.arm_relaxed_cm],
-    ['Muslo máximo', ev.thigh_max_cm],
-    ['Pantorrilla', ev.calf_cm],
+  // Each entry: [label, currentVal, prevVal, lowerIsGood]
+  type PerimRow = {
+    label: string
+    current: number | undefined
+    prev: number | undefined
+    lowerIsGood: boolean
+  }
+  const perimRows: PerimRow[] = [
+    { label: 'Cintura',          current: ev.waist_cm,          prev: prevEv?.waist_cm,          lowerIsGood: true },
+    { label: 'Cadera / Glúteo',  current: ev.hip_glute_cm,       prev: prevEv?.hip_glute_cm,       lowerIsGood: true },
+    { label: 'Brazo contraído',  current: ev.arm_contracted_cm,  prev: prevEv?.arm_contracted_cm,  lowerIsGood: false },
+    { label: 'Brazo relajado',   current: ev.arm_relaxed_cm,     prev: prevEv?.arm_relaxed_cm,     lowerIsGood: false },
+    { label: 'Muslo máximo',     current: ev.thigh_max_cm,       prev: prevEv?.thigh_max_cm,       lowerIsGood: false },
+    { label: 'Pantorrilla',      current: ev.calf_cm,            prev: prevEv?.calf_cm,            lowerIsGood: false },
   ]
-  const filteredPerims = perimRows.filter(([, v]) => v != null)
+  const filteredPerims = perimRows.filter(r => r.current != null)
+  const hasPrevPerims = prevEv != null && filteredPerims.some(r => r.prev != null)
 
   // Skinfolds
   const sfList: [string, number | undefined][] = [
@@ -259,11 +390,43 @@ export default function IsAkReportPage() {
   ]
   const filteredSf = sfList.filter(([, v]) => v != null)
 
+  // Bone diameters (ISAK 2)
+  const boneRows: [string, number | undefined][] = [
+    ['Húmero', ev.humerus_width_cm],
+    ['Fémur', ev.femur_width_cm],
+    ['Biacromial', ev.biacromial_cm],
+    ['Biiliocrestal', ev.biiliocrestal_cm],
+  ]
+  const filteredBone = boneRows.filter(([, v]) => v != null)
+  const hasBoneDiameters = isak2 && filteredBone.length > 0
+
+  // Bone mass — Martin (1990): requires height, humerus width, femur width
+  let boneMass: number | null = null
+  if (ev.height_cm && ev.humerus_width_cm && ev.femur_width_cm) {
+    boneMass = 3.02 * Math.pow(
+      (ev.height_cm / 100) * (ev.humerus_width_cm / 100) * (ev.femur_width_cm / 100) * 400,
+      0.712
+    )
+  }
+
   // Colors
   const C_PRIMARY = '#4b7c60'
   const C_TERRA = '#c06c52'
   const C_AMBER = '#d9a441'
   const C_SAGE = '#8da399'
+
+  // Delta helper: returns formatted string and color
+  const getDelta = (current: number | undefined, prev: number | undefined, lowerIsGood: boolean) => {
+    if (current == null || prev == null) return { text: '—', color: '#6b7280' }
+    const delta = current - prev
+    if (Math.abs(delta) < 0.05) return { text: '0.0', color: '#6b7280' }
+    const improved = lowerIsGood ? delta < 0 : delta > 0
+    const sign = delta > 0 ? '+' : ''
+    return {
+      text: `${sign}${delta.toFixed(1)}`,
+      color: improved ? C_PRIMARY : C_TERRA,
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg-light font-sans">
@@ -412,6 +575,11 @@ export default function IsAkReportPage() {
                 <h3 className="text-base font-bold mb-4 flex items-center gap-2" style={{ color: C_PRIMARY }}>
                   <span className="material-symbols-outlined text-lg" style={{ color: C_PRIMARY }}>straighten</span>
                   Medidas Antropométricas
+                  {prevEv && (
+                    <span className="ml-2 text-xs font-normal text-text-muted">
+                      vs. evaluación anterior ({prevEv.date})
+                    </span>
+                  )}
                 </h3>
                 {filteredPerims.length > 0 ? (
                   <div className="overflow-hidden rounded-lg border border-slate-200">
@@ -420,17 +588,38 @@ export default function IsAkReportPage() {
                         <tr>
                           <th className="px-5 py-3 text-white">Medida</th>
                           <th className="px-5 py-3 text-white text-right">Actual (cm)</th>
+                          {hasPrevPerims && (
+                            <>
+                              <th className="px-5 py-3 text-white text-right">Anterior (cm)</th>
+                              <th className="px-5 py-3 text-white text-right">Δ</th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {filteredPerims.map(([label, val], i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-bg-light'}>
-                            <td className="px-5 py-3 font-medium text-slate-700">{label}</td>
-                            <td className="px-5 py-3 text-right font-bold" style={{ color: C_PRIMARY }}>
-                              {fmt(val)} cm
-                            </td>
-                          </tr>
-                        ))}
+                        {filteredPerims.map((row, i) => {
+                          const delta = hasPrevPerims ? getDelta(row.current, row.prev, row.lowerIsGood) : null
+                          return (
+                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-bg-light'}>
+                              <td className="px-5 py-3 font-medium text-slate-700">{row.label}</td>
+                              <td className="px-5 py-3 text-right font-bold" style={{ color: C_PRIMARY }}>
+                                {fmt(row.current)} cm
+                              </td>
+                              {hasPrevPerims && (
+                                <>
+                                  <td className="px-5 py-3 text-right text-slate-500">
+                                    {row.prev != null ? `${fmt(row.prev)} cm` : '—'}
+                                  </td>
+                                  <td className="px-5 py-3 text-right font-bold text-sm">
+                                    {delta && (
+                                      <span style={{ color: delta.color }}>{delta.text}</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -488,7 +677,7 @@ export default function IsAkReportPage() {
               </div>
             </div>
 
-            {/* ── 5. Skinfolds section (replaces "Recommended Portions") ── */}
+            {/* ── 5. Skinfolds section ── */}
             {filteredSf.length > 0 && (
               <div className="p-8 border-t border-slate-100">
                 <h3 className="text-base font-bold mb-6 flex items-center gap-2" style={{ color: C_PRIMARY }}>
@@ -516,14 +705,59 @@ export default function IsAkReportPage() {
               </div>
             )}
 
-            {/* ── 6. ISAK 2: Somatotype (if available) ── */}
+            {/* ── 6. Bone diameters (ISAK 2 only) ── */}
+            {hasBoneDiameters && (
+              <div className="p-8 border-t border-slate-100">
+                <h3 className="text-base font-bold mb-6 flex items-center gap-2" style={{ color: C_PRIMARY }}>
+                  <span className="material-symbols-outlined text-lg" style={{ color: C_PRIMARY }}>architecture</span>
+                  Diámetros Óseos (cm)
+                </h3>
+                <div className="overflow-hidden rounded-lg border border-slate-200 mb-5">
+                  <table className="w-full text-left text-sm">
+                    <thead style={{ backgroundColor: C_PRIMARY }}>
+                      <tr>
+                        <th className="px-5 py-3 text-white text-xs uppercase font-bold">Diámetro</th>
+                        <th className="px-5 py-3 text-white text-xs uppercase font-bold text-right">Valor (cm)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {filteredBone.map(([label, val], i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-bg-light'}>
+                          <td className="px-5 py-3 font-medium text-slate-700">{label}</td>
+                          <td className="px-5 py-3 text-right font-bold" style={{ color: C_PRIMARY }}>
+                            {fmt(val, 2)} cm
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {boneMass != null && (
+                  <div
+                    className="inline-flex items-center gap-4 px-5 py-4 rounded-xl border"
+                    style={{ backgroundColor: 'rgba(75,124,96,0.06)', borderColor: 'rgba(75,124,96,0.2)' }}
+                  >
+                    <span className="material-symbols-outlined text-2xl" style={{ color: C_PRIMARY }}>skeleton</span>
+                    <div>
+                      <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Masa Ósea (Martin 1990)</p>
+                      <p className="text-2xl font-black text-slate-900 mt-0.5">
+                        {boneMass.toFixed(2)} <span className="text-sm font-normal text-text-muted">kg</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── 7. ISAK 2: Somatotype + Somatocarta SVG ── */}
             {isak2 && ev.somatotype_endo != null && (
               <div className="p-8 border-t border-slate-100">
                 <h3 className="text-base font-bold mb-6 flex items-center gap-2" style={{ color: C_TERRA }}>
                   <span className="material-symbols-outlined text-lg" style={{ color: C_TERRA }}>scatter_plot</span>
                   Somatotipo — Heath &amp; Carter (1990)
                 </h3>
-                <div className="grid grid-cols-3 gap-5">
+                {/* Somatotype value cards */}
+                <div className="grid grid-cols-3 gap-5 mb-8">
                   {[
                     { label: 'Endomorfia', value: ev.somatotype_endo, color: C_TERRA },
                     { label: 'Mesomorfia', value: ev.somatotype_meso, color: C_PRIMARY },
@@ -535,10 +769,21 @@ export default function IsAkReportPage() {
                     </div>
                   ))}
                 </div>
+                {/* Somatocarta SVG */}
+                {ev.somatotype_meso != null && ev.somatotype_ecto != null && (
+                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-bg-light p-4">
+                    <SomatocartaSVG
+                      endo={ev.somatotype_endo!}
+                      meso={ev.somatotype_meso}
+                      ecto={ev.somatotype_ecto}
+                      date={ev.date}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ── 7. Footer bar ── */}
+            {/* ── 8. Footer bar ── */}
             <div className="p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-4"
                  style={{ backgroundColor: C_PRIMARY }}>
               <div className="flex items-center gap-3">
