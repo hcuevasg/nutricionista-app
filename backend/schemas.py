@@ -258,6 +258,7 @@ class AntecedentesBase(BaseModel):
     horario_trabajo: Optional[str] = None
     tipo_traslado: Optional[str] = None
     nutricionista_previo: Optional[bool] = None
+    observacion_nutricionista_previo: Optional[str] = None
     motivo_consulta: Optional[str] = None
     tipo_alimentacion: Optional[str] = None
     peso_habitual: Optional[float] = None
@@ -275,6 +276,7 @@ class AntecedentesBase(BaseModel):
     ejercicio_duracion: Optional[str] = None
     ejercicio_intensidad: Optional[str] = None
     ejercicio_objetivo: Optional[str] = None
+    observacion_actividad_fisica: Optional[str] = None
     con_quien_vive: Optional[str] = None
     mascotas: Optional[str] = None
     relacion_familiar: Optional[str] = None

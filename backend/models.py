@@ -217,6 +217,7 @@ class Antecedentes(Base):
     horario_trabajo = Column(String, nullable=True)
     tipo_traslado = Column(String, nullable=True)
     nutricionista_previo = Column(Boolean, nullable=True)
+    observacion_nutricionista_previo = Column(Text, nullable=True)
     motivo_consulta = Column(Text, nullable=True)
     tipo_alimentacion = Column(String, nullable=True)
 
@@ -238,6 +239,7 @@ class Antecedentes(Base):
     ejercicio_duracion = Column(String, nullable=True)
     ejercicio_intensidad = Column(String, nullable=True)
     ejercicio_objetivo = Column(Text, nullable=True)
+    observacion_actividad_fisica = Column(Text, nullable=True)
 
     # Tab 4 - Antecedentes sociales
     con_quien_vive = Column(String, nullable=True)

@@ -409,7 +409,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             Table([[""]], colWidths=[3], rowHeights=[16]),
             Paragraph(text, S("SL", fontSize=10, textColor=color, fontName="Helvetica-Bold",
                                leading=14, spaceBefore=0)),
-        ]], colWidths=[3, None])
+        ]], colWidths=[3, PAGE_W - 3])
         bar.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (0,0), color),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
@@ -455,10 +455,10 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         Spacer(0.3*cm, 1),
         metric_card(fmt(ev.lean_mass_kg) if ev.lean_mass_kg else "—", "kg", "Masa magra", C_SAGE),
     ]], colWidths=[
-        PAGE_W*0.245, 0.02*PAGE_W,
-        PAGE_W*0.245, 0.02*PAGE_W,
-        PAGE_W*0.245, 0.02*PAGE_W,
-        PAGE_W*0.245,
+        PAGE_W*0.235, 0.02*PAGE_W,
+        PAGE_W*0.235, 0.02*PAGE_W,
+        PAGE_W*0.235, 0.02*PAGE_W,
+        PAGE_W*0.235,
     ])
     cards_row1.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"TOP"),
@@ -474,8 +474,9 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     if ev.lean_mass_kg and ev.weight_kg and float(ev.weight_kg) > 0:
         raw = float(ev.lean_mass_kg) / float(ev.weight_kg) * 100
         lean_pct = min(raw, 99.9)  # clamp — lean > weight means bad data
-    b1 = progress_bar("Masa magra",  lean_pct,         C_PRIMARY)
-    b2 = progress_bar("Masa grasa",  ev.fat_mass_pct,  C_TERRA)
+    _bar_w = PAGE_W - 24  # bars fit inside comp_inner cell (12pt left+right padding)
+    b1 = progress_bar("Masa magra",  lean_pct,         C_PRIMARY, total_w=_bar_w)
+    b2 = progress_bar("Masa grasa",  ev.fat_mass_pct,  C_TERRA,   total_w=_bar_w)
     if b1 or b2:
         story.append(section_label("Composición Corporal"))
         story.append(Spacer(1, 0.2*cm))
@@ -486,7 +487,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         # detail row: Σ4, densidad, cintura
         detail_items = []
         if sigma4_sum is not None:
-            detail_items.append(("Σ4 pliegues D&W", f"{sigma4_sum:.1f} mm"))
+            detail_items.append(("Σ4 pliegues D&amp;W", f"{sigma4_sum:.1f} mm"))
         if ev.body_density is not None:
             detail_items.append(("Densidad corporal", f"{fmt(ev.body_density, 4)} g/mL"))
         if ev.waist_cm is not None:
@@ -496,6 +497,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
         comp_block = [
             Table([[b] for b in comp_inner],
+                  colWidths=[PAGE_W],
                   style=TableStyle([
                       ("BACKGROUND",(0,0),(-1,-1),WHITE),
                       ("LEFTPADDING",(0,0),(-1,-1),12),("RIGHTPADDING",(0,0),(-1,-1),12),
@@ -528,7 +530,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ]))
             comp_block.append(d_table)
 
-        comp_outer = Table([[b] for b in comp_block])
+        comp_outer = Table([[b] for b in comp_block], colWidths=[PAGE_W])
         comp_outer.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1),WHITE),
             ("BOX",(0,0),(-1,-1),0.3,C_BORDER),

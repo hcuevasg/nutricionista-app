@@ -97,6 +97,7 @@ async def lifespan(app: FastAPI):
             horario_trabajo VARCHAR,
             tipo_traslado VARCHAR,
             nutricionista_previo BOOLEAN,
+            observacion_nutricionista_previo TEXT,
             motivo_consulta TEXT,
             tipo_alimentacion VARCHAR,
             peso_habitual FLOAT,
@@ -114,6 +115,7 @@ async def lifespan(app: FastAPI):
             ejercicio_duracion VARCHAR,
             ejercicio_intensidad VARCHAR,
             ejercicio_objetivo TEXT,
+            observacion_actividad_fisica TEXT,
             con_quien_vive VARCHAR,
             mascotas VARCHAR,
             relacion_familiar TEXT,
@@ -138,6 +140,8 @@ async def lifespan(app: FastAPI):
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         )""",
+        "ALTER TABLE antecedentes ADD COLUMN IF NOT EXISTS observacion_nutricionista_previo TEXT",
+        "ALTER TABLE antecedentes ADD COLUMN IF NOT EXISTS observacion_actividad_fisica TEXT",
         "CREATE INDEX IF NOT EXISTS ix_antecedentes_patient_id ON antecedentes (patient_id)",
         # audit_logs
         """CREATE TABLE IF NOT EXISTS audit_logs (

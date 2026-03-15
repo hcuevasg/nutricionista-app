@@ -27,6 +27,7 @@ interface FormData {
   horario_trabajo: string
   tipo_traslado: string
   nutricionista_previo: string
+  observacion_nutricionista_previo: string
   motivo_consulta: string
   tipo_alimentacion: string
   peso_habitual: string
@@ -44,6 +45,7 @@ interface FormData {
   ejercicio_duracion: string
   ejercicio_intensidad: string
   ejercicio_objetivo: string
+  observacion_actividad_fisica: string
   con_quien_vive: string
   mascotas: string
   relacion_familiar: string
@@ -72,6 +74,7 @@ const EMPTY_FORM: FormData = {
   horario_trabajo: '',
   tipo_traslado: '',
   nutricionista_previo: '',
+  observacion_nutricionista_previo: '',
   motivo_consulta: '',
   tipo_alimentacion: '',
   peso_habitual: '',
@@ -89,6 +92,7 @@ const EMPTY_FORM: FormData = {
   ejercicio_duracion: '',
   ejercicio_intensidad: '',
   ejercicio_objetivo: '',
+  observacion_actividad_fisica: '',
   con_quien_vive: '',
   mascotas: '',
   relacion_familiar: '',
@@ -116,6 +120,68 @@ const sectionClass = 'bg-white rounded-xl border border-border p-6 mb-4'
 
 function Label({ children }: { children: React.ReactNode }) {
   return <label className={labelClass}>{children}</label>
+}
+
+function RecordatorioTable({
+  type, rows, onUpdate, onRemove, onAdd,
+}: {
+  type: 'semana' | 'finde'
+  rows: RecordatorioRow[]
+  onUpdate: (type: 'semana' | 'finde', idx: number, field: keyof RecordatorioRow, value: string) => void
+  onRemove: (type: 'semana' | 'finde', idx: number) => void
+  onAdd: (type: 'semana' | 'finde') => void
+}) {
+  return (
+    <div>
+      <table className="w-full text-sm border border-border rounded-lg overflow-hidden mb-3">
+        <thead className="bg-bg-light">
+          <tr>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Tiempo</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Horario</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Preparaciones</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Observaciones</th>
+            <th className="px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={idx} className="border-t border-border">
+              {(['tiempo', 'horario', 'preparaciones', 'observaciones'] as const).map(field => (
+                <td key={field} className="px-2 py-1">
+                  <input
+                    className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary rounded px-1"
+                    value={row[field]}
+                    onChange={e => onUpdate(type, idx, field, e.target.value)}
+                  />
+                </td>
+              ))}
+              <td className="px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => onRemove(type, idx)}
+                  className="text-red-400 hover:text-red-600 text-xs"
+                >
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={5} className="px-3 py-4 text-center text-xs text-text-muted italic">Sin registros</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <button
+        type="button"
+        onClick={() => onAdd(type)}
+        className="text-sm text-primary font-semibold hover:underline"
+      >
+        + Agregar tiempo
+      </button>
+    </div>
+  )
 }
 
 function BoolSelect({ value, onChange, name }: { value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; name: string }) {
@@ -256,57 +322,6 @@ export default function AntecedentesPage() {
     else setRecordatorioFinde(prev => prev.filter((_, i) => i !== idx))
   }
 
-  const RecordatorioTable = ({ type, rows }: { type: 'semana' | 'finde'; rows: RecordatorioRow[] }) => (
-    <div>
-      <table className="w-full text-sm border border-border rounded-lg overflow-hidden mb-3">
-        <thead className="bg-bg-light">
-          <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Tiempo</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Horario</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Preparaciones</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-text-muted uppercase">Observaciones</th>
-            <th className="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx} className="border-t border-border">
-              {(['tiempo', 'horario', 'preparaciones', 'observaciones'] as const).map(field => (
-                <td key={field} className="px-2 py-1">
-                  <input
-                    className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary rounded px-1"
-                    value={row[field]}
-                    onChange={e => updateRecordatorioRow(type, idx, field, e.target.value)}
-                  />
-                </td>
-              ))}
-              <td className="px-2 py-1">
-                <button
-                  type="button"
-                  onClick={() => removeRecordatorioRow(type, idx)}
-                  className="text-red-400 hover:text-red-600 text-xs"
-                >
-                  Eliminar
-                </button>
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={5} className="px-3 py-4 text-center text-xs text-text-muted italic">Sin registros</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      <button
-        type="button"
-        onClick={() => addRecordatorioRow(type)}
-        className="text-sm text-primary font-semibold hover:underline"
-      >
-        + Agregar tiempo
-      </button>
-    </div>
-  )
 
   if (loading) {
     return (
@@ -408,6 +423,19 @@ export default function AntecedentesPage() {
                 <Label>¿Ha visto nutricionista antes?</Label>
                 <BoolSelect name="nutricionista_previo" value={form.nutricionista_previo} onChange={handleChange} />
               </div>
+              {form.nutricionista_previo === 'true' && (
+                <div>
+                  <Label>Observación ¿Ha visto nutricionista antes?</Label>
+                  <textarea
+                    name="observacion_nutricionista_previo"
+                    value={form.observacion_nutricionista_previo}
+                    onChange={handleChange}
+                    className={inputClass}
+                    rows={3}
+                    placeholder="Detalles sobre la consulta nutricional previa..."
+                  />
+                </div>
+              )}
               <div>
                 <Label>Tipo de Alimentación</Label>
                 <select name="tipo_alimentacion" value={form.tipo_alimentacion} onChange={handleChange} className={inputClass}>
@@ -513,6 +541,17 @@ export default function AntecedentesPage() {
                 <Label>Objetivo del Ejercicio</Label>
                 <input name="ejercicio_objetivo" value={form.ejercicio_objetivo} onChange={handleChange} className={inputClass} placeholder="Pérdida de peso, rendimiento, salud..." />
               </div>
+              <div className="md:col-span-2">
+                <Label>Observación Actividad Física</Label>
+                <textarea
+                  name="observacion_actividad_fisica"
+                  value={form.observacion_actividad_fisica}
+                  onChange={handleChange}
+                  className={inputClass}
+                  rows={3}
+                  placeholder="Observaciones adicionales sobre la actividad física del paciente..."
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -577,7 +616,7 @@ export default function AntecedentesPage() {
               <textarea name="aversiones" value={form.aversiones} onChange={handleChange} rows={2} className={inputClass} placeholder="Alimentos que no tolera o rechaza..." />
             </div>
             <div>
-              <Label>Alimentos Gustados</Label>
+              <Label>Alimentos de preferencia</Label>
               <textarea name="alimentos_gustados" value={form.alimentos_gustados} onChange={handleChange} rows={2} className={inputClass} placeholder="Alimentos que le gustan mucho..." />
             </div>
             <div>
@@ -605,11 +644,11 @@ export default function AntecedentesPage() {
         <div className="space-y-6">
           <div className={sectionClass}>
             <h3 className="text-sm font-bold text-gray-700 mb-4">Dia de Semana</h3>
-            <RecordatorioTable type="semana" rows={recordatorioSemana} />
+            <RecordatorioTable type="semana" rows={recordatorioSemana} onUpdate={updateRecordatorioRow} onRemove={removeRecordatorioRow} onAdd={addRecordatorioRow} />
           </div>
           <div className={sectionClass}>
             <h3 className="text-sm font-bold text-gray-700 mb-4">Fin de Semana</h3>
-            <RecordatorioTable type="finde" rows={recordatorioFinde} />
+            <RecordatorioTable type="finde" rows={recordatorioFinde} onUpdate={updateRecordatorioRow} onRemove={removeRecordatorioRow} onAdd={addRecordatorioRow} />
           </div>
         </div>
       )}
