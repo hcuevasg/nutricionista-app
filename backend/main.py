@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings
+from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes
 
 # Import database
 from database import engine, Base
@@ -87,6 +87,58 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE patients ADD COLUMN IF NOT EXISTS allergies TEXT",
         # pautas
         "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS menu_json TEXT",
+        # antecedentes
+        """CREATE TABLE IF NOT EXISTS antecedentes (
+            id SERIAL PRIMARY KEY,
+            patient_id INTEGER UNIQUE NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            identidad_genero VARCHAR,
+            estado_civil VARCHAR,
+            prevision VARCHAR,
+            horario_trabajo VARCHAR,
+            tipo_traslado VARCHAR,
+            nutricionista_previo BOOLEAN,
+            motivo_consulta TEXT,
+            tipo_alimentacion VARCHAR,
+            peso_habitual FLOAT,
+            peso_maximo FLOAT,
+            peso_minimo FLOAT,
+            peso_oscilaciones TEXT,
+            enfermedades_preexistentes TEXT,
+            antecedentes_familiares TEXT,
+            farmacos_suplementos TEXT,
+            suplementacion_b12 TEXT,
+            cirugias TEXT,
+            dietas_moda TEXT,
+            tabaco_alcohol TEXT,
+            ejercicio_frecuencia VARCHAR,
+            ejercicio_duracion VARCHAR,
+            ejercicio_intensidad VARCHAR,
+            ejercicio_objetivo TEXT,
+            con_quien_vive VARCHAR,
+            mascotas VARCHAR,
+            relacion_familiar TEXT,
+            quien_cocina VARCHAR,
+            gusta_cocinar BOOLEAN,
+            sale_fines_semana BOOLEAN,
+            transito_intestinal TEXT,
+            sintomas_gi TEXT,
+            evento_traumatico TEXT,
+            intolerancias TEXT,
+            aversiones TEXT,
+            alimentos_gustados TEXT,
+            comida_emocional TEXT,
+            tiempo_comidas VARCHAR,
+            come_distracciones BOOLEAN,
+            calificacion_alimentacion INTEGER,
+            recordatorio_semana TEXT,
+            recordatorio_finde TEXT,
+            metas_corto_plazo TEXT,
+            metas_largo_plazo TEXT,
+            signos_carenciales TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_antecedentes_patient_id ON antecedentes (patient_id)",
         # audit_logs
         """CREATE TABLE IF NOT EXISTS audit_logs (
             id SERIAL PRIMARY KEY,
@@ -167,6 +219,7 @@ app.include_router(meal_plans.router)
 app.include_router(dashboard.router)
 app.include_router(pautas.router)
 app.include_router(settings.router)
+app.include_router(antecedentes.router)
 
 
 @app.get("/")

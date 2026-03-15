@@ -1,5 +1,5 @@
 """SQLAlchemy models for database."""
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -46,6 +46,7 @@ class Patient(Base):
     anthropometrics = relationship("Anthropometric", back_populates="patient", cascade="all, delete-orphan")
     meal_plans = relationship("MealPlan", back_populates="patient", cascade="all, delete-orphan")
     pautas = relationship("Pauta", back_populates="patient", cascade="all, delete-orphan")
+    antecedentes = relationship("Antecedentes", back_populates="patient", uselist=False)
 
 
 class Anthropometric(Base):
@@ -200,6 +201,77 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     nutritionist = relationship("Nutritionist")
+
+
+class Antecedentes(Base):
+    """Antecedentes clínicos del paciente."""
+    __tablename__ = "antecedentes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), unique=True, nullable=False)
+
+    # Tab 1 - Identificación
+    identidad_genero = Column(String, nullable=True)
+    estado_civil = Column(String, nullable=True)
+    prevision = Column(String, nullable=True)
+    horario_trabajo = Column(String, nullable=True)
+    tipo_traslado = Column(String, nullable=True)
+    nutricionista_previo = Column(Boolean, nullable=True)
+    motivo_consulta = Column(Text, nullable=True)
+    tipo_alimentacion = Column(String, nullable=True)
+
+    # Tab 2 - Historial peso
+    peso_habitual = Column(Float, nullable=True)
+    peso_maximo = Column(Float, nullable=True)
+    peso_minimo = Column(Float, nullable=True)
+    peso_oscilaciones = Column(Text, nullable=True)
+
+    # Tab 3 - Anamnesis remota
+    enfermedades_preexistentes = Column(Text, nullable=True)
+    antecedentes_familiares = Column(Text, nullable=True)
+    farmacos_suplementos = Column(Text, nullable=True)
+    suplementacion_b12 = Column(Text, nullable=True)
+    cirugias = Column(Text, nullable=True)
+    dietas_moda = Column(Text, nullable=True)
+    tabaco_alcohol = Column(Text, nullable=True)
+    ejercicio_frecuencia = Column(String, nullable=True)
+    ejercicio_duracion = Column(String, nullable=True)
+    ejercicio_intensidad = Column(String, nullable=True)
+    ejercicio_objetivo = Column(Text, nullable=True)
+
+    # Tab 4 - Antecedentes sociales
+    con_quien_vive = Column(String, nullable=True)
+    mascotas = Column(String, nullable=True)
+    relacion_familiar = Column(Text, nullable=True)
+    quien_cocina = Column(String, nullable=True)
+    gusta_cocinar = Column(Boolean, nullable=True)
+    sale_fines_semana = Column(Boolean, nullable=True)
+
+    # Tab 5 - Anamnesis alimentaria
+    transito_intestinal = Column(Text, nullable=True)
+    sintomas_gi = Column(Text, nullable=True)
+    evento_traumatico = Column(Text, nullable=True)
+    intolerancias = Column(Text, nullable=True)
+    aversiones = Column(Text, nullable=True)
+    alimentos_gustados = Column(Text, nullable=True)
+    comida_emocional = Column(Text, nullable=True)
+    tiempo_comidas = Column(String, nullable=True)
+    come_distracciones = Column(Boolean, nullable=True)
+    calificacion_alimentacion = Column(Integer, nullable=True)
+
+    # Tab 6 - Recordatorio 24hrs (JSON stored as Text)
+    recordatorio_semana = Column(Text, nullable=True)  # JSON string
+    recordatorio_finde = Column(Text, nullable=True)   # JSON string
+
+    # Tab 7 - Metas + signos
+    metas_corto_plazo = Column(Text, nullable=True)
+    metas_largo_plazo = Column(Text, nullable=True)
+    signos_carenciales = Column(Text, nullable=True)   # JSON string
+
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    patient = relationship("Patient", back_populates="antecedentes")
 
 
 class MealItem(Base):

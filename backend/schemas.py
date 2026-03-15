@@ -248,3 +248,65 @@ class PautaResponse(PautaCreate):
 
     class Config:
         from_attributes = True
+
+
+# ── Antecedentes Schemas ───────────────────────────────────────────
+class AntecedentesBase(BaseModel):
+    identidad_genero: Optional[str] = None
+    estado_civil: Optional[str] = None
+    prevision: Optional[str] = None
+    horario_trabajo: Optional[str] = None
+    tipo_traslado: Optional[str] = None
+    nutricionista_previo: Optional[bool] = None
+    motivo_consulta: Optional[str] = None
+    tipo_alimentacion: Optional[str] = None
+    peso_habitual: Optional[float] = None
+    peso_maximo: Optional[float] = None
+    peso_minimo: Optional[float] = None
+    peso_oscilaciones: Optional[str] = None
+    enfermedades_preexistentes: Optional[str] = None
+    antecedentes_familiares: Optional[str] = None
+    farmacos_suplementos: Optional[str] = None
+    suplementacion_b12: Optional[str] = None
+    cirugias: Optional[str] = None
+    dietas_moda: Optional[str] = None
+    tabaco_alcohol: Optional[str] = None
+    ejercicio_frecuencia: Optional[str] = None
+    ejercicio_duracion: Optional[str] = None
+    ejercicio_intensidad: Optional[str] = None
+    ejercicio_objetivo: Optional[str] = None
+    con_quien_vive: Optional[str] = None
+    mascotas: Optional[str] = None
+    relacion_familiar: Optional[str] = None
+    quien_cocina: Optional[str] = None
+    gusta_cocinar: Optional[bool] = None
+    sale_fines_semana: Optional[bool] = None
+    transito_intestinal: Optional[str] = None
+    sintomas_gi: Optional[str] = None
+    evento_traumatico: Optional[str] = None
+    intolerancias: Optional[str] = None
+    aversiones: Optional[str] = None
+    alimentos_gustados: Optional[str] = None
+    comida_emocional: Optional[str] = None
+    tiempo_comidas: Optional[str] = None
+    come_distracciones: Optional[bool] = None
+    calificacion_alimentacion: Optional[int] = None
+    recordatorio_semana: Optional[str] = None
+    recordatorio_finde: Optional[str] = None
+    metas_corto_plazo: Optional[str] = None
+    metas_largo_plazo: Optional[str] = None
+    signos_carenciales: Optional[str] = None
+
+
+class AntecedentesCreate(AntecedentesBase):
+    pass
+
+
+class AntecedentesResponse(AntecedentesBase):
+    id: int
+    patient_id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
