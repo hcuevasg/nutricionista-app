@@ -18,7 +18,13 @@ interface MealPlan {
   created_at: string
 }
 
-function fmt(v?: number | null) { return v != null ? v.toFixed(0) : '—' }
+function fmt(v?: number | null) { return v != null ? v.toFixed(0) : '--' }
+
+function macroBadge(g: number | null | undefined, kcal: number | null | undefined, factor: number) {
+  if (g == null) return '--'
+  const pct = kcal ? ((g * factor) / kcal * 100).toFixed(0) : '?'
+  return `${g.toFixed(0)}g (${pct}%)`
+}
 
 export default function MealPlansPage() {
   const { id } = useParams<{ id: string }>()
@@ -71,7 +77,8 @@ export default function MealPlansPage() {
   }
 
   return (
-    <Layout title={`Planes — ${patientName}`}>
+    <Layout title={`Planes -- ${patientName}`}>
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/patients" className="hover:text-primary">Pacientes</Link>
         <span>/</span>
@@ -80,60 +87,77 @@ export default function MealPlansPage() {
         <span className="text-primary font-medium">Planes Alimenticios</span>
       </div>
 
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>}
 
-      <div className="flex justify-end mb-4">
-        <Link to={`/patients/${id}/plans/new`}
-          className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg">
+      {/* Page header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Planes Alimenticios</h1>
+          <p className="text-text-muted font-medium mt-0.5">
+            Paciente: <span className="text-gray-900">{patientName}</span>
+          </p>
+        </div>
+        <Link
+          to={`/patients/${id}/plans/new`}
+          className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all"
+        >
           + Nuevo Plan
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Plans table */}
+      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
         {loading ? (
           <table className="w-full"><tbody><SkeletonTableRows cols={8} rows={4} /></tbody></table>
         ) : plans.length === 0 ? (
-          <div className="p-8 text-center text-text-muted text-sm space-y-3">
-            <p>No hay planes registrados.</p>
+          <div className="p-10 text-center text-text-muted text-sm space-y-4">
+            <div className="text-4xl mb-2">&#9744;</div>
+            <p className="font-medium">No hay planes registrados.</p>
             <Link to={`/patients/${id}/plans/new`}
-              className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm">
+              className="inline-block bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold">
               + Crear primer plan
             </Link>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-bg-light border-b border-border">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['Plan', 'Fecha', 'Objetivo', 'Kcal', 'Prot.', 'Carbos', 'Grasas', 'PDF', 'Acciones'].map(h => (
-                  <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
-                    ['Kcal','Prot.','Carbos','Grasas'].includes(h) ? 'text-right' : 'text-left'
+                {['Plan', 'Fecha', 'Objetivo', 'Kcal', 'Proteinas', 'Carbos', 'Grasas', 'PDF', 'Acciones'].map(h => (
+                  <th key={h} className={`px-4 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider ${
+                    ['Kcal','Proteinas','Carbos','Grasas'].includes(h) ? 'text-right' : 'text-left'
                   }`}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {plans.map(plan => (
-                <tr key={plan.id} className="border-b border-border hover:bg-bg-light">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{plan.name}</td>
-                  <td className="px-4 py-3 text-sm text-text-muted">{plan.date}</td>
-                  <td className="px-4 py-3 text-sm text-text-muted">{plan.goal ?? '—'}</td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-primary">{fmt(plan.calories)}</td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.protein_g)}g</td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.carbs_g)}g</td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(plan.fat_g)}g</td>
-                  <td className="px-4 py-3 text-right">
+                <tr key={plan.id} className="hover:bg-bg-light/50 transition-colors">
+                  <td className="px-4 py-3.5 text-sm font-semibold text-gray-800">{plan.name}</td>
+                  <td className="px-4 py-3.5 text-sm text-text-muted">{plan.date}</td>
+                  <td className="px-4 py-3.5 text-sm text-text-muted">{plan.goal ?? '--'}</td>
+                  <td className="px-4 py-3.5 text-sm text-right font-bold text-primary">{fmt(plan.calories)} kcal</td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {macroBadge(plan.protein_g, plan.calories, 4)}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {macroBadge(plan.carbs_g, plan.calories, 4)}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {macroBadge(plan.fat_g, plan.calories, 9)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
                     <button
                       onClick={() => handleDownloadPdf(plan)}
                       disabled={downloadingId === plan.id}
-                      className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                      className="text-xs font-bold text-terracotta hover:underline disabled:opacity-50"
                     >
-                      {downloadingId === plan.id ? '...' : '⬇ PDF'}
+                      {downloadingId === plan.id ? '...' : '\u2B07 PDF'}
                     </button>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <div className="flex gap-3 text-sm">
-                      <Link to={`/patients/${id}/plans/${plan.id}/edit`} className="text-primary hover:underline">Ver / Editar</Link>
-                      <button onClick={() => handleDelete(plan.id)} className="text-red-400 hover:underline">Eliminar</button>
+                      <Link to={`/patients/${id}/plans/${plan.id}/edit`} className="text-primary font-medium hover:underline">Ver / Editar</Link>
+                      <button onClick={() => handleDelete(plan.id)} className="text-red-400 font-medium hover:underline">Eliminar</button>
                     </div>
                   </td>
                 </tr>

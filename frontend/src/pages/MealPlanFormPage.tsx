@@ -6,6 +6,9 @@ import Layout from '../components/Layout'
 const MEAL_TYPES = ['Desayuno', 'Media mañana', 'Almuerzo', 'Merienda', 'Cena', 'Colación']
 const UNITS = ['g', 'ml', 'taza', 'cdta', 'cda', 'unidad', 'porción', 'rebanada']
 
+const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
+const LABEL = 'block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1'
+
 interface Item {
   id?: number
   meal_type: string
@@ -33,6 +36,15 @@ function emptyItem(meal_type = MEAL_TYPES[0]): Item {
 function pf(v: string) { const n = parseFloat(v); return isNaN(n) ? null : n }
 function sum(items: Item[], field: keyof Item) {
   return items.reduce((acc, it) => acc + (pf(it[field] as string) ?? 0), 0)
+}
+
+const MEAL_COLORS: Record<string, string> = {
+  Desayuno: 'bg-primary text-white',
+  'Media mañana': 'bg-sage/30 text-gray-700',
+  Almuerzo: 'bg-primary/80 text-white',
+  Merienda: 'bg-terracotta/20 text-terracotta',
+  Cena: 'bg-primary/60 text-white',
+  'Colación': 'bg-yellow-100 text-yellow-700',
 }
 
 export default function MealPlanFormPage() {
@@ -139,6 +151,7 @@ export default function MealPlanFormPage() {
 
   return (
     <Layout title={isEditing ? 'Editar Plan' : 'Nuevo Plan'}>
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/patients" className="hover:text-primary">Pacientes</Link>
         <span>/</span>
@@ -149,50 +162,70 @@ export default function MealPlanFormPage() {
         <span className="text-primary font-medium">{isEditing ? 'Editar' : 'Nuevo'}</span>
       </div>
 
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>}
+
+      {/* Macros summary bar */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-border px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Kcal</span>
+          <span className="text-lg font-extrabold text-primary">{totalKcal.toFixed(0)}</span>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-border px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Prot</span>
+          <span className="text-lg font-extrabold text-blue-500">{totalProt.toFixed(1)}g</span>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-border px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Carbs</span>
+          <span className="text-lg font-extrabold text-orange-500">{totalCarbs.toFixed(1)}g</span>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-border px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Grasas</span>
+          <span className="text-lg font-extrabold text-yellow-500">{totalFat.toFixed(1)}g</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left: form + items */}
         <div className="xl:col-span-2 space-y-6">
 
           {/* Plan metadata */}
-          <div className="bg-white rounded-lg shadow p-6 space-y-4">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Datos del Plan</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Datos del Plan</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <label className="block text-xs text-text-muted mb-1">Nombre del plan *</label>
+                <label className={LABEL}>Nombre del plan *</label>
                 <input value={form.name} onChange={e => setF('name', e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Ej: Plan hipocalórico semana 1" />
+                  className={INPUT}
+                  placeholder="Ej: Plan hipocalorico semana 1" />
               </div>
               <div>
-                <label className="block text-xs text-text-muted mb-1">Fecha</label>
+                <label className={LABEL}>Fecha</label>
                 <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                  className={INPUT} />
               </div>
               <div>
-                <label className="block text-xs text-text-muted mb-1">Objetivo</label>
+                <label className={LABEL}>Objetivo</label>
                 <input value={form.goal} onChange={e => setF('goal', e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={INPUT}
                   placeholder="Ej: Bajar de peso" />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs text-text-muted mb-1">Notas</label>
+                <label className={LABEL}>Notas</label>
                 <textarea value={form.notes} onChange={e => setF('notes', e.target.value)} rows={2}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  className={`${INPUT} resize-none`}
                   placeholder="Indicaciones adicionales..." />
               </div>
             </div>
           </div>
 
           {/* Items grouped by meal type */}
-          <div className="bg-white rounded-lg shadow p-6 space-y-6">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Alimentos por Tiempo de Comida</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-6">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Alimentos por Tiempo de Comida</h3>
 
             {grouped.map(({ mt, items: group }) => group.length > 0 && (
               <div key={mt}>
-                <div className="bg-primary/10 rounded px-3 py-1.5 mb-2">
-                  <span className="text-xs font-bold text-primary uppercase tracking-wide">{mt}</span>
+                <div className={`rounded-lg px-3 py-2 mb-3 ${MEAL_COLORS[mt] ?? 'bg-primary/10 text-primary'}`}>
+                  <span className="text-xs font-bold uppercase tracking-wider">{mt}</span>
                 </div>
                 <div className="space-y-2">
                   {/* Header */}
@@ -210,21 +243,21 @@ export default function MealPlanFormPage() {
                   {group.map(({ it, idx }) => (
                     <div key={idx} className="grid grid-cols-12 gap-1 items-center">
                       <input value={it.food_name} onChange={e => updateItem(idx, 'food_name', e.target.value)}
-                        className="col-span-3 px-2 py-1.5 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="col-span-3 px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Nombre alimento" />
                       <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)}
-                        className="col-span-1 px-2 py-1.5 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="0" />
+                        className="col-span-1 px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="0" />
                       <select value={it.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                        className="col-span-1 px-1 py-1.5 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white">
+                        className="col-span-1 px-1 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white">
                         {UNITS.map(u => <option key={u}>{u}</option>)}
                       </select>
                       {(['calories','protein_g','carbs_g','fat_g','fiber_g'] as (keyof Item)[]).map(field => (
                         <input key={field} type="number" value={it[field] as string}
                           onChange={e => updateItem(idx, field, e.target.value)}
-                          className="col-span-1 px-2 py-1.5 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="0" />
+                          className="col-span-1 px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="0" />
                       ))}
                       <button onClick={() => removeItem(idx)}
-                        className="col-span-2 text-red-400 hover:text-red-600 text-xs text-right pr-1">✕ Quitar</button>
+                        className="col-span-2 text-red-400 hover:text-red-600 text-xs font-medium text-right pr-1">Quitar</button>
                     </div>
                   ))}
                 </div>
@@ -232,19 +265,20 @@ export default function MealPlanFormPage() {
             ))}
 
             {items.filter(it => it.food_name.trim()).length === 0 && (
-              <p className="text-sm text-text-muted italic text-center py-4">
-                Aún no hay alimentos. Usa el botón de abajo para agregar.
-              </p>
+              <div className="p-8 text-center text-text-muted text-sm space-y-3">
+                <div className="text-3xl mb-1">&#127860;</div>
+                <p className="font-medium">Aun no hay alimentos. Usa el boton de abajo para agregar.</p>
+              </div>
             )}
 
             {/* Add item row */}
             <div className="flex items-center gap-3 pt-4 border-t border-border">
               <select value={addMealType} onChange={e => setAddMealType(e.target.value)}
-                className="px-3 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary">
+                className={`${INPUT} w-auto`}>
                 {MEAL_TYPES.map(mt => <option key={mt}>{mt}</option>)}
               </select>
               <button onClick={addItem}
-                className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-lg text-sm font-medium">
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium">
                 + Agregar alimento
               </button>
             </div>
@@ -253,31 +287,32 @@ export default function MealPlanFormPage() {
 
         {/* Right: macros summary + save */}
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-6 space-y-4">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Resumen Nutricional</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Resumen Nutricional</h3>
             <div className="space-y-3">
-              <MacroCard label="Calorías totales" value={totalKcal.toFixed(0)} unit="kcal" color="text-primary" big />
-              <MacroCard label="Proteínas" value={totalProt.toFixed(1)} unit="g" color="text-blue-500" />
+              <MacroCard label="Calorias totales" value={totalKcal.toFixed(0)} unit="kcal" color="text-primary" big />
+              <MacroCard label="Proteinas" value={totalProt.toFixed(1)} unit="g" color="text-blue-500" />
               <MacroCard label="Carbohidratos" value={totalCarbs.toFixed(1)} unit="g" color="text-orange-500" />
               <MacroCard label="Grasas" value={totalFat.toFixed(1)} unit="g" color="text-yellow-500" />
             </div>
             {totalKcal > 0 && (
               <div className="pt-3 border-t border-border space-y-1">
-                <p className="text-xs text-text-muted font-medium">Distribución</p>
-                <MacroPct label="Proteínas" pct={totalKcal ? (totalProt * 4 / totalKcal) * 100 : 0} color="bg-blue-400" />
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Distribucion</p>
+                <MacroPct label="Proteinas" pct={totalKcal ? (totalProt * 4 / totalKcal) * 100 : 0} color="bg-blue-400" />
                 <MacroPct label="Carbos" pct={totalKcal ? (totalCarbs * 4 / totalKcal) * 100 : 0} color="bg-orange-400" />
                 <MacroPct label="Grasas" pct={totalKcal ? (totalFat * 9 / totalKcal) * 100 : 0} color="bg-yellow-400" />
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          {/* Sticky save bar */}
+          <div className="sticky bottom-4 flex flex-col gap-2">
             <button onClick={handleSave} disabled={saving}
               className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50">
               {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear plan'}
             </button>
             <Link to={`/patients/${id}/plans`}
-              className="border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">
+              className="border border-border hover:bg-bg-light text-gray-700 py-3 rounded-lg font-medium text-center text-sm">
               Cancelar
             </Link>
           </div>

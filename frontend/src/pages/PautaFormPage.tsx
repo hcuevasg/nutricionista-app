@@ -547,31 +547,42 @@ export default function PautaFormPage() {
             </div>
           </div>
 
-          {/* 4. Calorías objetivo */}
-          <div className="bg-white rounded-lg shadow p-6 space-y-4">
-            <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Calorías Objetivo</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-bg-light rounded-lg p-4 text-center">
-                <p className="text-xs text-text-muted mb-1">TMB</p>
-                <p className="text-xl font-bold text-primary">{calcs.tmb.toFixed(0)}</p>
-                <p className="text-xs text-text-muted">kcal/día</p>
+          {/* 4. Calorías objetivo — GET card (Stitch style) */}
+          <div className="bg-primary text-white p-8 rounded-xl shadow-lg relative overflow-hidden">
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-white/30 text-xs font-black uppercase tracking-[0.2em]">Cálculo Energético</h3>
               </div>
-              <div className="bg-bg-light rounded-lg p-4 text-center">
-                <p className="text-xs text-text-muted mb-1">GET (TMB × FA)</p>
-                <p className="text-xl font-bold text-terracotta">{calcs.get_kcal.toFixed(0)}</p>
-                <p className="text-xs text-text-muted">kcal/día</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white/80">Gasto Energético Total (GET)</p>
+                <p className="text-5xl font-bold tracking-tight">
+                  {calcs.get_kcal.toFixed(0)} <span className="text-xl font-normal opacity-80">kcal/día</span>
+                </p>
               </div>
-              <div className="bg-primary/10 rounded-lg p-4 text-center border border-primary/20">
-                <p className="text-xs text-text-muted mb-1">Kcal Objetivo</p>
-                <p className="text-2xl font-bold text-primary">{calcs.kcal_objetivo.toFixed(0)}</p>
-                <p className="text-xs text-text-muted">kcal/día</p>
+              <div className="pt-4 border-t border-white/10 flex gap-6 text-sm font-medium text-white/70">
+                <p>TMB: <span className="text-white">{calcs.tmb.toFixed(0)} kcal</span></p>
+                <p>FA: <span className="text-white">×{FA_OPTIONS.find(f => f.key === form.fa_key)?.factor ?? '—'}</span></p>
+                {form.ajuste_kcal !== 0 && (
+                  <p>Ajuste: <span className="text-white">{form.ajuste_kcal > 0 ? '+' : ''}{form.ajuste_kcal} kcal</span></p>
+                )}
               </div>
+              {form.ajuste_kcal !== 0 && (
+                <div className="pt-2 text-sm font-medium text-white/70">
+                  Kcal objetivo: <span className="text-white font-bold">{calcs.kcal_objetivo.toFixed(0)} kcal/día</span>
+                </div>
+              )}
             </div>
+            {/* Abstract background */}
+            <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          </div>
+
+          {/* Ajuste calórico */}
+          <div className="bg-white rounded-lg shadow p-4">
             <Field label="Ajuste calórico (kcal) — negativo para déficit, positivo para superávit">
               <input type="number" value={form.ajuste_kcal} onChange={e => setF('ajuste_kcal', +e.target.value)}
                 disabled={isView} className={INPUT} step="50" placeholder="0" />
             </Field>
-            <p className="text-xs text-text-muted">Fórmula: Mifflin-St Jeor</p>
+            <p className="text-xs text-text-muted mt-2">Fórmula: Mifflin-St Jeor</p>
           </div>
 
           {/* 5. Distribución de macronutrientes */}
@@ -586,39 +597,72 @@ export default function PautaFormPage() {
               <div>
                 <div className="flex justify-between mb-1">
                   <label className="text-xs text-text-muted">Proteínas</label>
-                  <span className="text-xs font-medium text-blue-600">{form.prot_pct}%</span>
+                  <span className="text-xs font-medium text-primary">{form.prot_pct}%</span>
                 </div>
                 <input type="range" min={5} max={50} value={form.prot_pct}
                   onChange={e => setF('prot_pct', +e.target.value)}
-                  disabled={isView} className="w-full accent-blue-500" />
+                  disabled={isView} className="w-full accent-primary" />
               </div>
               <div>
                 <div className="flex justify-between mb-1">
                   <label className="text-xs text-text-muted">Lípidos</label>
-                  <span className="text-xs font-medium text-yellow-600">{form.lip_pct}%</span>
+                  <span className="text-xs font-medium text-terracotta">{form.lip_pct}%</span>
                 </div>
                 <input type="range" min={10} max={50} value={form.lip_pct}
                   onChange={e => setF('lip_pct', +e.target.value)}
-                  disabled={isView} className="w-full accent-yellow-500" />
+                  disabled={isView} className="w-full accent-orange-500" />
               </div>
               <div className="bg-bg-light rounded p-3 flex justify-between items-center">
                 <span className="text-xs text-text-muted">Carbohidratos (calculado)</span>
-                <span className={`text-sm font-bold ${macroError ? 'text-red-500' : 'text-orange-500'}`}>{cho_pct}%</span>
+                <span className={`text-sm font-bold ${macroError ? 'text-red-500' : 'text-blue-500'}`}>{cho_pct}%</span>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              {[
-                { label: 'Proteínas',     g: calcs.prot_g, kcal: calcs.prot_kcal, gkg: calcs.prot_g_kg, color: 'border-blue-200 bg-blue-50' },
-                { label: 'Lípidos',       g: calcs.lip_g,  kcal: calcs.lip_kcal,  gkg: null,            color: 'border-yellow-200 bg-yellow-50' },
-                { label: 'Carbohidratos', g: calcs.cho_g,  kcal: calcs.cho_kcal,  gkg: null,            color: 'border-orange-200 bg-orange-50' },
-              ].map(m => (
-                <div key={m.label} className={`rounded-lg border p-3 ${m.color}`}>
-                  <p className="text-xs font-medium text-gray-700 mb-2">{m.label}</p>
-                  <p className="text-lg font-bold text-gray-800">{m.g.toFixed(1)}<span className="text-xs font-normal ml-1">g</span></p>
-                  <p className="text-xs text-text-muted">{m.kcal.toFixed(0)} kcal</p>
-                  {m.gkg != null && <p className="text-xs text-text-muted">{m.gkg.toFixed(2)} g/kg</p>}
+
+            {/* Macro cards — Stitch style */}
+            <div className="grid grid-cols-3 gap-4 pt-2">
+              {/* Proteínas */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Proteínas</p>
+                  <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-black">{form.prot_pct}%</span>
                 </div>
-              ))}
+                <div className="space-y-0.5">
+                  <p className="text-2xl font-bold">{calcs.prot_g.toFixed(1)}<span className="text-xs font-normal text-text-muted ml-1">g</span></p>
+                  <p className="text-xs text-text-muted">{calcs.prot_kcal.toFixed(0)} kcal</p>
+                  <p className="text-xs text-text-muted">{calcs.prot_g_kg.toFixed(2)} g/kg</p>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(100, form.prot_pct)}%` }} />
+                </div>
+              </div>
+              {/* Lípidos */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lípidos</p>
+                  <span className="px-2 py-0.5 rounded-md bg-terracotta/10 text-terracotta text-[10px] font-black">{form.lip_pct}%</span>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-2xl font-bold">{calcs.lip_g.toFixed(1)}<span className="text-xs font-normal text-text-muted ml-1">g</span></p>
+                  <p className="text-xs text-text-muted">{calcs.lip_kcal.toFixed(0)} kcal</p>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="bg-terracotta h-full rounded-full" style={{ width: `${Math.min(100, form.lip_pct)}%` }} />
+                </div>
+              </div>
+              {/* Carbohidratos */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Carbohidratos</p>
+                  <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-500 text-[10px] font-black">{cho_pct}%</span>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-2xl font-bold">{calcs.cho_g.toFixed(1)}<span className="text-xs font-normal text-text-muted ml-1">g</span></p>
+                  <p className="text-xs text-text-muted">{calcs.cho_kcal.toFixed(0)} kcal</p>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(100, cho_pct)}%` }} />
+                </div>
+              </div>
             </div>
           </div>
 

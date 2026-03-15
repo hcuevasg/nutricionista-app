@@ -8,11 +8,11 @@ interface LayoutProps {
 
 const menuItems = [
   { label: 'Dashboard',     path: '/dashboard', icon: '⊞' },
-  { label: 'Pacientes',     path: '/patients',  icon: '👥' },
-  { label: 'Evaluaciones',  path: '/isak',      icon: '📏' },
-  { label: 'Planes',        path: '/plans',     icon: '🥗' },
-  { label: 'Pautas',        path: '/pautas',    icon: '📋' },
-  { label: 'Configuración', path: '/config',    icon: '⚙️'  },
+  { label: 'Pacientes',     path: '/patients',  icon: '◉' },
+  { label: 'Evaluaciones',  path: '/isak',      icon: '⊙' },
+  { label: 'Planes',        path: '/plans',     icon: '⊛' },
+  { label: 'Pautas',        path: '/pautas',    icon: '⊡' },
+  { label: 'Configuración', path: '/config',    icon: '⊕' },
 ]
 
 export default function Layout({ children, title }: LayoutProps) {
@@ -24,13 +24,15 @@ export default function Layout({ children, title }: LayoutProps) {
     navigate('/login')
   }
 
+  const initials = (user?.name || user?.username || '?').slice(0, 2).toUpperCase()
+
   return (
     <div className="flex h-screen bg-bg-light">
       {/* Sidebar */}
-      <div className="relative w-60 bg-primary text-white shadow-lg flex-shrink-0 flex flex-col">
+      <div className="relative w-64 bg-primary text-white shadow-lg flex-shrink-0 flex flex-col">
         <div className="p-6 pb-4">
           <h1 className="text-xl font-bold tracking-tight">NutriApp</h1>
-          <p className="text-xs mt-0.5 opacity-60">Gestión Nutricional</p>
+          <p className="text-xs mt-0.5 text-white/50 uppercase tracking-widest">Gestión Nutricional</p>
         </div>
 
         <nav className="flex-1 px-3 py-2 space-y-0.5">
@@ -41,8 +43,8 @@ export default function Layout({ children, title }: LayoutProps) {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                   isActive
-                    ? 'bg-white/20 font-semibold text-white'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white'
+                    ? 'bg-primary-deep text-white font-semibold'
+                    : 'text-white/70 hover:bg-white/10'
                 }`
               }
             >
@@ -55,16 +57,19 @@ export default function Layout({ children, title }: LayoutProps) {
         <div className="p-4 border-t border-white/10">
           <Link
             to="/profile"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/75 hover:bg-white/10 hover:text-white transition-colors mb-2"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors mb-1"
           >
-            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-              {(user?.name || user?.username || '?').slice(0, 1).toUpperCase()}
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+              {initials}
             </div>
-            <span className="truncate">{user?.name || user?.username}</span>
+            <div className="overflow-hidden">
+              <p className="text-sm font-semibold text-white truncate">{user?.name || user?.username}</p>
+              <p className="text-xs text-white/50">Nutricionista Clínica</p>
+            </div>
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full text-center text-xs text-white/50 hover:text-white/90 py-1 transition-colors"
+            className="w-full text-center text-xs text-white/40 hover:text-white/80 py-1 transition-colors"
           >
             Cerrar sesión
           </button>

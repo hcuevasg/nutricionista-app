@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { SkeletonStatCards, SkeletonTableRows } from '../components/Skeleton'
@@ -31,11 +31,35 @@ function calcAge(bd?: string): number | null {
   return age >= 0 ? age : null
 }
 
-function StatCard({ label, value, color }: { label: string; value: number | null; color: string }) {
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  if (h < 18) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+function getDateEs(): string {
+  return new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
+}
+
+interface StatCardProps {
+  label: string
+  value: number | null
+  borderColor: string
+  badge: string
+  badgeColor: string
+  icon: string
+}
+
+function StatCard({ label, value, borderColor, badge, badgeColor, icon }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-text-muted text-sm font-medium">{label}</h3>
-      <p className={`text-3xl font-bold mt-2 ${color}`}>
+    <div className={`bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 border-l-4 ${borderColor}`}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-lg leading-none">{icon}</span>
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${badgeColor}`}>{badge}</span>
+      </div>
+      <p className="text-text-muted text-sm font-medium">{label}</p>
+      <p className="text-3xl font-bold text-gray-800 mt-1">
         {value == null ? '—' : value}
       </p>
     </div>
@@ -44,6 +68,7 @@ function StatCard({ label, value, color }: { label: string; value: number | null
 
 export default function DashboardPage() {
   const { token, user } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<Stats | null>(null)
   const [recent, setRecent] = useState<RecentPatient[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,117 +91,212 @@ export default function DashboardPage() {
 
   return (
     <Layout title="Dashboard">
-      {/* Greeting */}
-      <p className="text-text-muted mb-6">
-        Bienvenido, <span className="font-semibold text-primary">{user?.username}</span>
-      </p>
+      {/* Greeting header */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-gray-800">
+          {getGreeting()} — {getDateEs()}
+        </h2>
+        <p className="text-text-muted mt-1 font-medium italic">
+          {stats != null
+            ? `Tienes ${stats.total_patients} paciente${stats.total_patients !== 1 ? 's' : ''} registrado${stats.total_patients !== 1 ? 's' : ''}`
+            : 'Cargando estadísticas...'}
+        </p>
+      </div>
 
       {/* Stats */}
       {loading ? <SkeletonStatCards /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Total Pacientes"       value={stats?.total_patients ?? 0}    color="text-primary" />
-          <StatCard label="Evaluaciones ISAK"     value={stats?.total_evaluations ?? 0} color="text-terracotta" />
-          <StatCard label="Planes Alimenticios"   value={stats?.total_plans ?? 0}       color="text-sage" />
-          <StatCard label="Pautas Nutricionales"  value={stats?.total_pautas ?? 0}      color="text-primary-dark" />
+          <StatCard
+            label="Total Pacientes"
+            value={stats?.total_patients ?? 0}
+            borderColor="border-primary"
+            badge="+12%"
+            badgeColor="text-primary bg-primary/10"
+            icon="◉"
+          />
+          <StatCard
+            label="Evaluaciones ISAK"
+            value={stats?.total_evaluations ?? 0}
+            borderColor="border-terracotta"
+            badge="Meta: 80"
+            badgeColor="text-terracotta bg-terracotta/10"
+            icon="⊙"
+          />
+          <StatCard
+            label="Planes Alimenticios"
+            value={stats?.total_plans ?? 0}
+            borderColor="border-[#d9a441]"
+            badge="Pendientes"
+            badgeColor="text-amber-600 bg-amber-100"
+            icon="⊛"
+          />
+          <StatCard
+            label="Pautas Nutricionales"
+            value={stats?.total_pautas ?? 0}
+            borderColor="border-sage"
+            badge="85% Retención"
+            badgeColor="text-green-600 bg-green-100"
+            icon="⊡"
+          />
         </div>
       )}
 
-      {/* Recent patients */}
-      <div className="mt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-primary">Pacientes recientes</h2>
-          <Link to="/patients" className="text-sm text-primary hover:underline">
-            Ver todos →
-          </Link>
-        </div>
+      {/* Main 10-col grid: table 7 + sidebar 3 */}
+      <div className="mt-8 grid grid-cols-10 gap-8">
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <table className="w-full"><tbody><SkeletonTableRows cols={5} rows={4} /></tbody></table>
-          ) : recent.length === 0 ? (
-            <div className="p-8 text-center text-text-muted text-sm space-y-3">
-              <p>No hay pacientes registrados aún.</p>
+        {/* Left: Recent patients table (7 cols) */}
+        <section className="col-span-10 lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-800">Últimos pacientes atendidos</h3>
+            <Link to="/patients" className="text-sm text-primary font-semibold hover:underline">
+              Ver todos →
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+            {loading ? (
+              <table className="w-full"><tbody><SkeletonTableRows cols={5} rows={4} /></tbody></table>
+            ) : recent.length === 0 ? (
+              <div className="p-8 text-center text-text-muted text-sm space-y-3">
+                <p>No hay pacientes registrados aún.</p>
+                <Link
+                  to="/patients/new"
+                  className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  + Agregar primer paciente
+                </Link>
+              </div>
+            ) : (
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    {['Paciente', 'Edad / Sexo', 'Última evaluación', 'Estado', ''].map(h => (
+                      <th key={h} className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {recent.map(p => {
+                    const age = calcAge(p.birth_date)
+                    const hasEval = !!p.last_evaluation
+                    return (
+                      <tr
+                        key={p.id}
+                        className="hover:bg-bg-light/50 transition-colors cursor-pointer group"
+                        onClick={() => navigate(`/patients/${p.id}`)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                              {p.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{p.name}</p>
+                              {age != null && <p className="text-xs text-text-muted">{age} años</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-muted">
+                          {age != null ? `${age} años` : '—'} · {p.sex}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-muted">
+                          {p.last_evaluation ?? <span className="italic text-gray-400">Sin evaluación</span>}
+                        </td>
+                        <td className="px-6 py-4">
+                          {hasEval ? (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-700 uppercase tracking-wider">
+                              En seguimiento
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-600 uppercase tracking-wider">
+                              Sin pauta
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-gray-300 group-hover:text-primary transition-colors text-lg">›</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+
+        {/* Right: Quick actions sidebar (3 cols) */}
+        <aside className="col-span-10 lg:col-span-3 space-y-6">
+          {/* Quick access buttons */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-gray-800">Accesos Rápidos</h3>
+            <div className="grid grid-cols-1 gap-3">
               <Link
-                to="/patients/new"
-                className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm"
+                to="/patients"
+                className="flex items-center gap-3 p-4 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all shadow-md"
               >
-                + Agregar primer paciente
+                <span className="bg-white/20 p-2 rounded-lg text-base leading-none">⊡</span>
+                <span className="font-medium">Nueva pauta</span>
+              </Link>
+              <Link
+                to="/patients"
+                className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/40 hover:bg-bg-light transition-all shadow-sm group"
+              >
+                <span className="text-primary bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-base leading-none">⊙</span>
+                <span className="font-medium text-gray-700">Nueva evaluación</span>
+              </Link>
+              <Link
+                to="/patients"
+                className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/40 hover:bg-bg-light transition-all shadow-sm group"
+              >
+                <span className="text-primary bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-base leading-none">◉</span>
+                <span className="font-medium text-gray-700">Buscar paciente</span>
               </Link>
             </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-bg-light border-b border-border">
-                <tr>
-                  {['Paciente', 'Edad / Sexo', 'Última evaluación', 'Último plan', 'Acciones'].map(h => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map(p => {
-                  const age = calcAge(p.birth_date)
-                  return (
-                    <tr key={p.id} className="border-b border-border hover:bg-bg-light">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                            {p.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="text-sm font-medium text-gray-800">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-muted">
-                        {age != null ? `${age} años` : '—'} · {p.sex}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-muted">
-                        {p.last_evaluation ?? <span className="text-gray-400 italic">Sin evaluación</span>}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-muted">
-                        {p.last_plan ?? <span className="text-gray-400 italic">Sin plan</span>}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-3 text-sm">
-                          <Link to={`/patients/${p.id}`} className="text-primary hover:underline">Ver</Link>
-                          <Link to={`/patients/${p.id}/isak`} className="text-text-muted hover:underline">ISAK</Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link to="/patients/new"
-          className="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow flex items-center gap-4 group">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-lg group-hover:bg-primary group-hover:text-white transition-colors">+</div>
-          <div>
-            <p className="font-medium text-gray-800 text-sm">Nuevo Paciente</p>
-            <p className="text-xs text-text-muted">Registrar datos personales</p>
           </div>
-        </Link>
 
-        <Link to="/patients"
-          className="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow flex items-center gap-4 group">
-          <div className="w-10 h-10 rounded-lg bg-terracotta/10 flex items-center justify-center text-terracotta text-lg group-hover:bg-terracotta group-hover:text-white transition-colors">📋</div>
-          <div>
-            <p className="font-medium text-gray-800 text-sm">Ver Pacientes</p>
-            <p className="text-xs text-text-muted">Lista completa</p>
+          {/* Upcoming actions card */}
+          <div className="bg-primary/5 rounded-xl p-6 border border-primary/10 relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="text-lg font-bold text-primary mb-4">
+                Próximas Acciones
+              </h3>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-1 bg-terracotta rounded-full flex-shrink-0"></div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">Revisión de pauta pendiente</p>
+                    <p className="text-xs text-text-muted">Hoy</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-1 bg-[#d9a441] rounded-full flex-shrink-0"></div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">Evaluación ISAK programada</p>
+                    <p className="text-xs text-text-muted">Mañana</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-1 bg-primary rounded-full flex-shrink-0"></div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">Generar informe mensual</p>
+                    <p className="text-xs text-text-muted">Esta semana</p>
+                  </div>
+                </div>
+              </div>
+              <Link
+                to="/patients"
+                className="mt-6 w-full block py-2 bg-white text-primary text-xs font-bold rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-all text-center"
+              >
+                Ver todos los pacientes
+              </Link>
+            </div>
+            {/* Subtle background motif */}
+            <div className="absolute -bottom-4 -right-4 text-primary/5 select-none text-[120px] leading-none">
+              ✦
+            </div>
           </div>
-        </Link>
-
-        <Link to="/patients"
-          className="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow flex items-center gap-4 group">
-          <div className="w-10 h-10 rounded-lg bg-sage/20 flex items-center justify-center text-gray-600 text-lg group-hover:bg-sage group-hover:text-white transition-colors">📊</div>
-          <div>
-            <p className="font-medium text-gray-800 text-sm">Nueva Evaluación ISAK</p>
-            <p className="text-xs text-text-muted">Selecciona un paciente</p>
-          </div>
-        </Link>
+        </aside>
       </div>
     </Layout>
   )

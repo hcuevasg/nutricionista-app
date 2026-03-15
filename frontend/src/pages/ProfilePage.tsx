@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
-const INPUT = 'w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary'
+const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function ProfilePage() {
   const { token, user } = useAuth()
@@ -59,63 +59,66 @@ export default function ProfilePage() {
 
   return (
     <Layout title="Mi Perfil">
-      <div className="max-w-lg space-y-6">
+      <div className="max-w-lg mx-auto space-y-6">
 
         {/* Datos del perfil */}
-        <form onSubmit={handleProfile} className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Datos del Perfil</h3>
+        <form onSubmit={handleProfile} className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Datos del Perfil</h3>
 
           <div>
-            <label className="block text-xs text-text-muted mb-1">Usuario</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Usuario</label>
             <input value={user?.username ?? ''} disabled className={`${INPUT} bg-bg-light text-text-muted`} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Nombre</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Nombre</label>
             <input value={name} onChange={e => setName(e.target.value)} className={INPUT} placeholder="Tu nombre completo" />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Email</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={INPUT} />
           </div>
 
           {profileMsg && (
-            <p className={`text-sm px-3 py-2 rounded ${profileMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+            <p className={`text-sm px-3 py-2 rounded-lg ${profileMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
               {profileMsg.text}
             </p>
           )}
           <button type="submit" disabled={savingProfile}
-            className="w-full bg-primary hover:bg-primary-dark text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+            className="w-full bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50">
             {savingProfile ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </form>
 
+        {/* Divider */}
+        <div className="border-t border-border my-4" />
+
         {/* Cambiar contraseña */}
-        <form onSubmit={handlePassword} className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wide border-b border-border pb-2">Cambiar Contraseña</h3>
+        <form onSubmit={handlePassword} className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Cambiar Contraseña</h3>
 
           <div>
-            <label className="block text-xs text-text-muted mb-1">Contraseña actual</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Contraseña actual</label>
             <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)}
               required className={INPUT} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Nueva contraseña</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Nueva contraseña</label>
             <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
               required minLength={6} className={INPUT} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Confirmar nueva contraseña</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Confirmar nueva contraseña</label>
             <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
               required className={INPUT} />
           </div>
 
           {pwMsg && (
-            <p className={`text-sm px-3 py-2 rounded ${pwMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+            <p className={`text-sm px-3 py-2 rounded-lg ${pwMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
               {pwMsg.text}
             </p>
           )}
           <button type="submit" disabled={savingPw}
-            className="w-full bg-terracotta hover:opacity-90 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+            className="w-full bg-terracotta hover:opacity-90 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50">
             {savingPw ? 'Guardando...' : 'Cambiar contraseña'}
           </button>
         </form>

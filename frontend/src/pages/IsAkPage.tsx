@@ -100,7 +100,7 @@ function pf(v: string): number | null {
 }
 
 function fmt(v: number | null | undefined, d = 1): string {
-  return v != null ? v.toFixed(d) : '—'
+  return v != null ? v.toFixed(d) : '--'
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -122,10 +122,14 @@ export default function IsAkPage() {
   const [downloadingComparativo, setDownloadingComparativo] = useState(false)
   const [editingEvalId, setEditingEvalId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const toast = useToast()
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+
+  const toggleSection = (key: string) =>
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }))
 
   useEffect(() => {
     if (!token || !id) return
@@ -345,7 +349,8 @@ export default function IsAkPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Layout title={`ISAK — ${patient?.name ?? '...'}`}>
+    <Layout title={`ISAK -- ${patient?.name ?? '...'}`}>
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/patients" className="hover:text-primary">Pacientes</Link>
         <span>/</span>
@@ -355,30 +360,37 @@ export default function IsAkPage() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>
       )}
 
       {showForm ? (
-        <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-border p-6 mb-6 space-y-6">
+          {/* Edit banner */}
+          {editingEvalId && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm font-medium">
+              Editando evaluacion del {form.date}
+            </div>
+          )}
+
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-primary">
-              {editingEvalId ? 'Editar Evaluación' : 'Nueva Evaluación'}
+            <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">
+              {editingEvalId ? 'Editar Evaluacion' : 'Nueva Evaluacion'}
             </h3>
-            <button onClick={closeForm} className="text-text-muted hover:text-gray-700 text-sm">Cancelar</button>
+            <button onClick={closeForm} className="border border-border hover:bg-bg-light text-gray-700 px-4 py-2 rounded-lg font-medium text-sm">Cancelar</button>
           </div>
 
           {!patient?.birth_date && (
-            <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-2 rounded text-sm">
-              El paciente no tiene fecha de nacimiento — no se puede calcular % grasa.{' '}
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-lg text-sm">
+              El paciente no tiene fecha de nacimiento -- no se puede calcular % grasa.{' '}
               <Link to={`/patients/${id}/edit`} className="underline font-medium">Editar paciente</Link>
             </div>
           )}
 
-          {/* ISAK level selector */}
-          <div className="flex gap-3">
+          {/* ISAK level selector — pill tabs */}
+          <div className="flex gap-2">
             {(['ISAK 1', 'ISAK 2'] as IsakLevel[]).map(level => (
               <button key={level} type="button" onClick={() => set('isak_level', level)}
-                className={`px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
+                className={`px-6 py-2 rounded-full text-sm font-bold border-2 transition-colors ${
                   form.isak_level === level
                     ? 'bg-primary text-white border-primary'
                     : 'bg-white text-text-muted border-border hover:border-primary'
@@ -390,108 +402,108 @@ export default function IsAkPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* ── LEFT: inputs ── */}
-            <div className="space-y-5">
+            <div className="space-y-4">
 
-              {/* Datos básicos */}
-              <Section title="Datos básicos">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Fecha sesión *" value={form.date} onChange={v => set('date', v)} type="date" cols={2} />
+              {/* Datos basicos */}
+              <CollapsibleSection title="Datos Basicos" sectionKey="basicos" collapsed={collapsedSections} toggle={toggleSection}>
+                <div className="grid grid-cols-3 gap-3">
+                  <Field label="Fecha sesion *" value={form.date} onChange={v => set('date', v)} type="date" cols={3} />
                   <Field label="Peso (kg)" value={form.weight_kg} onChange={v => set('weight_kg', v)} placeholder="70.0" />
                   <Field label="Talla (cm)" value={form.height_cm} onChange={v => set('height_cm', v)} placeholder="170.0" />
-                  <Field label="Circ. cintura mínima (cm)" value={form.waist_cm} onChange={v => set('waist_cm', v)} placeholder="80.0" cols={2} />
+                  <Field label="Cintura min. (cm)" value={form.waist_cm} onChange={v => set('waist_cm', v)} placeholder="80.0" />
                 </div>
-              </Section>
+              </CollapsibleSection>
 
-              {/* Perímetros */}
-              <Section title="Perímetros (cm)">
-                <div className="grid grid-cols-2 gap-3">
+              {/* Perimetros */}
+              <CollapsibleSection title="Perimetros (cm)" sectionKey="perimetros" collapsed={collapsedSections} toggle={toggleSection}>
+                <div className="grid grid-cols-3 gap-3">
                   <Field label="Brazo relajado (BR)" value={form.arm_relaxed_cm} onChange={v => set('arm_relaxed_cm', v)} />
-                  <Field label="Brazo contraído (BC)" value={form.arm_contracted_cm} onChange={v => set('arm_contracted_cm', v)} />
-                  <Field label='Cadera "glúteo"' value={form.hip_glute_cm} onChange={v => set('hip_glute_cm', v)} />
-                  <Field label="Muslo máximo" value={form.thigh_max_cm} onChange={v => set('thigh_max_cm', v)} />
+                  <Field label="Brazo contraido (BC)" value={form.arm_contracted_cm} onChange={v => set('arm_contracted_cm', v)} />
+                  <Field label='Cadera "gluteo"' value={form.hip_glute_cm} onChange={v => set('hip_glute_cm', v)} />
+                  <Field label="Muslo maximo" value={form.thigh_max_cm} onChange={v => set('thigh_max_cm', v)} />
                   <Field label="Muslo medio" value={form.thigh_mid_cm} onChange={v => set('thigh_mid_cm', v)} />
                   <Field label="Pantorrilla" value={form.calf_cm} onChange={v => set('calf_cm', v)} />
                 </div>
-              </Section>
+              </CollapsibleSection>
 
-              {/* Pliegues cutáneos */}
-              <Section title="Pliegues cutáneos (mm)">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Tríceps (D&W *)" value={form.triceps_mm} onChange={v => set('triceps_mm', v)} highlight />
+              {/* Pliegues cutaneos */}
+              <CollapsibleSection title="Pliegues Cutaneos (mm)" sectionKey="pliegues" collapsed={collapsedSections} toggle={toggleSection}>
+                <div className="grid grid-cols-3 gap-3">
+                  <Field label="Triceps (D&W *)" value={form.triceps_mm} onChange={v => set('triceps_mm', v)} highlight />
                   <Field label="Subescapular (D&W *)" value={form.subscapular_mm} onChange={v => set('subscapular_mm', v)} highlight />
-                  <Field label="Bíceps (D&W *)" value={form.biceps_mm} onChange={v => set('biceps_mm', v)} highlight />
+                  <Field label="Biceps (D&W *)" value={form.biceps_mm} onChange={v => set('biceps_mm', v)} highlight />
                   <Field label="Cresta iliaca (D&W *)" value={form.iliac_crest_mm} onChange={v => set('iliac_crest_mm', v)} highlight />
-                  <Field label="Supraespinal (Σ6 *)" value={form.supraspinal_mm} onChange={v => set('supraspinal_mm', v)} />
-                  <Field label="Abdominal (Σ6 *)" value={form.abdominal_mm} onChange={v => set('abdominal_mm', v)} />
-                  <Field label="Muslo medial (Σ6 *)" value={form.medial_thigh_mm} onChange={v => set('medial_thigh_mm', v)} />
-                  <Field label="Pantorrilla máx. (Σ6 *)" value={form.max_calf_mm} onChange={v => set('max_calf_mm', v)} />
+                  <Field label="Supraespinal (S6 *)" value={form.supraspinal_mm} onChange={v => set('supraspinal_mm', v)} />
+                  <Field label="Abdominal (S6 *)" value={form.abdominal_mm} onChange={v => set('abdominal_mm', v)} />
+                  <Field label="Muslo medial (S6 *)" value={form.medial_thigh_mm} onChange={v => set('medial_thigh_mm', v)} />
+                  <Field label="Pantorrilla max. (S6 *)" value={form.max_calf_mm} onChange={v => set('max_calf_mm', v)} />
                 </div>
-                <p className="text-xs text-text-muted mt-1">
-                  D&W * = Durnin &amp; Womersley · Σ6 * = Suma 6 pliegues
+                <p className="text-xs text-text-muted mt-2">
+                  D&amp;W * = Durnin &amp; Womersley | S6 * = Suma 6 pliegues
                 </p>
-              </Section>
+              </CollapsibleSection>
 
               {/* ISAK 2 extra */}
               {form.isak_level === 'ISAK 2' && (
                 <>
-                  <Section title="Pliegues adicionales (mm) — ISAK 2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Pectoral (tórax)" value={form.pectoral_mm} onChange={v => set('pectoral_mm', v)} />
+                  <CollapsibleSection title="Pliegues Adicionales (mm) -- ISAK 2" sectionKey="pliegues2" collapsed={collapsedSections} toggle={toggleSection}>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Pectoral (torax)" value={form.pectoral_mm} onChange={v => set('pectoral_mm', v)} />
                       <Field label="Axilar medio" value={form.axillary_mm} onChange={v => set('axillary_mm', v)} />
                       <Field label="Muslo anterior" value={form.front_thigh_mm} onChange={v => set('front_thigh_mm', v)} />
                     </div>
-                  </Section>
+                  </CollapsibleSection>
 
-                  <Section title="Perímetros adicionales (cm) — ISAK 2">
-                    <div className="grid grid-cols-2 gap-3">
+                  <CollapsibleSection title="Perimetros Adicionales (cm) -- ISAK 2" sectionKey="perimetros2" collapsed={collapsedSections} toggle={toggleSection}>
+                    <div className="grid grid-cols-3 gap-3">
                       <Field label="Cabeza" value={form.head_cm} onChange={v => set('head_cm', v)} />
                       <Field label="Cuello" value={form.neck_cm} onChange={v => set('neck_cm', v)} />
-                      <Field label="Tórax mesoesternal" value={form.chest_cm} onChange={v => set('chest_cm', v)} />
-                      <Field label="Tobillo mínimo" value={form.ankle_min_cm} onChange={v => set('ankle_min_cm', v)} />
+                      <Field label="Torax mesoesternal" value={form.chest_cm} onChange={v => set('chest_cm', v)} />
+                      <Field label="Tobillo minimo" value={form.ankle_min_cm} onChange={v => set('ankle_min_cm', v)} />
                     </div>
-                  </Section>
+                  </CollapsibleSection>
 
-                  <Section title="Diámetros óseos (cm) — ISAK 2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Húmero bicondíleo (HC *)" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
-                      <Field label="Fémur bicondíleo (HC *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
+                  <CollapsibleSection title="Diametros Oseos (cm) -- ISAK 2" sectionKey="diametros" collapsed={collapsedSections} toggle={toggleSection}>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Humero bicondileo (HC *)" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
+                      <Field label="Femur bicondileo (HC *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
                       <Field label="Biacromial" value={form.biacromial_cm} onChange={v => set('biacromial_cm', v)} />
                       <Field label="Biiliocrestal" value={form.biiliocrestal_cm} onChange={v => set('biiliocrestal_cm', v)} />
-                      <Field label="Ant-post. tórax" value={form.ap_chest_cm} onChange={v => set('ap_chest_cm', v)} />
-                      <Field label="Transv. tórax" value={form.transv_chest_cm} onChange={v => set('transv_chest_cm', v)} />
+                      <Field label="Ant-post. torax" value={form.ap_chest_cm} onChange={v => set('ap_chest_cm', v)} />
+                      <Field label="Transv. torax" value={form.transv_chest_cm} onChange={v => set('transv_chest_cm', v)} />
                       <Field label="Longitud pie" value={form.foot_length_cm} onChange={v => set('foot_length_cm', v)} />
-                      <Field label="Muñeca biestiloideo" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
+                      <Field label="Muneca biestiloideo" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
                       <Field label="Tobillo bimaleolar" value={form.ankle_bimalleolar_cm} onChange={v => set('ankle_bimalleolar_cm', v)} />
                     </div>
-                    <p className="text-xs text-text-muted mt-1">HC * = requeridos para somatotipo Heath &amp; Carter</p>
-                  </Section>
+                    <p className="text-xs text-text-muted mt-2">HC * = requeridos para somatotipo Heath &amp; Carter</p>
+                  </CollapsibleSection>
 
-                  <Section title="Longitudes (cm) — ISAK 2">
-                    <div className="grid grid-cols-2 gap-3">
+                  <CollapsibleSection title="Longitudes (cm) -- ISAK 2" sectionKey="longitudes" collapsed={collapsedSections} toggle={toggleSection}>
+                    <div className="grid grid-cols-3 gap-3">
                       <Field label="Acromio-radial" value={form.acromion_radial_cm} onChange={v => set('acromion_radial_cm', v)} />
                       <Field label="Radio-estiloide" value={form.radial_styloid_cm} onChange={v => set('radial_styloid_cm', v)} />
                       <Field label="Iliospinal (pierna)" value={form.iliospinal_height_cm} onChange={v => set('iliospinal_height_cm', v)} />
-                      <Field label="Trocánter-tibial" value={form.trochanter_tibial_cm} onChange={v => set('trochanter_tibial_cm', v)} />
+                      <Field label="Trocanter-tibial" value={form.trochanter_tibial_cm} onChange={v => set('trochanter_tibial_cm', v)} />
                     </div>
-                  </Section>
+                  </CollapsibleSection>
                 </>
               )}
             </div>
 
             {/* ── RIGHT: results ── */}
             <div className="space-y-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Resultados — Durnin &amp; Womersley (1974)
+              <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+                Resultados -- Durnin &amp; Womersley (1974)
               </h4>
 
               {result ? (
                 <div className="space-y-2">
-                  <ResultCard label="Σ4 pliegues (D&W)" value={`${result.sigma4} mm`} />
+                  <ResultCard label="S4 pliegues (D&W)" value={`${result.sigma4} mm`} />
                   {result.sum_6_skinfolds != null && (
-                    <ResultCard label="Σ6 pliegues" value={`${result.sum_6_skinfolds} mm`} />
+                    <ResultCard label="S6 pliegues" value={`${result.sum_6_skinfolds} mm`} />
                   )}
                   {difBrBc != null && (
-                    <ResultCard label="Diferencia BC − BR" value={`${difBrBc} cm`} />
+                    <ResultCard label="Diferencia BC - BR" value={`${difBrBc} cm`} />
                   )}
                   <ResultCard label="Densidad corporal" value={`${result.body_density} g/mL`} />
                   <ResultCard
@@ -502,25 +514,25 @@ export default function IsAkPage() {
                   />
                   <ResultCard label="Masa grasa (kg)" value={`${result.fat_mass_kg} kg`} />
                   <ResultCard label="Masa magra (kg)" value={`${result.lean_mass_kg} kg`} highlight />
-                  {bmi != null && <ResultCard label="IMC (kg/m²)" value={`${bmi}`} sub={bmiCategory(bmi)} />}
-                  {whtr != null && <ResultCard label="Índice Cin./Talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
-                  {amb != null && <ResultCard label="Área Musc. Brazo" value={`${amb} cm²`} />}
+                  {bmi != null && <ResultCard label="IMC (kg/m2)" value={`${bmi}`} sub={bmiCategory(bmi)} />}
+                  {whtr != null && <ResultCard label="Indice Cin./Talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
+                  {amb != null && <ResultCard label="Area Musc. Brazo" value={`${amb} cm2`} />}
                   {age && (
                     <p className="text-xs text-text-muted pt-1">
-                      Edad: {age} años · Sexo: {patient?.sex}
+                      Edad: {age} anos | Sexo: {patient?.sex}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32 bg-bg-light rounded-lg border border-dashed border-border text-text-muted text-sm text-center p-4">
+                <div className="flex items-center justify-center h-32 bg-bg-light rounded-xl border border-dashed border-border text-text-muted text-sm text-center p-4">
                   Ingresa los 4 pliegues D&amp;W * y el peso para ver resultados
                 </div>
               )}
 
               {form.isak_level === 'ISAK 2' && (
                 <div className="mt-4 space-y-2">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Somatotipo — Heath &amp; Carter (1990)
+                  <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+                    Somatotipo -- Heath &amp; Carter (1990)
                   </h4>
                   {soma ? (
                     <div className="grid grid-cols-3 gap-2">
@@ -529,8 +541,8 @@ export default function IsAkPage() {
                       <ResultCard label="Ectomorfia" value={`${soma.ecto}`} />
                     </div>
                   ) : (
-                    <div className="text-xs text-text-muted bg-bg-light rounded p-3">
-                      Requiere: tríceps, subescapular, supraespinal, diámetros húmero y fémur, brazo contraído, pantorrilla y su pliegue, altura y peso.
+                    <div className="text-xs text-text-muted bg-bg-light rounded-lg p-3">
+                      Requiere: triceps, subescapular, supraespinal, diametros humero y femur, brazo contraido, pantorrilla y su pliegue, altura y peso.
                     </div>
                   )}
                 </div>
@@ -541,41 +553,47 @@ export default function IsAkPage() {
           <div className="flex gap-3 pt-4 border-t border-border">
             <button
               onClick={handleSave} disabled={saving || !result}
-              className="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50"
+              className="flex-1 bg-primary hover:bg-primary-dark text-white px-4 py-3 rounded-lg font-medium disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : editingEvalId ? 'Actualizar evaluación' : 'Guardar evaluación'}
+              {saving ? 'Guardando...' : editingEvalId ? 'Actualizar evaluacion' : 'Guardar evaluacion'}
             </button>
             <button
               onClick={closeForm}
-              className="flex-1 border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium"
+              className="flex-1 border border-border hover:bg-bg-light text-gray-700 px-4 py-3 rounded-lg font-medium"
             >
               Cancelar
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex justify-end mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Evaluaciones ISAK</h1>
+            <p className="text-text-muted font-medium mt-0.5">
+              Paciente: <span className="text-gray-900">{patient?.name}</span>
+            </p>
+          </div>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg"
+            className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all"
           >
-            + Nueva evaluación
+            + Nueva evaluacion
           </button>
         </div>
       )}
 
-      {/* Evolution chart — only shown when >= 2 evaluations */}
+      {/* Evolution chart -- only shown when >= 2 evaluations */}
       {evaluations.length >= 2 && (() => {
         const chartData = [...evaluations].reverse().map(ev => ({
           fecha: ev.date,
           'Peso kg': ev.weight_kg ?? null,
           '% Grasa': ev.fat_mass_pct ?? null,
           'Magra kg': ev.lean_mass_kg ?? null,
-          'Σ6 mm': ev.sum_6_skinfolds ?? null,
+          'S6 mm': ev.sum_6_skinfolds ?? null,
         }))
         return (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="font-bold text-primary mb-4">Evolución</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6 mb-6">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4">Evolucion</h3>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5EAE7" />
@@ -593,7 +611,7 @@ export default function IsAkPage() {
         )
       })()}
 
-      {/* Somatocarta — ISAK 2 only */}
+      {/* Somatocarta -- ISAK 2 only */}
       {(() => {
         const somaEvals = evaluations.filter(
           ev => ev.isak_level === 'ISAK 2' &&
@@ -615,17 +633,17 @@ export default function IsAkPage() {
           )
         }
         return (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="font-bold text-primary mb-1">Somatocarta — Heath & Carter</h3>
-            <p className="text-xs text-text-muted mb-4">Eje X: Ecto − Endo &nbsp;|&nbsp; Eje Y: 2×Meso − (Endo + Ecto)</p>
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6 mb-6">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Somatocarta -- Heath & Carter</h3>
+            <p className="text-xs text-text-muted mb-4">Eje X: Ecto - Endo | Eje Y: 2xMeso - (Endo + Ecto)</p>
             <ResponsiveContainer width="100%" height={300}>
               <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5EAE7" />
                 <XAxis type="number" dataKey="x" domain={[-8, 8]} tick={{ fontSize: 11 }}>
-                  <Label value="← Endomorfo · Ectomorfo →" position="bottom" style={{ fontSize: 11, fill: '#6b7280' }} />
+                  <Label value="<- Endomorfo | Ectomorfo ->" position="bottom" style={{ fontSize: 11, fill: '#6b7280' }} />
                 </XAxis>
                 <YAxis type="number" dataKey="y" domain={[-8, 8]} tick={{ fontSize: 11 }}>
-                  <Label value="Mesomorfo →" angle={-90} position="insideLeft" style={{ fontSize: 11, fill: '#6b7280' }} />
+                  <Label value="Mesomorfo ->" angle={-90} position="insideLeft" style={{ fontSize: 11, fill: '#6b7280' }} />
                 </YAxis>
                 <ReferenceLine x={0} stroke="#8da399" strokeDasharray="4 4" />
                 <ReferenceLine y={0} stroke="#8da399" strokeDasharray="4 4" />
@@ -634,9 +652,9 @@ export default function IsAkPage() {
                     if (!payload?.length) return null
                     const d = payload[0].payload
                     return (
-                      <div className="bg-white border border-border rounded shadow p-2 text-xs">
+                      <div className="bg-white border border-border rounded-lg shadow-sm p-2 text-xs">
                         <p className="font-medium text-primary">{d.label}</p>
-                        <p>X: {d.x} · Y: {d.y}</p>
+                        <p>X: {d.x} | Y: {d.y}</p>
                       </div>
                     )
                   }}
@@ -649,80 +667,89 @@ export default function IsAkPage() {
       })()}
 
       {/* History table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold text-primary">Historial de evaluaciones</h3>
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest">Historial de evaluaciones</h3>
           {evaluations.length >= 2 && (
             <button
               onClick={handleDownloadComparativo}
               disabled={downloadingComparativo}
-              className="text-xs bg-terracotta hover:opacity-90 text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+              className="text-xs bg-terracotta hover:opacity-90 text-white px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
             >
-              {downloadingComparativo ? 'Generando...' : '⬇ PDF Comparativo'}
+              {downloadingComparativo ? 'Generando...' : '\u2B07 PDF Comparativo'}
             </button>
           )}
         </div>
         {loadingHistory ? (
           <div className="px-6 py-8 text-center text-text-muted text-sm">Cargando...</div>
         ) : evaluations.length === 0 ? (
-          <div className="px-6 py-8 text-center text-text-muted text-sm">No hay evaluaciones registradas.</div>
+          <div className="p-10 text-center text-text-muted text-sm space-y-4">
+            <div className="text-4xl mb-2">&#128203;</div>
+            <p className="font-medium">No hay evaluaciones registradas.</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-block bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold"
+            >
+              + Crear primera evaluacion
+            </button>
+          </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-bg-light border-b border-border">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'Σ6 mm', 'IMC', 'Somatotipo', 'PDF', 'Acciones'].map(h => (
-                  <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
-                    h === 'Fecha' || h === 'Nivel' ? 'text-left' : 'text-right'
+                {['Fecha', 'Nivel', 'Peso', '% Grasa', 'Grasa kg', 'Magra kg', 'S6 mm', 'IMC', 'Somatotipo', 'PDF', 'Acciones'].map(h => (
+                  <th key={h} className={`px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider ${
+                    h === 'Fecha' || h === 'Nivel' || h === 'Acciones' ? 'text-left' : 'text-right'
                   }`}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {evaluations.map(ev => {
                 const evBmi = calcBmi(ev.weight_kg ?? null, ev.height_cm ?? null)
                 const hasSoma = ev.somatotype_endo != null
                 return (
-                  <tr key={ev.id} className="border-b border-border hover:bg-bg-light">
-                    <td className="px-4 py-3 text-sm text-gray-700">{ev.date}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  <tr key={ev.id} className="hover:bg-bg-light/50 transition-colors">
+                    <td className="px-4 py-3.5 text-sm font-semibold text-gray-800">{ev.date}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
                         ev.isak_level === 'ISAK 2' ? 'bg-primary/10 text-primary' : 'bg-sage/20 text-gray-600'
                       }`}>{ev.isak_level}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">{fmt(ev.weight_kg)}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-right">
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">{fmt(ev.weight_kg)}</td>
+                    <td className="px-4 py-3.5 text-sm font-bold text-right">
                       <span className={ev.fat_mass_pct != null ? 'text-primary' : 'text-text-muted'}>
                         {fmt(ev.fat_mass_pct)}%
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">{fmt(ev.fat_mass_kg)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">{fmt(ev.lean_mass_kg)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">{fmt(ev.sum_6_skinfolds)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">{evBmi != null ? evBmi.toFixed(1) : '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 text-right">
-                      {hasSoma ? `${ev.somatotype_endo}-${ev.somatotype_meso}-${ev.somatotype_ecto}` : '—'}
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">{fmt(ev.fat_mass_kg)}</td>
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">{fmt(ev.lean_mass_kg)}</td>
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">{fmt(ev.sum_6_skinfolds)}</td>
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">{evBmi != null ? evBmi.toFixed(1) : '--'}</td>
+                    <td className="px-4 py-3.5 text-sm text-gray-700 text-right">
+                      {hasSoma ? `${ev.somatotype_endo}-${ev.somatotype_meso}-${ev.somatotype_ecto}` : '--'}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3.5 text-right">
                       <button
                         onClick={() => handleDownloadIsak(ev.id, ev.date)}
                         disabled={downloadingId === ev.id}
-                        className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                        className="text-xs font-bold text-terracotta hover:underline disabled:opacity-50"
                       >
-                        {downloadingId === ev.id ? '...' : '⬇ PDF'}
+                        {downloadingId === ev.id ? '...' : '\u2B07 PDF'}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-2 justify-end">
+                    <td className="px-4 py-3.5">
+                      <div className="flex gap-2 justify-start">
                         <button
                           onClick={() => handleStartEdit(ev)}
-                          className="text-xs text-primary hover:underline"
+                          className="text-xs text-primary font-medium hover:underline"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => handleDeleteEval(ev.id)}
                           disabled={deletingId === ev.id}
-                          className="text-xs text-red-400 hover:underline disabled:opacity-50"
+                          className="text-xs text-red-400 font-medium hover:underline disabled:opacity-50"
                         >
                           {deletingId === ev.id ? '...' : 'Eliminar'}
                         </button>
@@ -741,13 +768,25 @@ export default function IsAkPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function CollapsibleSection({
+  title, sectionKey, collapsed, toggle, children,
+}: {
+  title: string; sectionKey: string
+  collapsed: Record<string, boolean>; toggle: (key: string) => void
+  children: React.ReactNode
+}) {
+  const isCollapsed = collapsed[sectionKey] ?? false
   return (
-    <div>
-      <div className="bg-primary/10 rounded px-3 py-1.5 mb-2">
-        <span className="text-xs font-bold text-primary uppercase tracking-wide">{title}</span>
-      </div>
-      {children}
+    <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <button
+        type="button"
+        onClick={() => toggle(sectionKey)}
+        className="w-full bg-primary/10 px-4 py-2.5 flex items-center justify-between"
+      >
+        <span className="text-xs font-bold text-primary uppercase tracking-widest">{title}</span>
+        <span className="text-primary text-sm font-bold">{isCollapsed ? '+' : '-'}</span>
+      </button>
+      {!isCollapsed && <div className="p-4">{children}</div>}
     </div>
   )
 }
@@ -759,8 +798,8 @@ function Field({
   type?: string; placeholder?: string; highlight?: boolean; cols?: number
 }) {
   return (
-    <div className={cols === 2 ? 'col-span-2' : ''}>
-      <label className="block text-xs text-text-muted mb-1">{label}</label>
+    <div className={cols === 2 ? 'col-span-2' : cols === 3 ? 'col-span-3' : ''}>
+      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
       <input
         type={type}
         step={type === 'number' ? '0.1' : undefined}
@@ -768,7 +807,7 @@ function Field({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${
+        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${
           highlight ? 'border-primary/40 bg-primary/5' : 'border-border'
         }`}
       />
@@ -780,7 +819,7 @@ function ResultCard({
   label, value, sub, highlight,
 }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`flex justify-between items-center px-4 py-2.5 rounded-lg ${highlight ? 'bg-primary/10' : 'bg-bg-light'}`}>
+    <div className={`flex justify-between items-center px-4 py-2.5 rounded-xl ${highlight ? 'bg-primary/10 border border-primary/20' : 'bg-bg-light border border-border'}`}>
       <span className="text-sm text-gray-600">{label}</span>
       <div className="text-right">
         <span className={`text-sm font-bold ${highlight ? 'text-primary' : 'text-gray-800'}`}>{value}</span>

@@ -81,61 +81,76 @@ export default function ConfigPage() {
       <div className="max-w-3xl mx-auto space-y-6">
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
         )}
 
         {/* Backup */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-border border-l-4 border-l-terracotta p-6">
           <div className="flex items-center justify-between mb-2">
-            <div>
-              <h2 className="text-lg font-bold text-primary">Backup de datos</h2>
-              <p className="text-sm text-text-muted mt-1">
-                Descarga todos tus datos (pacientes, evaluaciones, planes, pautas) en formato JSON.
-              </p>
+            <div className="flex items-start gap-4">
+              <span className="text-2xl mt-0.5">&#11015;</span>
+              <div>
+                <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Backup de datos</h2>
+                <p className="text-sm text-gray-600">
+                  Descarga todos tus datos (pacientes, evaluaciones, planes, pautas) en formato JSON.
+                </p>
+              </div>
             </div>
             <button
               onClick={handleBackup}
               disabled={downloading}
-              className="bg-terracotta hover:opacity-90 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              className="bg-terracotta hover:opacity-90 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 shrink-0"
             >
-              {downloading ? 'Generando...' : '⬇ Descargar backup'}
+              {downloading ? 'Generando...' : 'Descargar backup'}
             </button>
           </div>
-          <p className="text-xs text-text-muted mt-3 border-t border-border pt-3">
+          <div className="border-t border-border my-4" />
+          <p className="text-xs text-text-muted">
             Guarda el archivo en un lugar seguro (Google Drive, iCloud, etc.). Se recomienda hacer backup mensualmente.
           </p>
         </div>
 
         {/* Audit logs */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-primary">Registro de actividad</h2>
-              <p className="text-sm text-text-muted">{total} registros en total</p>
+              <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest">Registro de actividad</h2>
+              <p className="text-sm text-text-muted mt-1">{total} registros en total</p>
             </div>
           </div>
 
           {loadingLogs ? (
             <div className="px-6 py-8 text-center text-text-muted text-sm">Cargando...</div>
           ) : logs.length === 0 ? (
-            <div className="px-6 py-8 text-center text-text-muted text-sm">Sin actividad registrada.</div>
-          ) : (
-            <div className="divide-y divide-border">
-              {logs.map(log => (
-                <div key={log.id} className="px-6 py-3 flex items-start gap-4">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${ACTION_COLOR[log.action] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {ACTION_LABEL[log.action] ?? log.action}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 truncate">
-                      <span className="text-text-muted capitalize">{log.resource}</span>
-                      {log.detail && <span> — {log.detail}</span>}
-                    </p>
-                  </div>
-                  <span className="text-xs text-text-muted shrink-0">{fmtDate(log.created_at)}</span>
-                </div>
-              ))}
+            <div className="p-10 text-center text-text-muted text-sm space-y-4">
+              <div className="text-4xl mb-2">&#128203;</div>
+              <p className="font-medium">Sin actividad registrada.</p>
             </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left">Acción</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left">Recurso</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left">Detalle</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Fecha</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {logs.map(log => (
+                  <tr key={log.id} className="hover:bg-bg-light/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-bold inline-block ${ACTION_COLOR[log.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {ACTION_LABEL[log.action] ?? log.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 capitalize">{log.resource}</td>
+                    <td className="px-4 py-3 text-sm text-text-muted truncate max-w-xs">{log.detail ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-text-muted text-right whitespace-nowrap">{fmtDate(log.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 

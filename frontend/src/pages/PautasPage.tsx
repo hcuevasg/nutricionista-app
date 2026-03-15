@@ -87,6 +87,7 @@ export default function PautasPage() {
 
   return (
     <Layout title={`Pautas — ${patientName}`}>
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-text-muted mb-6">
         <Link to="/patients" className="hover:text-primary">Pacientes</Link>
         <span>/</span>
@@ -95,65 +96,98 @@ export default function PautasPage() {
         <span className="text-primary font-medium">Pautas Nutricionales</span>
       </div>
 
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-
-      <div className="flex justify-end mb-4">
-        <Link to={`/patients/${id}/pautas/new`}
-          className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg">
+      {/* Page header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Pautas de Alimentación</h1>
+          <p className="text-text-muted font-medium mt-0.5">
+            Paciente: <span className="text-gray-900">{patientName}</span>
+          </p>
+        </div>
+        <Link
+          to={`/patients/${id}/pautas/new`}
+          className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all"
+        >
           + Nueva Pauta
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* IA toggle banner */}
+      <div className="bg-bg-light border border-primary/20 rounded-xl p-4 flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">✨</span>
+          <p className="text-primary font-bold text-sm md:text-base">Generar ideas de menú con IA</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">ON</span>
+          <div className="w-10 h-5 bg-primary rounded-full relative">
+            <div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+
+      {/* Pautas table */}
+      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
         {loading ? (
           <table className="w-full"><tbody><SkeletonTableRows cols={8} rows={4} /></tbody></table>
         ) : pautas.length === 0 ? (
-          <div className="p-8 text-center text-text-muted text-sm space-y-3">
-            <p>No hay pautas nutricionales registradas.</p>
-            <Link to={`/patients/${id}/pautas/new`}
-              className="inline-block bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm">
+          <div className="p-10 text-center text-text-muted text-sm space-y-4">
+            <div className="text-4xl mb-2">⊡</div>
+            <p className="font-medium">No hay pautas nutricionales registradas.</p>
+            <Link
+              to={`/patients/${id}/pautas/new`}
+              className="inline-block bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold"
+            >
               + Crear primera pauta
             </Link>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-bg-light border-b border-border">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['Nombre', 'Fecha', 'Tipo', 'Kcal obj.', 'Prot.', 'Lip.', 'CHO', 'PDF', 'Acciones'].map(h => (
-                  <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase ${
-                    ['Kcal obj.', 'Prot.', 'Lip.', 'CHO'].includes(h) ? 'text-right' : 'text-left'
+                {['Nombre', 'Fecha', 'Tipo', 'Kcal obj.', 'Proteínas', 'Lípidos', 'CHO', 'PDF', 'Acciones'].map(h => (
+                  <th key={h} className={`px-4 py-3.5 text-xs font-bold text-gray-400 uppercase tracking-wider ${
+                    ['Kcal obj.', 'Proteínas', 'Lípidos', 'CHO'].includes(h) ? 'text-right' : 'text-left'
                   }`}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {pautas.map(p => (
-                <tr key={p.id} className="border-b border-border hover:bg-bg-light">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.name}</td>
-                  <td className="px-4 py-3 text-sm text-text-muted">{p.date}</td>
-                  <td className="px-4 py-3 text-sm text-text-muted">
-                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">
+                <tr key={p.id} className="hover:bg-bg-light/50 transition-colors">
+                  <td className="px-4 py-3.5 text-sm font-semibold text-gray-800">{p.name}</td>
+                  <td className="px-4 py-3.5 text-sm text-text-muted">{p.date}</td>
+                  <td className="px-4 py-3.5 text-sm text-text-muted">
+                    <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">
                       {TIPO_LABELS[p.tipo_pauta] ?? p.tipo_pauta}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-primary">{fmt(p.kcal_objetivo)} kcal</td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.prot_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.prot_pct)}%)</span></td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.lip_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.lip_pct)}%)</span></td>
-                  <td className="px-4 py-3 text-sm text-right text-text-muted">{fmt(p.cho_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.cho_pct)}%)</span></td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3.5 text-sm text-right font-bold text-primary">{fmt(p.kcal_objetivo)} kcal</td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {fmt(p.prot_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.prot_pct)}%)</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {fmt(p.lip_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.lip_pct)}%)</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-right text-text-muted">
+                    {fmt(p.cho_g, 1)}g <span className="text-xs text-gray-400">({fmt(p.cho_pct)}%)</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
                     <button
                       onClick={() => handleDownloadPdf(p)}
                       disabled={downloadingId === p.id}
-                      className="text-xs text-terracotta hover:underline disabled:opacity-50"
+                      className="text-xs font-bold text-terracotta hover:underline disabled:opacity-50"
                     >
                       {downloadingId === p.id ? '...' : '⬇ PDF'}
                     </button>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <div className="flex gap-3 text-sm">
-                      <Link to={`/patients/${id}/pautas/${p.id}`} className="text-primary hover:underline">Ver</Link>
-                      <Link to={`/patients/${id}/pautas/${p.id}/edit`} className="text-sage hover:underline">Editar</Link>
-                      <button onClick={() => handleDelete(p.id)} className="text-red-400 hover:underline">Eliminar</button>
+                      <Link to={`/patients/${id}/pautas/${p.id}`} className="text-primary font-medium hover:underline">Ver</Link>
+                      <Link to={`/patients/${id}/pautas/${p.id}/edit`} className="text-sage font-medium hover:underline">Editar</Link>
+                      <button onClick={() => handleDelete(p.id)} className="text-red-400 font-medium hover:underline">Eliminar</button>
                     </div>
                   </td>
                 </tr>
