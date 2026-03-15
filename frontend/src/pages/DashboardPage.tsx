@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { SkeletonStatCards, SkeletonTableRows } from '../components/Skeleton'
 
 interface Stats {
   total_patients: number
@@ -71,12 +72,14 @@ export default function DashboardPage() {
       </p>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Total Pacientes"       value={loading ? null : stats?.total_patients ?? 0}    color="text-primary" />
-        <StatCard label="Evaluaciones ISAK"     value={loading ? null : stats?.total_evaluations ?? 0} color="text-terracotta" />
-        <StatCard label="Planes Alimenticios"   value={loading ? null : stats?.total_plans ?? 0}       color="text-sage" />
-        <StatCard label="Pautas Nutricionales"  value={loading ? null : stats?.total_pautas ?? 0}      color="text-primary-dark" />
-      </div>
+      {loading ? <SkeletonStatCards /> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard label="Total Pacientes"       value={stats?.total_patients ?? 0}    color="text-primary" />
+          <StatCard label="Evaluaciones ISAK"     value={stats?.total_evaluations ?? 0} color="text-terracotta" />
+          <StatCard label="Planes Alimenticios"   value={stats?.total_plans ?? 0}       color="text-sage" />
+          <StatCard label="Pautas Nutricionales"  value={stats?.total_pautas ?? 0}      color="text-primary-dark" />
+        </div>
+      )}
 
       {/* Recent patients */}
       <div className="mt-8">
@@ -89,7 +92,7 @@ export default function DashboardPage() {
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
-            <div className="p-6 text-center text-text-muted text-sm">Cargando...</div>
+            <table className="w-full"><tbody><SkeletonTableRows cols={5} rows={4} /></tbody></table>
           ) : recent.length === 0 ? (
             <div className="p-8 text-center text-text-muted text-sm space-y-3">
               <p>No hay pacientes registrados aún.</p>

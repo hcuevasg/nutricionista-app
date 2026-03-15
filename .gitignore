@@ -57,3 +57,4 @@ frontend/.vite/
 
 # Temp files
 *.log
+.vercel

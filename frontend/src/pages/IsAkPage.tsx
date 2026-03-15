@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { useToast } from '../context/ToastContext'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ScatterChart, Scatter, ReferenceLine, Label,
@@ -121,6 +122,7 @@ export default function IsAkPage() {
   const [downloadingComparativo, setDownloadingComparativo] = useState(false)
   const [editingEvalId, setEditingEvalId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const toast = useToast()
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -213,7 +215,9 @@ export default function IsAkPage() {
       const res = await fetch(`${API}/anthropometrics/${id}/${evalId}`, { method: 'DELETE', headers: H })
       if (!res.ok) throw new Error(`Error ${res.status}`)
       setEvaluations(prev => prev.filter(e => e.id !== evalId))
+      toast.success('Evaluación eliminada')
     } catch {
+      toast.error('No se pudo eliminar la evaluación')
       setError('No se pudo eliminar la evaluación')
     } finally {
       setDeletingId(null)
@@ -282,8 +286,11 @@ export default function IsAkPage() {
         setEvaluations(prev => [saved, ...prev])
       }
       closeForm()
+      toast.success(editingEvalId ? 'Evaluación actualizada' : 'Evaluación guardada')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      toast.error(msg)
+      setError(msg)
     } finally {
       setSaving(false)
     }

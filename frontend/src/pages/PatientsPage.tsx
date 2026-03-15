@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import Layout from '../components/Layout'
+import { SkeletonTableRows } from '../components/Skeleton'
+import { useToast } from '../context/ToastContext'
 
 interface Patient {
   id: number
@@ -29,6 +31,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const toast = useToast()
 
   useEffect(() => {
     if (!token) return
@@ -41,7 +44,7 @@ export default function PatientsPage() {
         return r.json()
       })
       .then(data => data && setPatients(Array.isArray(data) ? data : []))
-      .catch(err => setError(err instanceof Error ? err.message : 'Error al cargar pacientes'))
+      .catch(err => { const msg = err instanceof Error ? err.message : 'Error al cargar pacientes'; setError(msg); toast.error(msg) })
       .finally(() => setLoading(false))
   }, [token])
 
@@ -92,11 +95,7 @@ export default function PatientsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-text-muted text-sm">
-                  Cargando pacientes...
-                </td>
-              </tr>
+              <SkeletonTableRows cols={4} rows={5} />
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-6 py-12 text-center">

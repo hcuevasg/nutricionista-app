@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { SkeletonTableRows } from '../components/Skeleton'
+import { useToast } from '../context/ToastContext'
 
 interface MealPlan {
   id: number
@@ -26,6 +28,7 @@ export default function MealPlansPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const toast = useToast()
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}` }
@@ -45,6 +48,7 @@ export default function MealPlansPage() {
     if (!confirm('¿Eliminar este plan?')) return
     await fetch(`${API}/meal-plans/${id}/${planId}`, { method: 'DELETE', headers: H })
     setPlans(prev => prev.filter(p => p.id !== planId))
+    toast.success('Plan eliminado')
   }
 
   const handleDownloadPdf = async (plan: MealPlan) => {
@@ -60,7 +64,7 @@ export default function MealPlansPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      setError('No se pudo descargar el PDF')
+      toast.error('No se pudo descargar el PDF')
     } finally {
       setDownloadingId(null)
     }
@@ -87,7 +91,7 @@ export default function MealPlansPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-text-muted text-sm">Cargando...</div>
+          <table className="w-full"><tbody><SkeletonTableRows cols={8} rows={4} /></tbody></table>
         ) : plans.length === 0 ? (
           <div className="p-8 text-center text-text-muted text-sm space-y-3">
             <p>No hay planes registrados.</p>
