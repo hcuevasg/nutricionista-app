@@ -1,5 +1,5 @@
 """Pydantic schemas for request/response validation."""
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -70,16 +70,16 @@ class PatientResponse(PatientCreate):
     class Config:
         from_attributes = True
 
+    @field_validator('allergies', mode='before')
     @classmethod
-    def model_validate(cls, obj, *args, **kwargs):
-        # Deserialize allergies JSON string → list when reading from DB
-        if hasattr(obj, 'allergies') and isinstance(obj.allergies, str):
+    def parse_allergies(cls, v):
+        if isinstance(v, str):
             import json
             try:
-                obj.allergies = json.loads(obj.allergies)
+                return json.loads(v)
             except Exception:
-                obj.allergies = []
-        return super().model_validate(obj, *args, **kwargs)
+                return []
+        return v or []
 
 
 # ── Anthropometric Schemas ────────────────────────────────────────
