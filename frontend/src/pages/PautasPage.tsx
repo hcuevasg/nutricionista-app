@@ -186,6 +186,7 @@ export default function PautasPage() {
                   <td className="px-4 py-3.5">
                     <div className="flex gap-3 text-sm">
                       <Link to={`/patients/${id}/pautas/${p.id}`} className="text-primary font-medium hover:underline">Ver</Link>
+                      <Link to={`/patients/${id}/pautas/${p.id}/report`} className="text-terracotta font-medium hover:underline">Informe</Link>
                       <Link to={`/patients/${id}/pautas/${p.id}/edit`} className="text-sage font-medium hover:underline">Editar</Link>
                       <button onClick={() => handleDelete(p.id)} className="text-red-400 font-medium hover:underline">Eliminar</button>
                     </div>
