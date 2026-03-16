@@ -512,9 +512,9 @@ export default function PautaFormPage() {
   const loadRecetas = () => {
     if (recetasLoaded || recetasLoading) return
     setRecetasLoading(true)
-    fetch(`${API}/recetas/`, { headers: H })
+    fetch(`${API}/recetas/?limit=200`, { headers: H })
       .then(r => r.json())
-      .then(data => { setRecetas(Array.isArray(data) ? data : []); setRecetasLoaded(true) })
+      .then(data => { setRecetas(Array.isArray(data) ? data : (data.items ?? [])); setRecetasLoaded(true) })
       .catch(() => {})
       .finally(() => setRecetasLoading(false))
   }
