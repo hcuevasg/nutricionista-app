@@ -98,6 +98,21 @@ interface MenuItem {
 type MenuOpcion = MenuItem[]
 type MenuData = Record<string, { opcion1: MenuOpcion; opcion2: MenuOpcion }>
 
+interface RecetaRef {
+  id: number
+  nombre: string
+  categoria?: string
+  descripcion?: string
+}
+
+interface RecetaListItem {
+  id: number
+  nombre: string
+  categoria: string
+  descripcion?: string
+  porciones_rinde: number
+}
+
 function itemMacros(item: MenuItem) {
   const f = item.cantidad / 100
   return {
@@ -239,6 +254,11 @@ export default function PautaFormPage() {
   const [menu, setMenu] = useState<Record<string, { opcion1: string | MenuOpcion; opcion2: string | MenuOpcion }>>({})
   const [generatingMenu, setGeneratingMenu] = useState(false)
   const [savingMenu, setSavingMenu] = useState(false)
+  const [recetas, setRecetas] = useState<RecetaListItem[]>([])
+  const [recetasLoaded, setRecetasLoaded] = useState(false)
+  const [recetasLoading, setRecetasLoading] = useState(false)
+  const [pickingRecetaFor, setPickingRecetaFor] = useState<string | null>(null)
+  const [recetaSearch, setRecetaSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -448,6 +468,50 @@ export default function PautaFormPage() {
       setDownloading(false)
     }
   }
+
+  // ── Recipe helpers ──────────────────────────────────────────────────────────
+
+  const loadRecetas = () => {
+    if (recetasLoaded || recetasLoading) return
+    setRecetasLoading(true)
+    fetch(`${API}/recetas/`, { headers: H })
+      .then(r => r.json())
+      .then(data => { setRecetas(Array.isArray(data) ? data : []); setRecetasLoaded(true) })
+      .catch(() => {})
+      .finally(() => setRecetasLoading(false))
+  }
+
+  const getRecetaForTiempo = (tiempo: string): RecetaRef | null =>
+    (menu[tiempo] as Record<string, unknown> | undefined)?.receta as RecetaRef ?? null
+
+  const selectReceta = (tiempo: string, receta: RecetaListItem) => {
+    setMenu(prev => ({
+      ...prev,
+      [tiempo]: {
+        opcion1: (prev[tiempo] as Record<string, unknown>)?.opcion1 as MenuOpcion ?? [],
+        opcion2: (prev[tiempo] as Record<string, unknown>)?.opcion2 as MenuOpcion ?? [],
+        ...(prev[tiempo] ?? {}),
+        receta: { id: receta.id, nombre: receta.nombre, categoria: receta.categoria, descripcion: receta.descripcion },
+      },
+    }))
+    setPickingRecetaFor(null)
+    setRecetaSearch('')
+  }
+
+  const removeReceta = (tiempo: string) => {
+    setMenu(prev => {
+      const entry = { ...(prev[tiempo] ?? {}) } as Record<string, unknown>
+      delete entry.receta
+      return { ...prev, [tiempo]: entry as { opcion1: string | MenuOpcion; opcion2: string | MenuOpcion } }
+    })
+  }
+
+  const filteredRecetas = recetas.filter(r =>
+    !recetaSearch || r.nombre.toLowerCase().includes(recetaSearch.toLowerCase()) ||
+    r.categoria.toLowerCase().includes(recetaSearch.toLowerCase())
+  )
+
+  const hasAnyReceta = TIEMPOS_COMIDA.some(({ key }) => getRecetaForTiempo(key))
 
   if (loading) return <Layout title="Pauta Nutricional"><div className="p-8 text-center text-text-muted">Cargando...</div></Layout>
 
@@ -935,6 +999,94 @@ export default function PautaFormPage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ── 9. Recetas del menú ─────────────────────────────────────── */}
+          {isView && (
+            <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Recetas del Menú</h3>
+                <p className="text-xs text-text-muted">Asigna una receta a cada tiempo de comida</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {TIEMPOS_COMIDA.map(({ key, label }) => {
+                  const receta = getRecetaForTiempo(key)
+                  return (
+                    <div key={key} className="border border-border rounded-lg overflow-hidden">
+                      <div className="bg-primary/5 px-3 py-2">
+                        <span className="text-sm font-bold text-primary">{label}</span>
+                      </div>
+                      <div className="p-3 space-y-2">
+                        {receta ? (
+                          <div className="flex items-start justify-between bg-sage/10 border border-sage/20 rounded-lg p-2 gap-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-sage truncate">📋 {receta.nombre}</p>
+                              {receta.categoria && <p className="text-xs text-text-muted">{receta.categoria}</p>}
+                              {receta.descripcion && <p className="text-xs text-text-muted line-clamp-1">{receta.descripcion}</p>}
+                            </div>
+                            <button onClick={() => removeReceta(key)}
+                              className="text-xs text-red-500 hover:underline flex-shrink-0">
+                              Quitar
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-text-muted text-center py-1">Sin receta asignada</p>
+                        )}
+
+                        <button
+                          onClick={() => { loadRecetas(); setPickingRecetaFor(pickingRecetaFor === key ? null : key); setRecetaSearch('') }}
+                          className="w-full flex items-center justify-center gap-1 text-xs text-primary border border-primary/30 hover:bg-primary/5 rounded-lg py-1.5 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">menu_book</span>
+                          {receta ? 'Cambiar receta' : 'Agregar receta'}
+                        </button>
+
+                        {pickingRecetaFor === key && (
+                          <div className="border border-border rounded-lg shadow-md bg-white">
+                            <input
+                              autoFocus
+                              value={recetaSearch}
+                              onChange={e => setRecetaSearch(e.target.value)}
+                              placeholder="Buscar por nombre o categoría..."
+                              className="w-full px-3 py-2 text-xs border-b border-border rounded-t-lg focus:outline-none"
+                            />
+                            <div className="max-h-44 overflow-y-auto">
+                              {recetasLoading ? (
+                                <p className="text-xs text-text-muted text-center py-3">Cargando...</p>
+                              ) : filteredRecetas.length === 0 ? (
+                                <p className="text-xs text-text-muted text-center py-3">
+                                  {recetaSearch ? 'Sin resultados' : 'No hay recetas guardadas'}
+                                </p>
+                              ) : (
+                                filteredRecetas.map(r => (
+                                  <button key={r.id} onClick={() => selectReceta(key, r)}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-bg-light flex items-center justify-between border-b border-border last:border-0">
+                                    <span className="font-medium text-gray-800">{r.nombre}</span>
+                                    <span className="text-text-muted ml-2 flex-shrink-0">{r.categoria}</span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                            <button onClick={() => setPickingRecetaFor(null)}
+                              className="w-full text-xs text-text-muted py-1.5 hover:bg-bg-light rounded-b-lg border-t border-border">
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {hasAnyReceta && (
+                <button onClick={handleSaveMenu} disabled={savingMenu}
+                  className="w-full text-sm bg-primary hover:bg-primary-dark text-white py-2 rounded-lg font-medium disabled:opacity-50">
+                  {savingMenu ? 'Guardando...' : 'Guardar asignación de recetas'}
+                </button>
               )}
             </div>
           )}
