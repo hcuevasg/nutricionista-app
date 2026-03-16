@@ -135,14 +135,6 @@ export default function DashboardPage() {
             icon="⊙"
           />
           <StatCard
-            label="Planes Alimenticios"
-            value={stats?.total_plans ?? 0}
-            borderColor="border-[#d9a441]"
-            badge="Planes"
-            badgeColor="text-amber-600 bg-amber-100"
-            icon="⊛"
-          />
-          <StatCard
             label="Pautas Nutricionales"
             value={stats?.total_pautas ?? 0}
             borderColor="border-sage"
@@ -314,7 +306,6 @@ export default function DashboardPage() {
                   {[
                     { label: 'Pacientes activos', value: stats.total_patients, color: 'bg-primary' },
                     { label: 'Evaluaciones totales', value: stats.total_evaluations, color: 'bg-terracotta' },
-                    { label: 'Planes alimenticios', value: stats.total_plans, color: 'bg-[#d9a441]' },
                     { label: 'Pautas con IA', value: stats.total_pautas, color: 'bg-sage' },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between">

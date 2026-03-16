@@ -524,6 +524,96 @@ Reglas:
     return {"menu": menu}
 
 
+# ── Sugerencias IA para ajuste de pauta ─────────────────────────────────────
+
+@router.post("/{patient_id}/{pauta_id}/ai-suggest")
+async def ai_suggest_pauta(
+    patient_id: int,
+    pauta_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    """Analiza la pauta activa + historial antropométrico y sugiere ajustes con IA."""
+    import os
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == current_user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta no encontrada")
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada")
+
+    # Obtener últimas 5 evaluaciones antropométricas
+    evals = db.query(models.Anthropometric).filter(
+        models.Anthropometric.patient_id == patient_id
+    ).order_by(models.Anthropometric.date.desc()).limit(5).all()
+
+    # Construir resumen de evaluaciones
+    evals_lines = []
+    for e in reversed(evals):
+        parts = [f"Fecha: {e.date}"]
+        if e.weight_kg: parts.append(f"Peso: {e.weight_kg}kg")
+        if e.fat_mass_pct: parts.append(f"Grasa: {e.fat_mass_pct:.1f}%")
+        if e.lean_mass_kg: parts.append(f"Masa magra: {e.lean_mass_kg:.1f}kg")
+        if e.fat_mass_kg: parts.append(f"Masa grasa: {e.fat_mass_kg:.1f}kg")
+        evals_lines.append(" | ".join(parts))
+
+    evals_summary = "\n".join(evals_lines) if evals_lines else "Sin evaluaciones registradas"
+
+    prompt = f"""Eres un nutricionista clínico experto. Analiza la siguiente pauta nutricional y el historial antropométrico del paciente.
+
+PAUTA ACTUAL:
+- Nombre: {pauta.name}
+- Tipo: {pauta.tipo_pauta}
+- Kcal objetivo: {pauta.kcal_objetivo:.0f} kcal
+- Proteínas: {pauta.prot_g:.1f}g ({pauta.prot_pct:.0f}%)
+- Lípidos: {pauta.lip_g:.1f}g ({pauta.lip_pct:.0f}%)
+- Carbohidratos: {pauta.cho_g:.1f}g ({pauta.cho_pct:.0f}%)
+- Proteínas por kg: {pauta.prot_g_kg:.2f} g/kg
+- TMB: {pauta.tmb:.0f} kcal | GET: {pauta.get_kcal:.0f} kcal
+- Factor actividad: {pauta.fa_key}
+- Paciente: {pauta.sexo}, {pauta.edad} años, {pauta.peso}kg
+
+HISTORIAL ANTROPOMÉTRICO (de más antiguo a más reciente):
+{evals_summary}
+
+Proporciona un análisis clínico conciso con:
+1. Evaluación de la tendencia de composición corporal
+2. Si la pauta actual es adecuada para los resultados observados
+3. Sugerencias específicas de ajuste (kcal, macros, proteína/kg) si corresponde
+4. Recomendaciones prácticas adicionales
+
+Responde en español, de forma directa y profesional. Máximo 250 palabras."""
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Eres nutricionista clínico experto en Chile. Eres conciso, práctico y basas tus análisis en evidencia."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        suggestions = completion.choices[0].message.content.strip()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al conectar con Groq: {str(e)}")
+
+    return {"suggestions": suggestions, "evals_count": len(evals)}
+
+
 # ── PDF generation ──────────────────────────────────────────────────
 
 def _hex(h: str):

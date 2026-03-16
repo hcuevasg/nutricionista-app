@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE nutritionists ADD COLUMN IF NOT EXISTS logo_base64 TEXT",
         # pautas
         "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS menu_json TEXT",
-        "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE pautas ADD COLUMN is_active BOOLEAN DEFAULT FALSE",
         # antecedentes
         """CREATE TABLE IF NOT EXISTS antecedentes (
             id SERIAL PRIMARY KEY,

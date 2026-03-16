@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
 
 // ── Food group data (ported from desktop grupos_alimentos.py) ─────────────
@@ -242,6 +243,7 @@ export default function PautaFormPage() {
   const isView = !!pautaId && !isEdit
   const { token } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
 
   const [patientName, setPatientName] = useState('')
   const [form, setForm] = useState<PautaData>({
@@ -265,6 +267,8 @@ export default function PautaFormPage() {
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiSuggestions, setAiSuggestions] = useState<string | null>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -1214,6 +1218,18 @@ export default function PautaFormPage() {
               </div>
             )}
 
+            {isView && aiSuggestions && (
+              <div className="border border-primary/20 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wider">✨ Análisis IA</p>
+                  <button onClick={() => setAiSuggestions(null)} className="text-text-muted hover:text-gray-700 text-xs">✕</button>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{aiSuggestions}</p>
+                </div>
+              </div>
+            )}
+
             {isView && (
               <div className="pt-3 border-t border-border flex flex-col gap-2">
                 <Link to={`/patients/${id}/pautas/${pautaId}/edit`}
@@ -1241,6 +1257,32 @@ export default function PautaFormPage() {
                 <button onClick={handleDownloadPdf} disabled={downloading}
                   className="bg-terracotta hover:opacity-90 text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
                   {downloading ? 'Generando...' : '⬇ Descargar PDF'}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!aiConfigured) return
+                    setLoadingSuggestions(true)
+                    setAiSuggestions(null)
+                    try {
+                      const res = await fetch(`${API}/pautas/${id}/${pautaId}/ai-suggest`, {
+                        method: 'POST', headers: H,
+                      })
+                      if (!res.ok) throw new Error()
+                      const data = await res.json()
+                      setAiSuggestions(data.suggestions)
+                    } catch {
+                      toast.error('Error al obtener sugerencias IA')
+                    } finally {
+                      setLoadingSuggestions(false)
+                    }
+                  }}
+                  disabled={loadingSuggestions || aiConfigured === false || aiConfigured === null}
+                  title={aiConfigured === false ? 'IA no configurada' : 'Analizar pauta con IA'}
+                  className="border border-primary/40 text-primary hover:bg-primary/5 py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                >
+                  {loadingSuggestions ? (
+                    <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Analizando...</>
+                  ) : '🔍 Sugerencias IA'}
                 </button>
                 <Link to={`/patients/${id}/pautas`}
                   className="block border border-border text-text-muted hover:bg-bg-light py-3 rounded-lg font-medium text-center text-sm">

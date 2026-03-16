@@ -249,6 +249,12 @@ export default function PatientDetailPage() {
               Antecedentes
             </Link>
             <Link
+              to={`/patients/${id}/progress`}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors"
+            >
+              📈 Informe de Progreso
+            </Link>
+            <Link
               to={`/patients/${id}/edit`}
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors"
             >
@@ -401,9 +407,6 @@ export default function PatientDetailPage() {
                 <div className="flex flex-wrap gap-2">
                   <Link to={`/patients/${id}/isak`} className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-medium">
                     + Nueva evaluación ISAK
-                  </Link>
-                  <Link to={`/patients/${id}/plans/new`} className="px-4 py-2 bg-terracotta hover:opacity-90 text-white rounded-lg text-sm font-medium">
-                    + Plan alimenticio
                   </Link>
                   <Link to={`/patients/${id}/pautas/new`} className="px-4 py-2 bg-sage hover:opacity-90 text-white rounded-lg text-sm font-medium">
                     + Pauta nutricional
@@ -591,90 +594,6 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-      {/* Planes alimenticios */}
-      <div className="flex flex-col lg:flex-row gap-0 bg-white rounded-xl shadow-sm border border-border overflow-hidden mt-6">
-        <aside className="w-full lg:w-[260px] border-r border-border bg-bg-light/30 p-5 flex flex-col flex-shrink-0">
-          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4">Historial de Planes</h3>
-          {mealPlans.length === 0 ? (
-            <p className="text-xs text-text-muted italic">Sin planes registrados</p>
-          ) : (
-            <div className="space-y-2 flex-1 overflow-y-auto">
-              {mealPlans.map((p, idx) => (
-                <div
-                  key={p.id}
-                  onClick={() => setSelectedPlanIdx(idx)}
-                  className={`p-3 bg-white rounded-xl border-l-4 shadow-sm cursor-pointer transition-all ${
-                    idx === selectedPlanIdx ? 'border-terracotta' : 'border-transparent hover:border-border'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-sm font-bold text-gray-800 truncate max-w-[160px]">{p.name}</span>
-                    {idx === selectedPlanIdx && <span className="text-terracotta text-xs flex-shrink-0">↓</span>}
-                  </div>
-                  <p className="text-xs text-text-muted">{p.date}</p>
-                  {p.calories != null && <p className="text-xs text-text-muted mt-0.5">{p.calories.toFixed(0)} kcal</p>}
-                  {idx === 0 && <p className="text-[10px] text-text-muted mt-1 uppercase font-bold">Más reciente</p>}
-                </div>
-              ))}
-            </div>
-          )}
-          <Link
-            to={`/patients/${id}/plans/new`}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-dashed border-terracotta/30 text-terracotta rounded-xl font-bold text-sm hover:bg-terracotta/5 transition-all"
-          >
-            + Nuevo plan
-          </Link>
-        </aside>
-        <div className="flex-1 p-6 bg-bg-light min-w-0">
-          {mealPlans.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-              <p className="text-text-muted text-sm mb-4">Aún no hay planes alimenticios para este paciente.</p>
-              <Link to={`/patients/${id}/plans/new`} className="px-4 py-2 bg-terracotta hover:opacity-90 text-white rounded-lg text-sm font-medium">
-                + Crear primer plan
-              </Link>
-            </div>
-          ) : (() => {
-            const p = mealPlans[selectedPlanIdx]
-            if (!p) return null
-            const f = (v?: number | null) => v != null ? v.toFixed(0) : '—'
-            const macroRows: [string, string, boolean][] = [
-              ['Objetivo',      p.goal      ?? '—',                              false],
-              ['Calorías',      p.calories  != null ? `${f(p.calories)} kcal` : '—', true],
-              ['Proteínas',     p.protein_g != null ? `${f(p.protein_g)} g`   : '—', false],
-              ['Carbohidratos', p.carbs_g   != null ? `${f(p.carbs_g)} g`     : '—', false],
-              ['Lípidos',       p.fat_g     != null ? `${f(p.fat_g)} g`       : '—', false],
-            ]
-            return (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
-                  <div className="px-5 py-3 border-b border-border bg-bg-light flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-muted uppercase tracking-widest truncate">{p.name} — {p.date}</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta flex-shrink-0 ml-2">Plan</span>
-                  </div>
-                  <table className="w-full">
-                    <tbody className="divide-y divide-gray-100">
-                      {macroRows.map(([label, val, highlight]) => (
-                        <tr key={label} className={highlight ? 'bg-terracotta/5' : 'hover:bg-bg-light/50'}>
-                          <td className={`px-5 py-3 text-sm w-1/2 ${highlight ? 'font-bold text-terracotta' : 'text-text-muted'}`}>{label}</td>
-                          <td className={`px-5 py-3 text-sm text-right ${highlight ? 'font-bold text-terracotta' : 'font-semibold text-gray-800'}`}>{val}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex gap-2">
-                  <Link to={`/patients/${id}/plans/${p.id}/edit`} className="px-4 py-2 bg-terracotta hover:opacity-90 text-white rounded-lg text-sm font-medium">
-                    Ver / Editar plan
-                  </Link>
-                  <Link to={`/patients/${id}/plans`} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors">
-                    Ver todos los planes
-                  </Link>
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-      </div>
       {/* Share URL modal */}
       {shareUrl && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">

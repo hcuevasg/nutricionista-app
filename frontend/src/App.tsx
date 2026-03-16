@@ -24,6 +24,7 @@ import IsAkReportPage from './pages/IsAkReportPage'
 import PautaReportPage from './pages/PautaReportPage'
 import AgendaPage from './pages/AgendaPage'
 import PortalPage from './pages/PortalPage'
+import PatientProgressPage from './pages/PatientProgressPage'
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/patients/:id/pautas/:pautaId/edit" element={<PrivateRoute><PautaFormPage /></PrivateRoute>} />
           <Route path="/patients/:id/pautas/:pautaId/report" element={<PrivateRoute><PautaReportPage /></PrivateRoute>} />
           <Route path="/patients/:id/antecedentes" element={<PrivateRoute><AntecedentesPage /></PrivateRoute>} />
+          <Route path="/patients/:id/progress" element={<PrivateRoute><PatientProgressPage /></PrivateRoute>} />
           <Route path="/recetas" element={<PrivateRoute><RecetasPage /></PrivateRoute>} />
           <Route path="/recetas/new" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
           <Route path="/recetas/:recetaId/edit" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />

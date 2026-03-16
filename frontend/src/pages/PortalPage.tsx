@@ -167,7 +167,7 @@ export default function PortalPage() {
                 const fmt = (op: unknown) => {
                   if (!op || op === '') return null
                   if (typeof op === 'string') return op
-                  if (Array.isArray(op)) return op.map((item: Record<string, unknown>) => `${item.alimento ?? ''} ${item.cantidad ?? ''}${item.medida ? ' (' + item.medida + ')' : ''}`).filter(Boolean).join(', ')
+                  if (Array.isArray(op)) return op.map((item: Record<string, unknown>) => `${item.nombre ?? item.alimento ?? ''} ${item.cantidad ?? ''}${item.unidad ? ' (' + item.unidad + ')' : item.medida ? ' (' + item.medida + ')' : ''}`).filter(Boolean).join(', ')
                   return null
                 }
                 return (
