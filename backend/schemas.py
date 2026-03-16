@@ -27,6 +27,9 @@ class UserResponse(BaseModel):
     username: str
     email: str
     name: Optional[str] = None
+    clinic_name: Optional[str] = None
+    report_tagline: Optional[str] = None
+    logo_base64: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -35,6 +38,9 @@ class UserResponse(BaseModel):
 class ProfileUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
+    clinic_name: Optional[str] = None
+    report_tagline: Optional[str] = None
+    logo_base64: Optional[str] = None
 
 
 class PasswordChange(BaseModel):

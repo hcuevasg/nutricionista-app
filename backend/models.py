@@ -14,6 +14,9 @@ class Nutritionist(Base):
     email = Column(String(255), unique=True, index=True)
     password_hash = Column(String(255))
     name = Column(String(255), nullable=True)
+    clinic_name = Column(String(255), nullable=True)
+    report_tagline = Column(String(500), nullable=True)
+    logo_base64 = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

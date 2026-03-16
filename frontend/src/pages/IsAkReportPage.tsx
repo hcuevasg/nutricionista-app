@@ -244,7 +244,7 @@ function SomatocartaSVG({ endo, meso, ecto, date }: SomatocartaProps) {
 
 export default function IsAkReportPage() {
   const { id, evalId } = useParams<{ id: string; evalId: string }>()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const reportRef = useRef<HTMLDivElement>(null)
   const API = import.meta.env.VITE_API_URL
 
@@ -465,13 +465,23 @@ export default function IsAkReportPage() {
           {/* ── 1. Header band ── */}
           <header className="w-full py-8 px-8 text-white flex justify-between items-center" style={{ backgroundColor: C_PRIMARY }}>
             <div className="flex items-center gap-4">
-              <div className="bg-white/20 p-3 rounded-xl">
-                <span className="material-symbols-outlined text-4xl">monitoring</span>
-              </div>
+              {user?.logo_base64 ? (
+                <img
+                  src={user.logo_base64}
+                  alt="Logo consultorio"
+                  className="h-14 w-auto max-w-[160px] object-contain rounded-xl bg-white/10 p-1"
+                />
+              ) : (
+                <div className="bg-white/20 p-3 rounded-xl">
+                  <span className="material-symbols-outlined text-4xl">monitoring</span>
+                </div>
+              )}
               <div>
-                <h1 className="text-3xl font-black tracking-tight">NutriApp</h1>
+                <h1 className="text-3xl font-black tracking-tight">
+                  {user?.clinic_name || user?.name || user?.username || 'Consultorio'}
+                </h1>
                 <p className="text-white/80 text-xs font-semibold uppercase tracking-widest mt-0.5">
-                  Informe Antropométrico
+                  {user?.report_tagline || 'Informe Antropométrico'}
                 </p>
               </div>
             </div>
@@ -780,7 +790,7 @@ export default function IsAkReportPage() {
                 </div>
               </div>
               <p className="text-white/60 text-xs">
-                © {new Date().getFullYear()} NutriApp · Generado {new Date().toLocaleDateString('es-CL')}
+                © {new Date().getFullYear()} {user?.clinic_name || user?.name || user?.username || 'NutriApp'} · Generado {new Date().toLocaleDateString('es-CL')}
               </p>
             </div>
 

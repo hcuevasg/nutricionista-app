@@ -97,6 +97,12 @@ async def update_profile(
         if existing:
             raise HTTPException(status_code=400, detail="Email ya registrado")
         current_user.email = request.email
+    if request.clinic_name is not None:
+        current_user.clinic_name = request.clinic_name
+    if request.report_tagline is not None:
+        current_user.report_tagline = request.report_tagline
+    if request.logo_base64 is not None:
+        current_user.logo_base64 = request.logo_base64
     db.commit()
     db.refresh(current_user)
     return current_user
