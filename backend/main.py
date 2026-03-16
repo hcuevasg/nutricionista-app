@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes, recetas, alimentos
+from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
 
 # Import database
 from database import engine, Base
@@ -193,6 +193,33 @@ async def lifespan(app: FastAPI):
             porciones FLOAT DEFAULT 0
         )""",
         "CREATE INDEX IF NOT EXISTS ix_receta_equivalencias_receta_id ON receta_equivalencias (receta_id)",
+        # appointments
+        """CREATE TABLE IF NOT EXISTS appointments (
+    id SERIAL PRIMARY KEY,
+    nutritionist_id INTEGER REFERENCES nutritionists(id) ON DELETE CASCADE,
+    patient_id INTEGER REFERENCES patients(id) ON DELETE SET NULL,
+    scheduled_at TIMESTAMP NOT NULL,
+    duration_minutes INTEGER DEFAULT 45,
+    notes TEXT,
+    status VARCHAR(20) DEFAULT 'scheduled',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+)""",
+        "CREATE INDEX IF NOT EXISTS ix_appointments_nutritionist_id ON appointments (nutritionist_id)",
+        "CREATE INDEX IF NOT EXISTS ix_appointments_scheduled_at ON appointments (scheduled_at)",
+        "CREATE INDEX IF NOT EXISTS ix_appointments_patient_id ON appointments (patient_id)",
+        # patient_share_tokens
+        """CREATE TABLE IF NOT EXISTS patient_share_tokens (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    patient_id INTEGER REFERENCES patients(id) ON DELETE CASCADE,
+    nutritionist_id INTEGER REFERENCES nutritionists(id),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    revoked BOOLEAN DEFAULT FALSE
+)""",
+        "CREATE INDEX IF NOT EXISTS ix_patient_share_tokens_token ON patient_share_tokens (token)",
+        "CREATE INDEX IF NOT EXISTS ix_patient_share_tokens_patient_id ON patient_share_tokens (patient_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -263,6 +290,8 @@ app.include_router(settings.router)
 app.include_router(antecedentes.router)
 app.include_router(recetas.router)
 app.include_router(alimentos.router)
+app.include_router(appointments.router)
+app.include_router(portal.router)
 
 
 @app.get("/")

@@ -22,6 +22,7 @@ import RecetasPage from './pages/RecetasPage'
 import RecetaFormPage from './pages/RecetaFormPage'
 import IsAkReportPage from './pages/IsAkReportPage'
 import PautaReportPage from './pages/PautaReportPage'
+import AgendaPage from './pages/AgendaPage'
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/recetas" element={<PrivateRoute><RecetasPage /></PrivateRoute>} />
           <Route path="/recetas/new" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
           <Route path="/recetas/:recetaId/edit" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
+          <Route path="/agenda" element={<PrivateRoute><AgendaPage /></PrivateRoute>} />
           <Route path="/config" element={<PrivateRoute><ConfigPage /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 

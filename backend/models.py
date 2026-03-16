@@ -347,3 +347,36 @@ class RecetaEquivalencia(Base):
     porciones = Column(Float, default=0)
 
     receta = relationship("Receta", back_populates="equivalencias")
+
+
+class PatientShareToken(Base):
+    """Token de acceso al portal del paciente."""
+    __tablename__ = "patient_share_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, index=True, nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id"), index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    revoked = Column(Boolean, default=False)
+    patient = relationship("Patient")
+    nutritionist = relationship("Nutritionist")
+
+
+class Appointment(Base):
+    """Cita / consulta agendada."""
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id", ondelete="CASCADE"), index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True, index=True)
+    scheduled_at = Column(DateTime, nullable=False, index=True)
+    duration_minutes = Column(Integer, default=45)
+    notes = Column(Text, nullable=True)
+    status = Column(String(20), default="scheduled")  # scheduled/completed/cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    nutritionist = relationship("Nutritionist")
+    patient = relationship("Patient")

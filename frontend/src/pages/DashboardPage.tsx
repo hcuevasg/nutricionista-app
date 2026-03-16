@@ -3,12 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { SkeletonStatCards, SkeletonTableRows } from '../components/Skeleton'
+import { api } from '../api/client'
 
 interface Stats {
   total_patients: number
   total_evaluations: number
   total_plans: number
   total_pautas: number
+}
+
+interface UpcomingAppointment {
+  id: number
+  patient_name?: string
+  scheduled_at: string
+  duration_minutes: number
+  status: string
 }
 
 interface RecentPatient {
@@ -73,6 +82,7 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<RecentPatient[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [upcomingAppts, setUpcomingAppts] = useState<UpcomingAppointment[]>([])
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}` }
 
@@ -81,10 +91,12 @@ export default function DashboardPage() {
     Promise.all([
       fetch(`${API}/dashboard/stats`, { headers: H }).then(r => r.json()),
       fetch(`${API}/dashboard/recent-patients`, { headers: H }).then(r => r.json()),
+      api.get<UpcomingAppointment[]>('/appointments', { limit: 5 }).catch(() => []),
     ])
-      .then(([s, r]) => {
+      .then(([s, r, appts]) => {
         setStats(s)
         setRecent(Array.isArray(r) ? r : [])
+        setUpcomingAppts(Array.isArray(appts) ? appts : [])
       })
       .finally(() => setLoading(false))
   }, [token])
@@ -253,6 +265,42 @@ export default function DashboardPage() {
                 <span className="font-medium text-gray-700">Nueva pauta nutricional</span>
               </Link>
             </div>
+          </div>
+
+          {/* Proximas consultas */}
+          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-800">Proximas consultas</h3>
+              <Link to="/agenda" className="text-xs text-primary font-semibold hover:underline">Ver agenda →</Link>
+            </div>
+            {upcomingAppts.length === 0 ? (
+              <p className="text-sm text-text-muted text-center py-3">Sin consultas proximas.</p>
+            ) : (
+              <ul className="space-y-3">
+                {upcomingAppts.map(appt => {
+                  const d = new Date(appt.scheduled_at)
+                  const dateStr = d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' })
+                  const timeStr = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+                  return (
+                    <li key={appt.id} className="flex items-start gap-3">
+                      <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-2"></div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {appt.patient_name ?? <span className="italic text-gray-400">Sin paciente</span>}
+                        </p>
+                        <p className="text-xs text-text-muted">{dateStr} · {timeStr}</p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <Link
+              to="/agenda"
+              className="mt-4 w-full block py-2 bg-primary/5 text-primary text-xs font-bold rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-all text-center"
+            >
+              + Nueva cita
+            </Link>
           </div>
 
           {/* Resumen de actividad */}

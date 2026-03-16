@@ -1,7 +1,16 @@
 """Pydantic schemas for request/response validation."""
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List
+from typing import Optional, List, Generic, TypeVar
 from datetime import datetime
+
+T = TypeVar('T')
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    skip: int
+    limit: int
 
 
 # ── Auth Schemas ──────────────────────────────────────────────────
@@ -371,6 +380,69 @@ class RecetaResponse(RecetaCreate):
 class RecetaListItem(RecetaCreate):
     id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Appointment Schemas ────────────────────────────────────────────
+class AppointmentCreate(BaseModel):
+    patient_id: Optional[int] = None
+    scheduled_at: datetime
+    duration_minutes: int = 45
+    notes: Optional[str] = None
+    status: str = "scheduled"
+
+class AppointmentUpdate(BaseModel):
+    patient_id: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+class AppointmentResponse(BaseModel):
+    id: int
+    nutritionist_id: int
+    patient_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    scheduled_at: datetime
+    duration_minutes: int
+    notes: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Portal Schemas ─────────────────────────────────────────────────
+class ShareTokenCreate(BaseModel):
+    patient_id: int
+    days_valid: int = 30
+
+class ShareTokenResponse(BaseModel):
+    id: int
+    token: str
+    patient_id: int
+    patient_name: str
+    expires_at: datetime
+    revoked: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PortalInfo(BaseModel):
+    patient_name: str
+    nutritionist_name: Optional[str] = None
+    clinic_name: Optional[str] = None
+
+class PortalEvaluationSummary(BaseModel):
+    id: int
+    date: str
+    weight_kg: Optional[float] = None
+    fat_mass_pct: Optional[float] = None
+    lean_mass_kg: Optional[float] = None
 
     class Config:
         from_attributes = True
