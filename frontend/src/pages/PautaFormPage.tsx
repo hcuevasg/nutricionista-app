@@ -951,7 +951,7 @@ export default function PautaFormPage() {
           )}
 
           {/* 8. Menú generado con IA */}
-          {isView && (Object.keys(menu).length > 0 || generatingMenu) && (
+          {(isView || isEdit) && (Object.keys(menu).length > 0 || generatingMenu) && (
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Ideas de Menú — IA</h3>
@@ -1046,7 +1046,7 @@ export default function PautaFormPage() {
           )}
 
           {/* ── 9. Recetas del menú ─────────────────────────────────────── */}
-          {isView && (
+          {(isView || isEdit) && (
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Recetas del Menú</h3>
