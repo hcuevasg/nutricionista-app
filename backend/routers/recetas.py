@@ -1,5 +1,5 @@
 """Recetas routes — gestión de recetas personalizadas del nutricionista."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -21,9 +21,11 @@ def _get_receta_or_404(receta_id: int, nutritionist_id: int, db: Session) -> mod
     return receta
 
 
-@router.get("/", response_model=List[schemas.RecetaListItem])
+@router.get("/", response_model=schemas.PaginatedResponse[schemas.RecetaListItem])
 def list_recetas(
     q: str = "",
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
@@ -37,7 +39,9 @@ def list_recetas(
             models.Receta.categoria.ilike(like) |
             models.Receta.descripcion.ilike(like)
         )
-    return query.order_by(models.Receta.nombre).all()
+    total = query.count()
+    recetas = query.order_by(models.Receta.nombre).offset(skip).limit(limit).all()
+    return schemas.PaginatedResponse(items=recetas, total=total, skip=skip, limit=limit)
 
 
 @router.post("/", response_model=schemas.RecetaResponse, status_code=201)

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { SkeletonTableRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
+import { api } from '../api/client'
 
 interface Patient {
   id: number
@@ -12,6 +12,13 @@ interface Patient {
   sex?: string
   email?: string
   phone?: string
+}
+
+interface PaginatedPatients {
+  items: Patient[]
+  total: number
+  skip: number
+  limit: number
 }
 
 function calcAge(bd?: string): number | null {
@@ -24,37 +31,49 @@ function calcAge(bd?: string): number | null {
   return age >= 0 ? age : null
 }
 
+const PAGE_SIZE = 50
+
 export default function PatientsPage() {
-  const { token, logout } = useAuth()
-  const navigate = useNavigate()
   const [patients, setPatients] = useState<Patient[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const toast = useToast()
 
-  useEffect(() => {
-    if (!token) return
-    fetch(`${import.meta.env.VITE_API_URL}/patients`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => {
-        if (r.status === 401) { logout(); navigate('/login'); return null }
-        if (!r.ok) throw new Error(`Error ${r.status}`)
-        return r.json()
-      })
-      .then(data => data && setPatients(Array.isArray(data) ? data : []))
-      .catch(err => { const msg = err instanceof Error ? err.message : 'Error al cargar pacientes'; setError(msg); toast.error(msg) })
-      .finally(() => setLoading(false))
-  }, [token])
+  const loadPatients = useCallback(async (skip = 0, search = '') => {
+    try {
+      const params: Record<string, string | number> = { skip, limit: PAGE_SIZE }
+      if (search.trim()) params.q = search.trim()
+      const data = await api.get<PaginatedPatients>('/patients', params)
+      if (skip === 0) {
+        setPatients(data.items)
+      } else {
+        setPatients(prev => [...prev, ...data.items])
+      }
+      setTotal(data.total)
+    } catch {
+      const msg = 'Error al cargar pacientes'
+      setError(msg)
+      toast.error(msg)
+    }
+  }, [toast])
 
-  const filtered = query.trim()
-    ? patients.filter(p =>
-        p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.email?.toLowerCase().includes(query.toLowerCase()) ||
-        p.phone?.includes(query)
-      )
-    : patients
+  // Initial load
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    loadPatients(0, query).finally(() => setLoading(false))
+  }, [query]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true)
+    await loadPatients(patients.length, query)
+    setLoadingMore(false)
+  }
+
+  const hasMore = patients.length < total
 
   return (
     <Layout title="Pacientes">
@@ -96,7 +115,7 @@ export default function PatientsPage() {
           <tbody>
             {loading ? (
               <SkeletonTableRows cols={4} rows={5} />
-            ) : filtered.length === 0 ? (
+            ) : patients.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-6 py-12 text-center">
                   {query ? (
@@ -115,7 +134,7 @@ export default function PatientsPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map(p => {
+              patients.map(p => {
                 const age = calcAge(p.birth_date)
                 return (
                   <tr key={p.id} className="border-b border-border hover:bg-bg-light transition-colors">
@@ -149,10 +168,20 @@ export default function PatientsPage() {
           </tbody>
         </table>
 
-        {!loading && filtered.length > 0 && (
-          <div className="px-6 py-3 border-t border-border bg-bg-light text-xs text-text-muted">
-            {filtered.length} paciente{filtered.length !== 1 ? 's' : ''}
-            {query && patients.length !== filtered.length ? ` de ${patients.length} total` : ''}
+        {!loading && (
+          <div className="px-6 py-3 border-t border-border bg-bg-light flex items-center justify-between text-xs text-text-muted">
+            <span>
+              {patients.length} de {total} paciente{total !== 1 ? 's' : ''}
+            </span>
+            {hasMore && (
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="text-primary hover:underline font-medium disabled:opacity-50"
+              >
+                {loadingMore ? 'Cargando...' : `Cargar más (${total - patients.length} restantes)`}
+              </button>
+            )}
           </div>
         )}
       </div>

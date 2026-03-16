@@ -253,6 +253,8 @@ export default function PautaFormPage() {
   const [distribucion, setDistribucion] = useState<Record<string, Record<string, number>>>({})
   const [menu, setMenu] = useState<Record<string, { opcion1: string | MenuOpcion; opcion2: string | MenuOpcion }>>({})
   const [generatingMenu, setGeneratingMenu] = useState(false)
+  const [sseStatus, setSseStatus] = useState('')
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null)
   const [savingMenu, setSavingMenu] = useState(false)
   const [recetas, setRecetas] = useState<RecetaListItem[]>([])
   const [recetasLoaded, setRecetasLoaded] = useState(false)
@@ -299,6 +301,14 @@ export default function PautaFormPage() {
       })
       .finally(() => setLoading(false))
   }, [id, pautaId, token])
+
+  useEffect(() => {
+    if (!token) return
+    fetch(`${API}/pautas/ai-status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setAiConfigured(d.configured ?? false))
+      .catch(() => setAiConfigured(false))
+  }, [token])
 
   const setF = <K extends keyof PautaData>(k: K, v: PautaData[K]) =>
     setForm(prev => ({ ...prev, [k]: v }))
@@ -421,18 +431,46 @@ export default function PautaFormPage() {
     }
   }
 
-  const handleGenerarMenu = async () => {
-    if (!pautaId) return
-    setGeneratingMenu(true); setError(null)
-    try {
-      const res = await fetch(`${API}/pautas/${id}/${pautaId}/generar-menu`, { method: 'POST', headers: H })
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail ?? `Error ${res.status}`) }
-      const data = await res.json()
-      setMenu(data.menu ?? {})
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al generar menú')
-    } finally {
-      setGeneratingMenu(false)
+  const handleGenerarMenu = () => {
+    if (!pautaId || !token) return
+    setGeneratingMenu(true); setError(null); setSseStatus('Conectando...')
+
+    const url = `${API}/pautas/${id}/${pautaId}/generar-menu-stream?token=${encodeURIComponent(token)}`
+    const es = new EventSource(url)
+
+    es.addEventListener('status', (e: MessageEvent) => {
+      setSseStatus(e.data)
+    })
+
+    es.addEventListener('result', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data)
+        setMenu(data.menu ?? {})
+      } catch {
+        setError('Error al procesar la respuesta')
+      }
+      es.close(); setGeneratingMenu(false); setSseStatus('')
+    })
+
+    es.addEventListener('error', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data ?? '{}')
+        setError(data.detail ?? 'Error al generar menú')
+      } catch {
+        setError('Error al generar menú')
+      }
+      es.close(); setGeneratingMenu(false); setSseStatus('')
+    })
+
+    es.onerror = () => {
+      // Fallback al POST si SSE falla
+      es.close()
+      setSseStatus('Reintentando...')
+      fetch(`${API}/pautas/${id}/${pautaId}/generar-menu`, { method: 'POST', headers: H })
+        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(new Error(d.detail ?? `Error ${r.status}`))))
+        .then(data => setMenu(data.menu ?? {}))
+        .catch(err => setError(err instanceof Error ? err.message : 'Error al generar menú'))
+        .finally(() => { setGeneratingMenu(false); setSseStatus('') })
     }
   }
 
@@ -922,10 +960,14 @@ export default function PautaFormPage() {
                     className="text-xs text-white bg-primary hover:bg-primary-dark px-3 py-1 rounded disabled:opacity-50">
                     {savingMenu ? 'Guardando...' : 'Guardar cambios'}
                   </button>
-                  <button onClick={handleGenerarMenu} disabled={generatingMenu}
-                    className="text-xs text-primary hover:underline disabled:opacity-50">
-                    {generatingMenu ? 'Generando...' : 'Regenerar'}
-                  </button>
+                  {aiConfigured === false ? (
+                    <Link to="/config" className="text-xs text-text-muted hover:underline">IA no configurada</Link>
+                  ) : (
+                    <button onClick={handleGenerarMenu} disabled={generatingMenu || aiConfigured === null}
+                      className="text-xs text-primary hover:underline disabled:opacity-50">
+                      {generatingMenu ? 'Generando...' : 'Regenerar'}
+                    </button>
+                  )}
                 </div>
               </div>
               {generatingMenu ? (
@@ -934,7 +976,7 @@ export default function PautaFormPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Consultando IA...
+                  {sseStatus || 'Consultando IA...'}
                 </div>
               ) : isStructuredMenu(menu) ? (
                 <div className="grid grid-cols-1 gap-4">
@@ -1178,7 +1220,9 @@ export default function PautaFormPage() {
                   className="border border-primary text-primary hover:bg-primary/5 py-3 rounded-lg font-medium text-center text-sm">
                   Editar pauta
                 </Link>
-                <button onClick={handleGenerarMenu} disabled={generatingMenu}
+                <button onClick={handleGenerarMenu}
+                  disabled={generatingMenu || aiConfigured === null || aiConfigured === false}
+                  title={aiConfigured === false ? 'IA no configurada. Configura GROQ_API_KEY en el servidor.' : undefined}
                   className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
                   {generatingMenu ? (
                     <>
@@ -1186,8 +1230,10 @@ export default function PautaFormPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
-                      Generando menú...
+                      {sseStatus || 'Generando menú...'}
                     </>
+                  ) : aiConfigured === false ? (
+                    <>IA no configurada — ver <Link to="/config" className="underline ml-1">Config</Link></>
                   ) : (
                     <>✨ {Object.keys(menu).length > 0 ? 'Regenerar Menú IA' : 'Generar Menú con IA'}</>
                   )}

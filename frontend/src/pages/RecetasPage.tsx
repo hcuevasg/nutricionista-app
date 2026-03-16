@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
+import { api } from '../api/client'
 
 interface Receta {
   id: number
@@ -13,41 +13,62 @@ interface Receta {
   created_at: string
 }
 
+interface PaginatedRecetas {
+  items: Receta[]
+  total: number
+  skip: number
+  limit: number
+}
+
 const CATEGORIAS = ['Todas', 'General', 'Desayuno', 'Almuerzo', 'Cena', 'Colación', 'Postre', 'Snack', 'Bebida', 'Vegetariano', 'Vegano']
+const PAGE_SIZE = 50
 
 export default function RecetasPage() {
-  const { token } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const [recetas, setRecetas] = useState<Receta[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [q, setQ] = useState('')
   const [catFiltro, setCatFiltro] = useState('Todas')
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}` }
-
-  const load = () => {
-    if (!token) return
-    setLoading(true)
-    fetch(`${API}/recetas/?q=${encodeURIComponent(q)}`, { headers: H })
-      .then(r => r.json())
-      .then(data => setRecetas(Array.isArray(data) ? data : []))
-      .catch(() => toast.error('Error al cargar recetas'))
-      .finally(() => setLoading(false))
+  const load = async (skip = 0, search = '') => {
+    try {
+      const params: Record<string, string | number> = { skip, limit: PAGE_SIZE }
+      if (search.trim()) params.q = search.trim()
+      const data = await api.get<PaginatedRecetas>('/recetas/', params)
+      if (skip === 0) {
+        setRecetas(data.items)
+      } else {
+        setRecetas(prev => [...prev, ...data.items])
+      }
+      setTotal(data.total)
+    } catch {
+      toast.error('Error al cargar recetas')
+    }
   }
 
-  useEffect(() => { load() }, [token, q])
+  useEffect(() => {
+    setLoading(true)
+    load(0, q).finally(() => setLoading(false))
+  }, [q]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true)
+    await load(recetas.length, q)
+    setLoadingMore(false)
+  }
 
   const handleDelete = async (id: number, nombre: string) => {
     if (!confirm(`¿Eliminar la receta "${nombre}"? Esta acción no se puede deshacer.`)) return
     setDeletingId(id)
     try {
-      const res = await fetch(`${API}/recetas/${id}`, { method: 'DELETE', headers: H })
-      if (!res.ok) throw new Error()
+      await api.delete(`/recetas/${id}`)
       toast.success('Receta eliminada')
       setRecetas(prev => prev.filter(r => r.id !== id))
+      setTotal(prev => prev - 1)
     } catch {
       toast.error('Error al eliminar receta')
     } finally {
@@ -56,6 +77,7 @@ export default function RecetasPage() {
   }
 
   const filtered = catFiltro === 'Todas' ? recetas : recetas.filter(r => r.categoria === catFiltro)
+  const hasMore = recetas.length < total
 
   return (
     <Layout title="Recetas">
@@ -108,6 +130,7 @@ export default function RecetasPage() {
           )}
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(r => (
             <div
@@ -148,6 +171,18 @@ export default function RecetasPage() {
             </div>
           ))}
         </div>
+        {hasMore && catFiltro === 'Todas' && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-5 py-2 border border-primary text-primary rounded-lg text-sm font-medium hover:bg-primary/5 disabled:opacity-50"
+            >
+              {loadingMore ? 'Cargando...' : `Cargar más (${total - recetas.length} restantes)`}
+            </button>
+          </div>
+        )}
+        </>
       )}
     </Layout>
   )

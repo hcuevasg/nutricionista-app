@@ -1,8 +1,8 @@
 """Patient routes."""
 import json as _json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 import models
 import schemas
@@ -19,15 +19,27 @@ def _serialize(data: dict) -> dict:
     return data
 
 
-@router.get("", response_model=List[schemas.PatientResponse])
+@router.get("", response_model=schemas.PaginatedResponse[schemas.PatientResponse])
 async def list_patients(
+    q: Optional[str] = Query(None, description="Filtrar por nombre, email o teléfono"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
-    patients = db.query(models.Patient).filter(
+    query = db.query(models.Patient).filter(
         models.Patient.nutritionist_id == current_user.id
-    ).all()
-    return patients
+    )
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.Patient.name.ilike(like) |
+            models.Patient.email.ilike(like) |
+            models.Patient.phone.ilike(like)
+        )
+    total = query.count()
+    patients = query.order_by(models.Patient.name).offset(skip).limit(limit).all()
+    return schemas.PaginatedResponse(items=patients, total=total, skip=skip, limit=limit)
 
 
 @router.post("", response_model=schemas.PatientResponse)

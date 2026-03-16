@@ -41,6 +41,14 @@ export default function ConfigPage() {
   const [loadingLogs, setLoadingLogs] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; provider: string } | null>(null)
+
+  useEffect(() => {
+    fetch(`${API}/pautas/ai-status`, { headers: H })
+      .then(r => r.json())
+      .then(setAiStatus)
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch(`${API}/settings/audit-logs?limit=50`, { headers: H })
@@ -83,6 +91,31 @@ export default function ConfigPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
         )}
+
+        {/* AI Status Card */}
+        <div className="bg-white rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-gray-800 mb-3">Estado de Generación IA</h3>
+          {aiStatus ? (
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${
+                aiStatus.configured
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
+              }`}>
+                {aiStatus.configured ? '✓ Configurada' : '✗ No configurada'}
+              </span>
+              <span className="text-sm text-text-muted">{aiStatus.provider} · {aiStatus.model}</span>
+            </div>
+          ) : (
+            <div className="text-sm text-text-muted">Verificando...</div>
+          )}
+          {aiStatus && !aiStatus.configured && (
+            <p className="mt-3 text-xs text-text-muted">
+              Para habilitar la generación de menús con IA, configura la variable de entorno
+              <code className="bg-gray-100 px-1 rounded ml-1">GROQ_API_KEY</code> en el servidor (Railway).
+            </p>
+          )}
+        </div>
 
         {/* Backup */}
         <div className="bg-white rounded-xl shadow-sm border border-border border-l-4 border-l-terracotta p-6">

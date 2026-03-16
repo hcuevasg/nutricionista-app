@@ -448,7 +448,7 @@ export default function IsAkPage() {
 
               {/* Datos basicos */}
               <CollapsibleSection title="Datos Basicos" sectionKey="basicos" collapsed={collapsedSections} toggle={toggleSection}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Field label="Fecha sesion *" value={form.date} onChange={v => set('date', v)} type="date" cols={3} />
                   <Field label="Peso (kg)" value={form.weight_kg} onChange={v => set('weight_kg', v)} placeholder="70.0" />
                   <Field label="Talla (cm)" value={form.height_cm} onChange={v => set('height_cm', v)} placeholder="170.0" />
@@ -458,7 +458,7 @@ export default function IsAkPage() {
 
               {/* Perimetros */}
               <CollapsibleSection title="Perimetros (cm)" sectionKey="perimetros" collapsed={collapsedSections} toggle={toggleSection}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Field label="Brazo relajado (BR)" value={form.arm_relaxed_cm} onChange={v => set('arm_relaxed_cm', v)} />
                   <Field label="Brazo contraido (BC)" value={form.arm_contracted_cm} onChange={v => set('arm_contracted_cm', v)} />
                   <Field label='Cadera "gluteo"' value={form.hip_glute_cm} onChange={v => set('hip_glute_cm', v)} />
@@ -470,7 +470,7 @@ export default function IsAkPage() {
 
               {/* Pliegues cutaneos */}
               <CollapsibleSection title="Pliegues Cutaneos (mm)" sectionKey="pliegues" collapsed={collapsedSections} toggle={toggleSection}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Field label="Triceps (D&W *)" value={form.triceps_mm} onChange={v => set('triceps_mm', v)} highlight />
                   <Field label="Subescapular (D&W *)" value={form.subscapular_mm} onChange={v => set('subscapular_mm', v)} highlight />
                   <Field label="Biceps (D&W *)" value={form.biceps_mm} onChange={v => set('biceps_mm', v)} highlight />
@@ -489,7 +489,7 @@ export default function IsAkPage() {
               {form.isak_level === 'ISAK 2' && (
                 <>
                   <CollapsibleSection title="Pliegues Adicionales (mm) -- ISAK 2" sectionKey="pliegues2" collapsed={collapsedSections} toggle={toggleSection}>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Pectoral (torax)" value={form.pectoral_mm} onChange={v => set('pectoral_mm', v)} />
                       <Field label="Axilar medio" value={form.axillary_mm} onChange={v => set('axillary_mm', v)} />
                       <Field label="Muslo anterior" value={form.front_thigh_mm} onChange={v => set('front_thigh_mm', v)} />
@@ -497,7 +497,7 @@ export default function IsAkPage() {
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Perimetros Adicionales (cm) -- ISAK 2" sectionKey="perimetros2" collapsed={collapsedSections} toggle={toggleSection}>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Cabeza" value={form.head_cm} onChange={v => set('head_cm', v)} />
                       <Field label="Cuello" value={form.neck_cm} onChange={v => set('neck_cm', v)} />
                       <Field label="Torax mesoesternal" value={form.chest_cm} onChange={v => set('chest_cm', v)} />
@@ -506,7 +506,7 @@ export default function IsAkPage() {
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Diametros Oseos (cm) -- ISAK 2" sectionKey="diametros" collapsed={collapsedSections} toggle={toggleSection}>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Humero bicondileo (HC *)" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
                       <Field label="Femur bicondileo (HC *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
                       <Field label="Biacromial" value={form.biacromial_cm} onChange={v => set('biacromial_cm', v)} />
@@ -521,7 +521,7 @@ export default function IsAkPage() {
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Longitudes (cm) -- ISAK 2" sectionKey="longitudes" collapsed={collapsedSections} toggle={toggleSection}>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Acromio-radial" value={form.acromion_radial_cm} onChange={v => set('acromion_radial_cm', v)} />
                       <Field label="Radio-estiloide" value={form.radial_styloid_cm} onChange={v => set('radial_styloid_cm', v)} />
                       <Field label="Iliospinal (pierna)" value={form.iliospinal_height_cm} onChange={v => set('iliospinal_height_cm', v)} />
@@ -583,7 +583,7 @@ export default function IsAkPage() {
                       Somatotipo -- Heath &amp; Carter (1990)
                     </h4>
                     {soma ? (
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         <ResultCard label="Endomorfia" value={`${soma.endo}`} />
                         <ResultCard label="Mesomorfia" value={`${soma.meso}`} />
                         <ResultCard label="Ectomorfia" value={`${soma.ecto}`} />

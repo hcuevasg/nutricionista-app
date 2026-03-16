@@ -1,10 +1,11 @@
 """Pautas de alimentación routes."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 import io
 import json
+import asyncio
 
 import models, schemas, auth
 from database import get_db
@@ -47,6 +48,173 @@ _TIEMPOS_COMIDA = [
 ]
 
 router = APIRouter(prefix="/pautas", tags=["pautas"])
+
+
+# ── AI Status (must be declared BEFORE /{patient_id} routes) ─────────────────
+
+@router.get("/ai-status")
+async def ai_status(
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    import os
+    key = os.getenv("GROQ_API_KEY", "")
+    return {
+        "configured": bool(key),
+        "model": "llama-3.3-70b-versatile",
+        "provider": "Groq",
+    }
+
+
+# ── SSE streaming menu generation ────────────────────────────────────────────
+
+@router.get("/{patient_id}/{pauta_id}/generar-menu-stream")
+async def generar_menu_stream(
+    patient_id: int,
+    pauta_id: int,
+    token: str = Query(..., description="JWT token para autenticar SSE"),
+    db: Session = Depends(get_db),
+):
+    """SSE endpoint for AI menu generation. Token passed as query param (EventSource limitation)."""
+    import os
+    from auth import decode_token
+
+    # Validate token manually (EventSource can't send headers)
+    payload = decode_token(token)
+    if not payload:
+        async def _err():
+            yield 'event: error\ndata: {"message": "Token inválido"}\n\n'
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    nutritionist_id = int(payload.get("sub", 0))
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == nutritionist_id
+    ).first()
+    if not patient:
+        async def _err():
+            yield 'event: error\ndata: {"message": "Paciente no encontrado"}\n\n'
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id
+    ).first()
+    if not pauta:
+        async def _err():
+            yield 'event: error\ndata: {"message": "Pauta no encontrada"}\n\n'
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        async def _err():
+            yield 'event: error\ndata: {"message": "GROQ_API_KEY no configurada"}\n\n'
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    # Capture data for the generator before closing over DB session
+    pauta_id_val = pauta.id
+    pauta_tipo = pauta.tipo_pauta
+    pauta_kcal = pauta.kcal_objetivo
+    pauta_distribucion = pauta.distribucion_json
+    pauta_porciones = pauta.porciones_json
+    pauta_menu_ref = pauta
+    patient_allergies = patient.allergies
+
+    async def event_stream():
+        yield f'event: status\ndata: {json.dumps({"step": "connecting", "msg": "Conectando con IA..."})}\n\n'
+        await asyncio.sleep(0)
+
+        yield f'event: status\ndata: {json.dumps({"step": "generating", "msg": "Generando ideas de menú con IA..."})}\n\n'
+        await asyncio.sleep(0)
+
+        # Build prompt (same logic as POST endpoint)
+        try:
+            distribucion = json.loads(pauta_distribucion or "{}") if pauta_distribucion else {}
+        except Exception:
+            distribucion = {}
+
+        tiempos_info = []
+        for key_t, label in _TIEMPOS_COMIDA:
+            grupos_t = distribucion.get(key_t, {})
+            grupos_activos = [(g, float(p)) for g, p in grupos_t.items() if float(p or 0) > 0]
+            if not grupos_activos:
+                continue
+            grupos_str = ", ".join(f"{_NOMBRES_GRUPOS.get(g, g)} {p:g}p" for g, p in grupos_activos)
+            tiempos_info.append(f"- {label}: {grupos_str}")
+
+        if not tiempos_info:
+            yield f'event: error\ndata: {json.dumps({"message": "Sin distribución de tiempos en la pauta"})}\n\n'
+            return
+
+        try:
+            _allergies = json.loads(patient_allergies or "[]") if patient_allergies else []
+        except Exception:
+            _allergies = []
+        allergy_line = (
+            f"\nRESTRICCIONES: alergia a {', '.join(_allergies)}. NO incluir derivados.\n"
+            if _allergies else ""
+        )
+
+        tipo_label = TIPO_LABELS.get(pauta_tipo, pauta_tipo)
+        prompt = f"""Pauta {tipo_label}, {pauta_kcal:.0f} kcal/día, paciente chileno.{allergy_line}
+
+Tiempos de comida y grupos:
+{chr(10).join(tiempos_info)}
+
+Genera dos opciones de menú para CADA tiempo listado arriba.
+Responde SOLO con JSON, sin texto antes ni después, sin markdown.
+
+Formato exacto:
+{{
+  "desayuno": {{
+    "opcion1": [{{"nombre": "Avena cocida", "cantidad": 180, "unidad": "g", "kcal_100": 71, "prot_100": 2.5, "cho_100": 12.0, "lip_100": 1.4}}],
+    "opcion2": [{{"nombre": "Pan marraqueta", "cantidad": 60, "unidad": "g", "kcal_100": 275, "prot_100": 9.0, "cho_100": 54.0, "lip_100": 2.0}}]
+  }}
+}}
+
+Reglas: solo los tiempos listados, claves exactas, 2-4 alimentos por opción, alimentos chilenos reales."""
+
+        def _call_groq():
+            from groq import Groq
+            client = Groq(api_key=api_key)
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "Eres nutricionista clínico. Respondes ÚNICAMENTE con JSON válido."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.4,
+                max_tokens=4000,
+                timeout=60,
+            )
+            return completion.choices[0].message.content.strip()
+
+        try:
+            loop = asyncio.get_event_loop()
+            raw = await loop.run_in_executor(None, _call_groq)
+
+            import re as _re
+            match = _re.search(r'\{.*\}', raw, _re.DOTALL)
+            if match:
+                raw = match.group(0)
+            menu = json.loads(raw)
+        except json.JSONDecodeError as e:
+            yield f'event: error\ndata: {json.dumps({"message": f"JSON inválido de IA: {str(e)}"})}\n\n'
+            return
+        except Exception as e:
+            yield f'event: error\ndata: {json.dumps({"message": f"Error Groq: {str(e)}"})}\n\n'
+            return
+
+        # Persist menu
+        pauta_menu_ref.menu_json = json.dumps(menu, ensure_ascii=False)
+        db.commit()
+
+        yield f'event: result\ndata: {json.dumps({"menu": menu})}\n\n'
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("", response_model=schemas.PautaResponse)

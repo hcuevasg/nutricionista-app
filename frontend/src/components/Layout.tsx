@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NetworkErrorBanner from './NetworkErrorBanner'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -10,6 +11,7 @@ interface LayoutProps {
 const menuItems = [
   { label: 'Dashboard',     path: '/dashboard', icon: '⊞' },
   { label: 'Pacientes',     path: '/patients',  icon: '◉' },
+  { label: 'Agenda',        path: '/agenda',    icon: '◷' },
   { label: 'Recetas',       path: '/recetas',   icon: '🍳' },
   { label: 'Configuración', path: '/config',    icon: '⊕' },
 ]
@@ -28,6 +30,7 @@ export default function Layout({ children, title }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-bg-light">
+      <NetworkErrorBanner />
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
