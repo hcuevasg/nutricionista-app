@@ -72,13 +72,6 @@ const bmiCategory = (bmi: number): string => {
   return 'Obesidad'
 }
 
-const bmiInsight = (bmi: number | null): string => {
-  if (!bmi) return 'Evaluación antropométrica completa. Revisar resultados con el profesional.'
-  if (bmi < 18.5) return 'Se recomienda plan de aumento de masa muscular y revisión de la ingesta calórica.'
-  if (bmi < 25) return 'Composición corporal en rangos normales. Continuar con los hábitos actuales.'
-  if (bmi < 30) return 'Se detecta sobrepeso. Orientar hacia reducción de masa grasa con plan adecuado.'
-  return 'Se registra obesidad. Plan nutricional intensivo y seguimiento periódico recomendados.'
-}
 
 // Harris-Benedict BMR
 const calcBMR = (patient: Patient, ev: Evaluation): number | null => {
@@ -512,9 +505,6 @@ export default function IsAkReportPage() {
                 <p className="text-text-muted text-sm mt-1">
                   {ageStr}{sexLabel}
                 </p>
-                <p className="text-slate-600 mt-2 text-sm leading-relaxed">
-                  {bmiInsight(bmi)}
-                </p>
               </div>
 
               {/* ISAK badge */}
@@ -665,12 +655,6 @@ export default function IsAkReportPage() {
                         <span className="text-text-muted font-medium">Densidad corporal</span>
                         <span className="font-bold text-slate-700">{fmt(ev.body_density, 4)} g/mL</span>
                       </div>
-                    </div>
-                  )}
-                  {bmi && (
-                    <div className="mt-2 p-3 rounded-lg border text-xs italic text-slate-600 leading-relaxed"
-                         style={{ backgroundColor: 'rgba(75,124,96,0.05)', borderColor: 'rgba(75,124,96,0.15)' }}>
-                      "{bmiInsight(bmi).replace('.', '.')}"
                     </div>
                   )}
                 </div>
