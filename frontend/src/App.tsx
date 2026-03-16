@@ -23,6 +23,7 @@ import RecetaFormPage from './pages/RecetaFormPage'
 import IsAkReportPage from './pages/IsAkReportPage'
 import PautaReportPage from './pages/PautaReportPage'
 import AgendaPage from './pages/AgendaPage'
+import PortalPage from './pages/PortalPage'
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/portal/:token" element={<PortalPage />} />
 
           {/* Protected routes */}
           <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

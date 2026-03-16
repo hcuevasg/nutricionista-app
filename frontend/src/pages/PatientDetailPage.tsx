@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import { api } from '../api/client'
 import Layout from '../components/Layout'
 import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 import PautasEvolutionChart from '../components/PautasEvolutionChart'
@@ -116,7 +118,9 @@ export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { token } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const [patient, setPatient] = useState<Patient | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -250,6 +254,19 @@ export default function PatientDetailPage() {
             >
               Editar
             </Link>
+            <button
+              onClick={async () => {
+                try {
+                  const data = await api.post<{ token: string }>('/portal/tokens', { patient_id: Number(id), days_valid: 30 })
+                  setShareUrl(`${window.location.origin}/portal/${data.token}`)
+                } catch {
+                  toast.error('Error al generar enlace')
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors"
+            >
+              Compartir
+            </button>
             <Link
               to={`/patients/${id}/isak`}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors"
@@ -310,12 +327,12 @@ export default function PatientDetailPage() {
         </aside>
 
         <div className="flex-1 p-6 bg-bg-light min-w-0">
-          <div className="flex gap-2 p-1 bg-border/40 rounded-xl w-fit mb-6">
+          <div className="flex gap-2 p-1 bg-border/40 rounded-xl overflow-x-auto mb-6 w-full max-w-full scrollbar-none">
             {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${
+                className={`flex-shrink-0 px-5 py-2 rounded-lg text-sm font-bold transition-colors ${
                   activeTab === tab.key ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:text-primary'
                 }`}
               >
@@ -658,6 +675,39 @@ export default function PatientDetailPage() {
           })()}
         </div>
       </div>
+      {/* Share URL modal */}
+      {shareUrl && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-base font-bold text-gray-800 mb-1">Enlace del portal</h3>
+            <p className="text-sm text-text-muted mb-4">
+              Comparte este enlace con el paciente. Es válido por 30 días.
+            </p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={shareUrl}
+                className="flex-1 text-xs border border-border rounded-lg px-3 py-2 bg-bg-light text-gray-700 font-mono truncate focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareUrl)
+                  toast.success('Enlace copiado')
+                }}
+                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors whitespace-nowrap"
+              >
+                Copiar
+              </button>
+            </div>
+            <button
+              onClick={() => setShareUrl(null)}
+              className="mt-4 w-full py-2 border border-gray-200 rounded-lg text-sm font-semibold text-text-muted hover:bg-bg-light transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
