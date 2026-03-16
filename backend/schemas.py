@@ -259,6 +259,7 @@ class PautaCreate(BaseModel):
 class PautaResponse(PautaCreate):
     id: int
     patient_id: int
+    is_active: bool = False
     created_at: datetime
 
     class Config:

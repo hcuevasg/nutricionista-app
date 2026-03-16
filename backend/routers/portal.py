@@ -113,9 +113,16 @@ async def portal_info(token: str, db: Session = Depends(get_db)):
 @router.get("/{token}/pautas", response_model=List[schemas.PautaResponse])
 async def portal_pautas(token: str, db: Session = Depends(get_db)):
     patient = _get_patient_by_token(token, db)
+    # Prefer active pauta, fallback to most recent
+    active = db.query(models.Pauta).filter(
+        models.Pauta.patient_id == patient.id,
+        models.Pauta.is_active == True,
+    ).first()
+    if active:
+        return [active]
     pautas = db.query(models.Pauta).filter(
         models.Pauta.patient_id == patient.id
-    ).order_by(models.Pauta.date.desc()).limit(5).all()
+    ).order_by(models.Pauta.date.desc()).limit(1).all()
     return pautas
 
 

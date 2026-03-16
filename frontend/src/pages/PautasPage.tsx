@@ -17,6 +17,7 @@ interface Pauta {
   prot_pct: number
   lip_pct: number
   cho_pct: number
+  is_active: boolean
   created_at: string
 }
 
@@ -40,6 +41,7 @@ export default function PautasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [activatingId, setActivatingId] = useState<number | null>(null)
   const toast = useToast()
 
   const API = import.meta.env.VITE_API_URL
@@ -58,6 +60,21 @@ export default function PautasPage() {
       .catch(() => setError('Error al cargar pautas'))
       .finally(() => setLoading(false))
   }, [id, token])
+
+  const handleSetActive = async (pautaId: number) => {
+    setActivatingId(pautaId)
+    try {
+      const res = await fetch(`${API}/pautas/${id}/${pautaId}/set-active`, { method: 'PATCH', headers: H })
+      if (res.ok) {
+        setPautas(prev => prev.map(p => ({ ...p, is_active: p.id === pautaId })))
+        toast.success('Pauta activa actualizada')
+      }
+    } catch {
+      toast.error('Error al activar pauta')
+    } finally {
+      setActivatingId(null)
+    }
+  }
 
   const handleDelete = async (pautaId: number) => {
     if (!confirm('¿Eliminar esta pauta?')) return
@@ -157,7 +174,12 @@ export default function PautasPage() {
             <tbody className="divide-y divide-gray-100">
               {pautas.map(p => (
                 <tr key={p.id} className="hover:bg-bg-light/50 transition-colors">
-                  <td className="px-4 py-3.5 text-sm font-semibold text-gray-800">{p.name}</td>
+                  <td className="px-4 py-3.5 text-sm font-semibold text-gray-800">
+                    <div className="flex items-center gap-2">
+                      {p.name}
+                      {p.is_active && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Activa</span>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3.5 text-sm text-text-muted">{p.date}</td>
                   <td className="px-4 py-3.5 text-sm text-text-muted">
                     <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">
@@ -188,6 +210,7 @@ export default function PautasPage() {
                       <Link to={`/patients/${id}/pautas/${p.id}`} className="text-primary font-medium hover:underline">Ver</Link>
                       <Link to={`/patients/${id}/pautas/${p.id}/report`} className="text-terracotta font-medium hover:underline">Informe</Link>
                       <Link to={`/patients/${id}/pautas/${p.id}/edit`} className="text-sage font-medium hover:underline">Editar</Link>
+                      {!p.is_active && <button onClick={() => handleSetActive(p.id)} disabled={activatingId === p.id} className="text-green-600 font-medium hover:underline disabled:opacity-50">Activar</button>}
                       <button onClick={() => handleDelete(p.id)} className="text-red-400 font-medium hover:underline">Eliminar</button>
                     </div>
                   </td>

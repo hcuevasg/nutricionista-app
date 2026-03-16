@@ -303,6 +303,29 @@ async def update_pauta(
     return pauta
 
 
+@router.patch("/{patient_id}/{pauta_id}/set-active")
+async def set_active_pauta(
+    patient_id: int,
+    pauta_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    # Desactivar todas las pautas del paciente
+    db.query(models.Pauta).filter(
+        models.Pauta.patient_id == patient_id
+    ).update({"is_active": False})
+    # Activar la seleccionada
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id,
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta no encontrada")
+    pauta.is_active = True
+    db.commit()
+    return {"message": "Pauta activa actualizada"}
+
+
 @router.delete("/{patient_id}/{pauta_id}")
 async def delete_pauta(
     patient_id: int,

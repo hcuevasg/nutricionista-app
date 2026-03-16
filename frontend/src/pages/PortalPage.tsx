@@ -36,7 +36,7 @@ export default function PortalPage() {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'pauta' | 'progreso'>('pauta')
+  const [activeTab, setActiveTab] = useState<'pauta' | 'menu' | 'progreso'>('pauta')
 
   useEffect(() => {
     if (!token) return
@@ -99,6 +99,12 @@ export default function PortalPage() {
             Mi Pauta
           </button>
           <button
+            onClick={() => setActiveTab('menu')}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'menu' ? 'bg-[#4b7c60] text-white' : 'text-[#6b7280] hover:text-[#4b7c60]'}`}
+          >
+            Mi Menú
+          </button>
+          <button
             onClick={() => setActiveTab('progreso')}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'progreso' ? 'bg-[#4b7c60] text-white' : 'text-[#6b7280] hover:text-[#4b7c60]'}`}
           >
@@ -142,6 +148,40 @@ export default function PortalPage() {
             )}
           </>
         )}
+
+        {activeTab === 'menu' && (() => {
+          const menuRaw = latestPauta?.menu_json
+          let menuData: Record<string, { opcion1?: string; opcion2?: string }> = {}
+          try { if (menuRaw) menuData = JSON.parse(menuRaw) } catch {}
+          const tiempos = ['desayuno','colacion1','almuerzo','colacion2','once','cena']
+          const labels: Record<string, string> = { desayuno:'Desayuno', colacion1:'Colación 1', almuerzo:'Almuerzo', colacion2:'Colación 2', once:'Once', cena:'Cena' }
+          const entries = tiempos.filter(t => menuData[t])
+          return !latestPauta ? (
+            <div className="bg-white rounded-xl border border-[#E5EAE7] p-8 text-center text-[#6b7280]">Tu nutricionista aún no ha creado una pauta.</div>
+          ) : entries.length === 0 ? (
+            <div className="bg-white rounded-xl border border-[#E5EAE7] p-8 text-center text-[#6b7280]">El menú aún no ha sido generado.</div>
+          ) : (
+            <div className="space-y-3">
+              {entries.map(t => {
+                const entry = menuData[t] as Record<string, unknown>
+                const fmt = (op: unknown) => {
+                  if (!op || op === '') return null
+                  if (typeof op === 'string') return op
+                  if (Array.isArray(op)) return op.map((item: Record<string, unknown>) => `${item.alimento ?? ''} ${item.cantidad ?? ''}${item.medida ? ' (' + item.medida + ')' : ''}`).filter(Boolean).join(', ')
+                  return null
+                }
+                return (
+                  <div key={t} className="bg-white rounded-xl border border-[#E5EAE7] p-4">
+                    <h4 className="font-bold text-[#4b7c60] mb-2">{labels[t]}</h4>
+                    {fmt(entry.opcion1) && <p className="text-sm text-gray-700 mb-1"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 1:</span>{fmt(entry.opcion1)}</p>}
+                    {fmt(entry.opcion2) && <p className="text-sm text-gray-700"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 2:</span>{fmt(entry.opcion2)}</p>}
+                    {entry.receta && <p className="text-sm text-[#c06c52] mt-1">🍳 {(entry.receta as Record<string, unknown>).nombre as string}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {activeTab === 'progreso' && (
           <>
