@@ -85,6 +85,10 @@ async def lifespan(app: FastAPI):
         "ALTER TABLE anthropometrics ADD COLUMN IF NOT EXISTS isak_level VARCHAR(20)",
         # patients
         "ALTER TABLE patients ADD COLUMN IF NOT EXISTS allergies TEXT",
+        # nutritionists — branding fields
+        "ALTER TABLE nutritionists ADD COLUMN IF NOT EXISTS clinic_name VARCHAR(255)",
+        "ALTER TABLE nutritionists ADD COLUMN IF NOT EXISTS report_tagline VARCHAR(500)",
+        "ALTER TABLE nutritionists ADD COLUMN IF NOT EXISTS logo_base64 TEXT",
         # pautas
         "ALTER TABLE pautas ADD COLUMN IF NOT EXISTS menu_json TEXT",
         # antecedentes
