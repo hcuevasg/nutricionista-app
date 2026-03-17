@@ -6,6 +6,9 @@ migrations = [
     ("clinic_name",    "ALTER TABLE nutritionists ADD COLUMN clinic_name VARCHAR(255)"),
     ("report_tagline", "ALTER TABLE nutritionists ADD COLUMN report_tagline VARCHAR(500)"),
     ("logo_base64",    "ALTER TABLE nutritionists ADD COLUMN logo_base64 TEXT"),
+    ("observacion_nutricionista_previo", "ALTER TABLE antecedentes ADD COLUMN observacion_nutricionista_previo TEXT"),
+    ("observacion_actividad_fisica", "ALTER TABLE antecedentes ADD COLUMN observacion_actividad_fisica TEXT"),
+    ("ejercicio_objetivo", "ALTER TABLE antecedentes ADD COLUMN ejercicio_objetivo TEXT"),
 ]
 
 with engine.connect() as conn:
