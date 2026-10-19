@@ -196,3 +196,20 @@ def test_ai_suggest_error_is_generic(auth_client, pauta_ids, anthropic_key, monk
     resp = auth_client.post(f"/pautas/{pid}/{pauta_id}/ai-suggest")
     assert resp.status_code == 429
     assert "límite" in resp.json()["detail"]
+
+
+def test_pauta_pdf_with_menu(auth_client, pauta_ids):
+    pid, pauta_id = pauta_ids
+    menu = {"desayuno": TIEMPO, "cena": {**TIEMPO, "receta": {"id": 1, "nombre": "Guiso <casero>"}}}
+    assert auth_client.patch(f"/pautas/{pid}/{pauta_id}/menu", json={"menu": menu}).status_code == 200
+    resp = auth_client.get(f"/pautas/{pid}/{pauta_id}/pdf")
+    assert resp.status_code == 200
+    assert resp.content.startswith(b"%PDF")
+
+
+def test_pdf_pauta_number_format():
+    import pdf_pauta
+    assert pdf_pauta._num(1925.4) == "1.925"
+    assert pdf_pauta._num(22.34, 1) == "22,3"
+    assert pdf_pauta._porc(0.5) == "0,5" and pdf_pauta._porc(3.0) == "3"
+    assert pdf_pauta._fecha_larga("2026-06-28") == "28 de junio de 2026"
