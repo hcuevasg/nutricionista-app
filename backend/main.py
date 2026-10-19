@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from collections import defaultdict
 from datetime import datetime, timedelta
 import os
+import re
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -264,22 +265,43 @@ app.add_middleware(
 
 # ── Rate limiting (in-memory, per IP) ────────────────────────────────────────
 _rate_store: dict[str, list[datetime]] = defaultdict(list)
-RATE_LIMIT_ROUTES = {"/auth/login", "/auth/register"}
 RATE_WINDOW = 60   # seconds
-RATE_MAX    = 10   # requests per window
+# (bucket, regex de ruta, máximo de requests por ventana y por IP)
+RATE_LIMIT_RULES = [
+    ("auth",   re.compile(r"^/auth/(login|register)$"), 10),
+    ("ai",     re.compile(r"^/pautas/\d+/\d+/(generar-menu|generar-menu-stream|ai-suggest)$"), 10),
+    # Portal público: 3 requests por carga de página
+    ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations))?$"), 60),
+]
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+
+
+def _client_ip(request: Request) -> str:
+    # El proxy de Railway agrega la IP real al final de X-Forwarded-For; las
+    # entradas anteriores las controla el cliente y se pueden falsificar.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    if RATE_LIMIT_ENABLED and request.url.path in RATE_LIMIT_ROUTES:
-        forwarded = request.headers.get("x-forwarded-for")
-        ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
-        now = datetime.utcnow()
-        window_start = now - timedelta(seconds=RATE_WINDOW)
-        _rate_store[ip] = [t for t in _rate_store[ip] if t > window_start]
-        if len(_rate_store[ip]) >= RATE_MAX:
-            return JSONResponse(status_code=429, content={"detail": "Demasiados intentos. Espera un momento."})
-        _rate_store[ip].append(now)
+    if RATE_LIMIT_ENABLED and request.method != "OPTIONS":
+        path = request.url.path
+        for bucket, pattern, max_requests in RATE_LIMIT_RULES:
+            if not pattern.match(path):
+                continue
+            key = f"{bucket}:{_client_ip(request)}"
+            now = datetime.utcnow()
+            window_start = now - timedelta(seconds=RATE_WINDOW)
+            hits = [t for t in _rate_store[key] if t > window_start]
+            if len(hits) >= max_requests:
+                _rate_store[key] = hits
+                return JSONResponse(status_code=429, content={"detail": "Demasiadas solicitudes. Espera un momento."})
+            hits.append(now)
+            _rate_store[key] = hits
+            break
     return await call_next(request)
 
 # Include routers
