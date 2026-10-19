@@ -1,5 +1,5 @@
 """Pautas de alimentación routes."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
@@ -7,8 +7,12 @@ import io
 import json
 import asyncio
 
+import logging
+
 import models, schemas, auth
-from database import get_db
+from database import get_db, SessionLocal
+
+logger = logging.getLogger(__name__)
 
 # ── Food group data (mirrored from frontend) ──────────────────────────────
 
@@ -71,44 +75,30 @@ async def ai_status(
 async def generar_menu_stream(
     patient_id: int,
     pauta_id: int,
-    token: str = Query(..., description="JWT token para autenticar SSE"),
     db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
-    """SSE endpoint for AI menu generation. Token passed as query param (EventSource limitation)."""
+    """SSE endpoint for AI menu generation. El frontend lo consume con fetch +
+    ReadableStream para poder enviar el JWT en el header Authorization."""
     import os
-    from auth import decode_token
 
-    # Validate token manually (EventSource can't send headers)
-    payload = decode_token(token)
-    if not payload:
-        async def _err():
-            yield 'event: error\ndata: {"message": "Token inválido"}\n\n'
-        return StreamingResponse(_err(), media_type="text/event-stream")
-
-    nutritionist_id = int(payload.get("sub", 0))
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
-        models.Patient.nutritionist_id == nutritionist_id
+        models.Patient.nutritionist_id == current_user.id
     ).first()
     if not patient:
-        async def _err():
-            yield 'event: error\ndata: {"message": "Paciente no encontrado"}\n\n'
-        return StreamingResponse(_err(), media_type="text/event-stream")
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
     pauta = db.query(models.Pauta).filter(
         models.Pauta.id == pauta_id,
         models.Pauta.patient_id == patient_id
     ).first()
     if not pauta:
-        async def _err():
-            yield 'event: error\ndata: {"message": "Pauta no encontrada"}\n\n'
-        return StreamingResponse(_err(), media_type="text/event-stream")
+        raise HTTPException(status_code=404, detail="Pauta no encontrada")
 
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        async def _err():
-            yield 'event: error\ndata: {"message": "GROQ_API_KEY no configurada"}\n\n'
-        return StreamingResponse(_err(), media_type="text/event-stream")
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada")
 
     # Capture data for the generator before closing over DB session
     pauta_id_val = pauta.id
@@ -116,7 +106,6 @@ async def generar_menu_stream(
     pauta_kcal = pauta.kcal_objetivo
     pauta_distribucion = pauta.distribucion_json
     pauta_porciones = pauta.porciones_json
-    pauta_menu_ref = pauta
     patient_allergies = patient.allergies
 
     async def event_stream():
@@ -197,16 +186,25 @@ Reglas: solo los tiempos listados, claves exactas, 2-4 alimentos por opción, al
             if match:
                 raw = match.group(0)
             menu = json.loads(raw)
-        except json.JSONDecodeError as e:
-            yield f'event: error\ndata: {json.dumps({"message": f"JSON inválido de IA: {str(e)}"})}\n\n'
+        except json.JSONDecodeError:
+            logger.exception("Respuesta IA no es JSON válido (pauta %s)", pauta_id_val)
+            yield f'event: error\ndata: {json.dumps({"message": "La IA devolvió una respuesta inválida. Intenta de nuevo."})}\n\n'
             return
-        except Exception as e:
-            yield f'event: error\ndata: {json.dumps({"message": f"Error Groq: {str(e)}"})}\n\n'
+        except Exception:
+            logger.exception("Error llamando a Groq (pauta %s)", pauta_id_val)
+            yield f'event: error\ndata: {json.dumps({"message": "No se pudo generar el menú con IA. Intenta de nuevo."})}\n\n'
             return
 
-        # Persist menu
-        pauta_menu_ref.menu_json = json.dumps(menu, ensure_ascii=False)
-        db.commit()
+        # Persist menu con una sesión propia: la sesión de la request puede estar
+        # cerrada mientras se transmite la respuesta.
+        stream_db = SessionLocal()
+        try:
+            stream_db.query(models.Pauta).filter(models.Pauta.id == pauta_id_val).update(
+                {"menu_json": json.dumps(menu, ensure_ascii=False)}
+            )
+            stream_db.commit()
+        finally:
+            stream_db.close()
 
         yield f'event: result\ndata: {json.dumps({"menu": menu})}\n\n'
 
@@ -518,10 +516,12 @@ Reglas:
             raw = match.group(0)
 
         menu = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"La IA no retornó un JSON válido: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al conectar con Groq: {str(e)}")
+    except json.JSONDecodeError:
+        logger.exception("Respuesta IA no es JSON válido (pauta %s)", pauta_id)
+        raise HTTPException(status_code=502, detail="La IA devolvió una respuesta inválida. Intenta de nuevo.")
+    except Exception:
+        logger.exception("Error llamando a Groq (pauta %s)", pauta_id)
+        raise HTTPException(status_code=502, detail="No se pudo generar el menú con IA. Intenta de nuevo.")
 
     pauta.menu_json = json.dumps(menu, ensure_ascii=False)
     db.commit()
@@ -613,8 +613,9 @@ Responde en español, de forma directa y profesional. Máximo 250 palabras."""
             max_tokens=800,
         )
         suggestions = completion.choices[0].message.content.strip()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al conectar con Groq: {str(e)}")
+    except Exception:
+        logger.exception("Error llamando a Groq para sugerencias")
+        raise HTTPException(status_code=502, detail="No se pudieron generar sugerencias con IA. Intenta de nuevo.")
 
     return {"suggestions": suggestions, "evals_count": len(evals)}
 

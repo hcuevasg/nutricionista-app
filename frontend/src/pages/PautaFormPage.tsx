@@ -435,46 +435,49 @@ export default function PautaFormPage() {
     }
   }
 
-  const handleGenerarMenu = () => {
+  const handleGenerarMenu = async () => {
     if (!pautaId || !token) return
     setGeneratingMenu(true); setError(null); setSseStatus('Conectando...')
 
-    const url = `${API}/pautas/${id}/${pautaId}/generar-menu-stream?token=${encodeURIComponent(token)}`
-    const es = new EventSource(url)
+    // fetch + ReadableStream en vez de EventSource: así el JWT va en el header
+    // Authorization y no en la URL (donde quedaría en logs de proxies).
+    const handleEvent = (event: string, raw: string): boolean => {
+      const data = JSON.parse(raw || '{}')
+      if (event === 'status') { setSseStatus(data.msg ?? ''); return false }
+      if (event === 'result') { setMenu(data.menu ?? {}); return true }
+      if (event === 'error') { setError(data.message ?? 'Error al generar menú'); return true }
+      return false
+    }
 
-    es.addEventListener('status', (e: MessageEvent) => {
-      setSseStatus(e.data)
-    })
-
-    es.addEventListener('result', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data)
-        setMenu(data.menu ?? {})
-      } catch {
-        setError('Error al procesar la respuesta')
+    try {
+      const res = await fetch(`${API}/pautas/${id}/${pautaId}/generar-menu-stream`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+      })
+      if (!res.ok || !res.body) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.detail ?? `Error ${res.status}`)
       }
-      es.close(); setGeneratingMenu(false); setSseStatus('')
-    })
-
-    es.addEventListener('error', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data ?? '{}')
-        setError(data.detail ?? 'Error al generar menú')
-      } catch {
-        setError('Error al generar menú')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let done = false
+      while (!done) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        buffer += decoder.decode(chunk.value, { stream: true })
+        const blocks = buffer.split('\n\n')
+        buffer = blocks.pop() ?? ''
+        for (const block of blocks) {
+          const event = /^event: (.*)$/m.exec(block)?.[1] ?? 'message'
+          const data = /^data: (.*)$/m.exec(block)?.[1] ?? ''
+          if (handleEvent(event, data)) { done = true; break }
+        }
       }
-      es.close(); setGeneratingMenu(false); setSseStatus('')
-    })
-
-    es.onerror = () => {
-      // Fallback al POST si SSE falla
-      es.close()
-      setSseStatus('Reintentando...')
-      fetch(`${API}/pautas/${id}/${pautaId}/generar-menu`, { method: 'POST', headers: H })
-        .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(new Error(d.detail ?? `Error ${r.status}`))))
-        .then(data => setMenu(data.menu ?? {}))
-        .catch(err => setError(err instanceof Error ? err.message : 'Error al generar menú'))
-        .finally(() => { setGeneratingMenu(false); setSseStatus('') })
+      if (done) reader.cancel().catch(() => {})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al generar menú')
+    } finally {
+      setGeneratingMenu(false); setSseStatus('')
     }
   }
 
