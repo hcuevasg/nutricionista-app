@@ -8,6 +8,7 @@ from datetime import datetime
 import models
 import auth
 from database import get_db
+from http_utils import attachment
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -116,5 +117,5 @@ async def download_backup(
     filename = f"nutriapp_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
     return JSONResponse(
         content=data,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers=attachment(filename),
     )

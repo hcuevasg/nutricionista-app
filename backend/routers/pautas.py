@@ -12,6 +12,7 @@ import ai_service
 import models, schemas, auth
 from ai_service import AIError, TIPO_LABELS, NOMBRES_GRUPOS as _NOMBRES_GRUPOS, TIEMPOS_COMIDA as _TIEMPOS_COMIDA
 from database import get_db, SessionLocal
+from http_utils import attachment
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +313,7 @@ async def download_pauta_pdf(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers=attachment(filename),
     )
 
 

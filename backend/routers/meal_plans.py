@@ -9,6 +9,7 @@ import models
 import schemas
 import auth
 from database import get_db
+from http_utils import attachment
 
 
 def _hex(h: str):
@@ -319,7 +320,7 @@ async def download_meal_plan_pdf(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers=attachment(filename),
     )
 
 
