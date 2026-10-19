@@ -260,11 +260,11 @@ export default function DashboardPage() {
           {/* Proximas consultas */}
           <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-gray-800">Proximas consultas</h3>
+              <h3 className="text-base font-bold text-gray-800">Próximas consultas</h3>
               <Link to="/agenda" className="text-xs text-primary font-semibold hover:underline">Ver agenda →</Link>
             </div>
             {upcomingAppts.length === 0 ? (
-              <p className="text-sm text-text-muted text-center py-3">Sin consultas proximas.</p>
+              <p className="text-sm text-text-muted text-center py-3">Sin consultas próximas.</p>
             ) : (
               <ul className="space-y-3">
                 {upcomingAppts.map(appt => {

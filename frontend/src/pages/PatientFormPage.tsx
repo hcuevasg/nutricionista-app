@@ -202,7 +202,7 @@ export default function PatientFormPage() {
               <input
                 type="text"
                 readOnly
-                value={age != null ? `${age} anos` : '--'}
+                value={age != null ? `${age} años` : '--'}
                 className={`${INPUT} bg-bg-light text-text-muted cursor-not-allowed`}
               />
             </div>
@@ -221,7 +221,7 @@ export default function PatientFormPage() {
               </select>
             </div>
             <div>
-              <label className={LABEL}>Ocupacion</label>
+              <label className={LABEL}>Ocupación</label>
               <input
                 type="text"
                 value={form.occupation}
@@ -273,7 +273,7 @@ export default function PatientFormPage() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={LABEL}>Telefono</label>
+              <label className={LABEL}>Teléfono</label>
               <input
                 type="tel"
                 value={form.phone}
@@ -283,7 +283,7 @@ export default function PatientFormPage() {
               />
             </div>
             <div>
-              <label className={LABEL}>Correo electronico</label>
+              <label className={LABEL}>Correo electrónico</label>
               <input
                 type="email"
                 value={form.email}
@@ -294,13 +294,13 @@ export default function PatientFormPage() {
             </div>
           </div>
           <div>
-            <label className={LABEL}>Direccion</label>
+            <label className={LABEL}>Dirección</label>
             <input
               type="text"
               value={form.address}
               onChange={(e) => set('address', e.target.value)}
               className={INPUT}
-              placeholder="Calle, numero, ciudad"
+              placeholder="Calle, número, ciudad"
             />
           </div>
         </section>

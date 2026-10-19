@@ -403,13 +403,13 @@ export default function IsAkPage() {
           {/* Edit banner */}
           {editingEvalId && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm font-medium">
-              Editando evaluacion del {form.date}
+              Editando evaluación del {form.date}
             </div>
           )}
 
           <div className="flex justify-between items-center">
             <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">
-              {editingEvalId ? 'Editar Evaluacion' : 'Nueva Evaluacion'}
+              {editingEvalId ? 'Editar evaluación' : 'Nueva evaluación'}
             </h3>
             <button onClick={closeForm} className="border border-border hover:bg-bg-light text-gray-700 px-4 py-2 rounded-lg font-medium text-sm">Cancelar</button>
           </div>
@@ -440,9 +440,9 @@ export default function IsAkPage() {
             <div className="space-y-4">
 
               {/* Datos basicos */}
-              <CollapsibleSection title="Datos Basicos" sectionKey="basicos" collapsed={collapsedSections} toggle={toggleSection}>
+              <CollapsibleSection title="Datos básicos" sectionKey="basicos" collapsed={collapsedSections} toggle={toggleSection}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <Field label="Fecha sesion *" value={form.date} onChange={v => set('date', v)} type="date" cols={3} />
+                  <Field label="Fecha sesión *" value={form.date} onChange={v => set('date', v)} type="date" cols={3} />
                   <Field label="Peso (kg)" value={form.weight_kg} onChange={v => set('weight_kg', v)} placeholder="70.0" />
                   <Field label="Talla (cm)" value={form.height_cm} onChange={v => set('height_cm', v)} placeholder="170.0" />
                   <Field label="Cintura min. (cm)" value={form.waist_cm} onChange={v => set('waist_cm', v)} placeholder="80.0" />
@@ -450,24 +450,24 @@ export default function IsAkPage() {
               </CollapsibleSection>
 
               {/* Perimetros */}
-              <CollapsibleSection title="Perimetros (cm)" sectionKey="perimetros" collapsed={collapsedSections} toggle={toggleSection}>
+              <CollapsibleSection title="Perímetros (cm)" sectionKey="perimetros" collapsed={collapsedSections} toggle={toggleSection}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Field label="Brazo relajado (BR)" value={form.arm_relaxed_cm} onChange={v => set('arm_relaxed_cm', v)} />
                   <Field label="Brazo contraido (BC)" value={form.arm_contracted_cm} onChange={v => set('arm_contracted_cm', v)} />
                   <Field label='Cadera "gluteo"' value={form.hip_glute_cm} onChange={v => set('hip_glute_cm', v)} />
-                  <Field label="Muslo maximo" value={form.thigh_max_cm} onChange={v => set('thigh_max_cm', v)} />
+                  <Field label="Muslo máximo" value={form.thigh_max_cm} onChange={v => set('thigh_max_cm', v)} />
                   <Field label="Muslo medio" value={form.thigh_mid_cm} onChange={v => set('thigh_mid_cm', v)} />
                   <Field label="Pantorrilla" value={form.calf_cm} onChange={v => set('calf_cm', v)} />
                 </div>
               </CollapsibleSection>
 
               {/* Pliegues cutaneos */}
-              <CollapsibleSection title="Pliegues Cutaneos (mm)" sectionKey="pliegues" collapsed={collapsedSections} toggle={toggleSection}>
+              <CollapsibleSection title="Pliegues cutáneos (mm)" sectionKey="pliegues" collapsed={collapsedSections} toggle={toggleSection}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Field label="Triceps (D&W *)" value={form.triceps_mm} onChange={v => set('triceps_mm', v)} highlight />
                   <Field label="Subescapular (D&W *)" value={form.subscapular_mm} onChange={v => set('subscapular_mm', v)} highlight />
                   <Field label="Biceps (D&W *)" value={form.biceps_mm} onChange={v => set('biceps_mm', v)} highlight />
-                  <Field label="Cresta iliaca (D&W *)" value={form.iliac_crest_mm} onChange={v => set('iliac_crest_mm', v)} highlight />
+                  <Field label="Cresta ilíaca (D&W *)" value={form.iliac_crest_mm} onChange={v => set('iliac_crest_mm', v)} highlight />
                   <Field label="Supraespinal (S6 *)" value={form.supraspinal_mm} onChange={v => set('supraspinal_mm', v)} />
                   <Field label="Abdominal (S6 *)" value={form.abdominal_mm} onChange={v => set('abdominal_mm', v)} />
                   <Field label="Muslo medial (S6 *)" value={form.medial_thigh_mm} onChange={v => set('medial_thigh_mm', v)} />
@@ -480,57 +480,57 @@ export default function IsAkPage() {
 
               {/* Diametros oseos -- ISAK 1 (ISAK 2 los incluye en su seccion completa) */}
               {form.isak_level === 'ISAK 1' && (
-                <CollapsibleSection title="Diametros Oseos (cm)" sectionKey="diametros1" collapsed={collapsedSections} toggle={toggleSection}>
+                <CollapsibleSection title="Diámetros óseos (cm)" sectionKey="diametros1" collapsed={collapsedSections} toggle={toggleSection}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <Field label="Humero bicondileo" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
-                    <Field label="Muneca biestiloideo (4C *)" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
-                    <Field label="Femur bicondileo (4C *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
+                    <Field label="Húmero biepicondilar" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
+                    <Field label="Muñeca biestiloideo (4C *)" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
+                    <Field label="Fémur bicondilar (4C *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
                   </div>
-                  <p className="text-xs text-text-muted mt-2">4C * = requeridos para la composicion en 4 componentes del informe</p>
+                  <p className="text-xs text-text-muted mt-2">4C * = requeridos para la composición en 4 componentes del informe</p>
                 </CollapsibleSection>
               )}
 
               {/* ISAK 2 extra */}
               {form.isak_level === 'ISAK 2' && (
                 <>
-                  <CollapsibleSection title="Pliegues Adicionales (mm) -- ISAK 2" sectionKey="pliegues2" collapsed={collapsedSections} toggle={toggleSection}>
+                  <CollapsibleSection title="Pliegues adicionales (mm) — ISAK 2" sectionKey="pliegues2" collapsed={collapsedSections} toggle={toggleSection}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <Field label="Pectoral (torax)" value={form.pectoral_mm} onChange={v => set('pectoral_mm', v)} />
+                      <Field label="Pectoral (tórax)" value={form.pectoral_mm} onChange={v => set('pectoral_mm', v)} />
                       <Field label="Axilar medio" value={form.axillary_mm} onChange={v => set('axillary_mm', v)} />
                       <Field label="Muslo anterior" value={form.front_thigh_mm} onChange={v => set('front_thigh_mm', v)} />
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Perimetros Adicionales (cm) -- ISAK 2" sectionKey="perimetros2" collapsed={collapsedSections} toggle={toggleSection}>
+                  <CollapsibleSection title="Perímetros adicionales (cm) — ISAK 2" sectionKey="perimetros2" collapsed={collapsedSections} toggle={toggleSection}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Cabeza" value={form.head_cm} onChange={v => set('head_cm', v)} />
                       <Field label="Cuello" value={form.neck_cm} onChange={v => set('neck_cm', v)} />
-                      <Field label="Torax mesoesternal" value={form.chest_cm} onChange={v => set('chest_cm', v)} />
-                      <Field label="Tobillo minimo" value={form.ankle_min_cm} onChange={v => set('ankle_min_cm', v)} />
+                      <Field label="Tórax mesoesternal" value={form.chest_cm} onChange={v => set('chest_cm', v)} />
+                      <Field label="Tobillo mínimo" value={form.ankle_min_cm} onChange={v => set('ankle_min_cm', v)} />
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Diametros Oseos (cm) -- ISAK 2" sectionKey="diametros" collapsed={collapsedSections} toggle={toggleSection}>
+                  <CollapsibleSection title="Diámetros óseos (cm) — ISAK 2" sectionKey="diametros" collapsed={collapsedSections} toggle={toggleSection}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <Field label="Humero bicondileo (HC *)" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
-                      <Field label="Femur bicondileo (HC *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
+                      <Field label="Húmero biepicondilar (HC *)" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
+                      <Field label="Fémur bicondilar (HC *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
                       <Field label="Biacromial" value={form.biacromial_cm} onChange={v => set('biacromial_cm', v)} />
                       <Field label="Biiliocrestal" value={form.biiliocrestal_cm} onChange={v => set('biiliocrestal_cm', v)} />
-                      <Field label="Ant-post. torax" value={form.ap_chest_cm} onChange={v => set('ap_chest_cm', v)} />
-                      <Field label="Transv. torax" value={form.transv_chest_cm} onChange={v => set('transv_chest_cm', v)} />
+                      <Field label="Tórax anteroposterior" value={form.ap_chest_cm} onChange={v => set('ap_chest_cm', v)} />
+                      <Field label="Tórax transverso" value={form.transv_chest_cm} onChange={v => set('transv_chest_cm', v)} />
                       <Field label="Longitud pie" value={form.foot_length_cm} onChange={v => set('foot_length_cm', v)} />
-                      <Field label="Muneca biestiloideo" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
+                      <Field label="Muñeca biestiloideo" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
                       <Field label="Tobillo bimaleolar" value={form.ankle_bimalleolar_cm} onChange={v => set('ankle_bimalleolar_cm', v)} />
                     </div>
                     <p className="text-xs text-text-muted mt-2">HC * = requeridos para somatotipo Heath &amp; Carter</p>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Longitudes (cm) -- ISAK 2" sectionKey="longitudes" collapsed={collapsedSections} toggle={toggleSection}>
+                  <CollapsibleSection title="Longitudes (cm) — ISAK 2" sectionKey="longitudes" collapsed={collapsedSections} toggle={toggleSection}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <Field label="Acromio-radial" value={form.acromion_radial_cm} onChange={v => set('acromion_radial_cm', v)} />
                       <Field label="Radio-estiloide" value={form.radial_styloid_cm} onChange={v => set('radial_styloid_cm', v)} />
                       <Field label="Iliospinal (pierna)" value={form.iliospinal_height_cm} onChange={v => set('iliospinal_height_cm', v)} />
-                      <Field label="Trocanter-tibial" value={form.trochanter_tibial_cm} onChange={v => set('trochanter_tibial_cm', v)} />
+                      <Field label="Trocantéreo-tibial" value={form.trochanter_tibial_cm} onChange={v => set('trochanter_tibial_cm', v)} />
                       <Field label="Tibiale (altura tibia)" value={form.tibiale_height_cm} onChange={v => set('tibiale_height_cm', v)} />
                       <Field label="Envergadura (arm span)" value={form.arm_span_cm} onChange={v => set('arm_span_cm', v)} />
                     </div>
@@ -564,14 +564,14 @@ export default function IsAkPage() {
                   <ResultCard label="Masa grasa (kg)" value={`${result.fat_mass_kg} kg`} />
                   <ResultCard label="Masa magra (kg)" value={`${result.lean_mass_kg} kg`} highlight />
                   {bmi != null && <ResultCard label="IMC / Body Mass Index" value={`${bmi}`} sub={bmiCategory(bmiRaw(pf(form.weight_kg), pf(form.height_cm))!)} />}
-                  {whtr != null && <ResultCard label="Indice Cin./Talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
-                  {amb != null && <ResultCard label="Area Musc. Brazo" value={`${amb} cm2`} />}
+                  {whtr != null && <ResultCard label="Índice cintura/talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
+                  {amb != null && <ResultCard label="Área muscular del brazo" value={`${amb} cm2`} />}
                   {waistHipRatio != null && <ResultCard label="Coc. Cintura-Cadera" value={`${waistHipRatio}`} />}
-                  {adiposeMuscular != null && <ResultCard label="Coc. Adiposo-Muscular" value={`${adiposeMuscular}`} />}
-                  {conicityIdx != null && <ResultCard label="Indice de Conicidad" value={`${conicityIdx}`} />}
+                  {adiposeMuscular != null && <ResultCard label="Cociente adiposo-muscular" value={`${adiposeMuscular}`} />}
+                  {conicityIdx != null && <ResultCard label="Índice de conicidad" value={`${conicityIdx}`} />}
                   {age && (
                     <p className="text-xs text-text-muted pt-1">
-                      Edad: {age} anos | Sexo: {patient?.sex}
+                      Edad: {age} años | Sexo: {patient?.sex}
                     </p>
                   )}
                 </div>
@@ -602,23 +602,23 @@ export default function IsAkPage() {
 
                   <div className="mt-4 space-y-2">
                     <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
-                      Indices ISAK 2
+                      Índices ISAK 2
                     </h4>
                     <div className="space-y-1.5">
-                      {boneMass != null && <ResultCard label="Masa Osea (Martin 1990)" value={`${boneMass} kg`} />}
-                      {muscleBone != null && <ResultCard label="Indice Musculo Oseo (IMO)" value={`${muscleBone}`} highlight />}
+                      {boneMass != null && <ResultCard label="Masa ósea (Martin 1990)" value={`${boneMass} kg`} />}
+                      {muscleBone != null && <ResultCard label="Índice músculo-óseo (IMO)" value={`${muscleBone}`} highlight />}
                       {iresUpper != null && <ResultCard label="I.R.E.S. Superior" value={`${iresUpper}`} />}
                       {iresLower != null && <ResultCard label="I.R.E.S. Inferior" value={`${iresLower}`} />}
-                      {intermembral != null && <ResultCard label="Indice Intermembral" value={`${intermembral}`} />}
-                      {brachial != null && <ResultCard label="Indice Braquial" value={`${brachial}`} />}
-                      {crural != null && <ResultCard label="Indice Crural" value={`${crural}`} />}
-                      {cormic != null && <ResultCard label="Indice Cormico" value={`${cormic}`} />}
-                      {skeletal != null && <ResultCard label="Indice Esqueletico (Manouvrier)" value={`${skeletal}`} />}
-                      {acromioIliac != null && <ResultCard label="Indice Acromio-Iliaco" value={`${acromioIliac}`} />}
-                      {wingspan != null && <ResultCard label="Envergadura Relativa" value={`${wingspan}`} />}
+                      {intermembral != null && <ResultCard label="Índice intermembral" value={`${intermembral}`} />}
+                      {brachial != null && <ResultCard label="Índice braquial" value={`${brachial}`} />}
+                      {crural != null && <ResultCard label="Índice crural" value={`${crural}`} />}
+                      {cormic != null && <ResultCard label="Índice córmico" value={`${cormic}`} />}
+                      {skeletal != null && <ResultCard label="Índice esquelético (Manouvrier)" value={`${skeletal}`} />}
+                      {acromioIliac != null && <ResultCard label="Índice acromio-ilíaco" value={`${acromioIliac}`} />}
+                      {wingspan != null && <ResultCard label="Envergadura relativa" value={`${wingspan}`} />}
                       {boneMass == null && muscleBone == null && iresUpper == null && cormic == null && (
                         <div className="text-xs text-text-muted bg-bg-light rounded-lg p-3">
-                          Completa longitudes y diametros oseos para ver los indices ISAK 2.
+                          Completa longitudes y diámetros óseos para ver los índices ISAK 2.
                         </div>
                       )}
                     </div>
@@ -650,7 +650,7 @@ export default function IsAkPage() {
               onClick={handleSave} disabled={saving || !result}
               className="flex-1 bg-primary hover:bg-primary-dark text-white px-4 py-3 rounded-lg font-medium disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : editingEvalId ? 'Actualizar evaluacion' : 'Guardar evaluacion'}
+              {saving ? 'Guardando...' : editingEvalId ? 'Actualizar evaluación' : 'Guardar evaluación'}
             </button>
             <button
               onClick={closeForm}
@@ -672,7 +672,7 @@ export default function IsAkPage() {
             onClick={() => { setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all"
           >
-            + Nueva evaluacion
+            + Nueva evaluación
           </button>
         </div>
       )}
@@ -785,7 +785,7 @@ export default function IsAkPage() {
               onClick={() => { setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
               className="inline-block bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl font-bold"
             >
-              + Crear primera evaluacion
+              + Crear primera evaluación
             </button>
           </div>
         ) : (

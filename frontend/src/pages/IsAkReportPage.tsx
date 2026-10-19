@@ -375,7 +375,7 @@ export default function IsAkReportPage() {
     ['Pantorrilla Máx.', ev.max_calf_mm],
     ...(isak2 ? [
       ['Pectoral', ev.pectoral_mm] as [string, number | undefined],
-      ['Axilar Medio', ev.axillary_mm] as [string, number | undefined],
+      ['Axilar medio', ev.axillary_mm] as [string, number | undefined],
       ['Muslo Anterior', ev.front_thigh_mm] as [string, number | undefined],
     ] : []),
   ]
