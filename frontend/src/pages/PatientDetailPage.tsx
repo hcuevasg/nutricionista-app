@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { api } from '../api/client'
+import { api, apiErrorMessage } from '../api/client'
 import Layout from '../components/Layout'
 import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 import PautasEvolutionChart from '../components/PautasEvolutionChart'
@@ -98,6 +98,8 @@ function bmiBadge(bmiExact: number): { label: string; color: string } {
   return { label, color }
 }
 
+interface PortalLink { id: number; token: string; patient_id: number; expires_at: string; created_at: string }
+
 type TabKey = 'basico' | 'pliegues' | 'resultados'
 
 export default function PatientDetailPage() {
@@ -105,7 +107,47 @@ export default function PatientDetailPage() {
   const { token } = useAuth()
   const toast = useToast()
   const [patient, setPatient] = useState<Patient | null>(null)
-  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [portalOpen, setPortalOpen] = useState(false)
+  const [portalLinks, setPortalLinks] = useState<PortalLink[] | null>(null)
+  const [portalBusy, setPortalBusy] = useState(false)
+
+  const portalUrl = (t: string) => `${window.location.origin}/portal/${t}`
+
+  const loadPortalLinks = async () => {
+    try {
+      setPortalLinks(await api.get<PortalLink[]>('/portal/tokens', { patient_id: Number(id) }))
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudieron cargar los enlaces'))
+      setPortalLinks([])
+    }
+  }
+
+  const openPortal = () => { setPortalOpen(true); setPortalLinks(null); loadPortalLinks() }
+
+  const createPortalLink = async () => {
+    setPortalBusy(true)
+    try {
+      const link = await api.post<PortalLink>('/portal/tokens', { patient_id: Number(id), days_valid: 30 })
+      setPortalLinks(prev => [link, ...(prev ?? [])])
+      navigator.clipboard?.writeText(portalUrl(link.token)).catch(() => {})
+      toast.success('Enlace creado y copiado')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Error al generar enlace'))
+    } finally {
+      setPortalBusy(false)
+    }
+  }
+
+  const revokePortalLink = async (linkId: number) => {
+    if (!confirm('¿Revocar este enlace? El paciente ya no podrá abrirlo.')) return
+    try {
+      await api.delete(`/portal/tokens/${linkId}`)
+      setPortalLinks(prev => (prev ?? []).filter(l => l.id !== linkId))
+      toast.success('Enlace revocado')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudo revocar el enlace'))
+    }
+  }
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -234,14 +276,7 @@ export default function PatientDetailPage() {
               Editar
             </Link>
             <button
-              onClick={async () => {
-                try {
-                  const data = await api.post<{ token: string }>('/portal/tokens', { patient_id: Number(id), days_valid: 30 })
-                  setShareUrl(`${window.location.origin}/portal/${data.token}`)
-                } catch {
-                  toast.error('Error al generar enlace')
-                }
-              }}
+              onClick={openPortal}
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors"
             >
               Compartir
@@ -567,32 +602,56 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-      {/* Share URL modal */}
-      {shareUrl && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
-            <h3 className="text-base font-bold text-gray-800 mb-1">Enlace del portal</h3>
-            <p className="text-sm text-text-muted mb-4">
-              Comparte este enlace con el paciente. Es válido por 30 días.
-            </p>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={shareUrl}
-                className="flex-1 text-xs border border-border rounded-lg px-3 py-2 bg-bg-light text-gray-700 font-mono truncate focus:outline-none"
-              />
+      {/* Portal del paciente: enlaces activos */}
+      {portalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={() => setPortalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-800">Portal del paciente</h3>
+                <p className="text-sm text-text-muted">
+                  Enlaces activos para que {patient.name} vea sus pautas y evaluaciones. Cada uno dura 30 días.
+                </p>
+              </div>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(shareUrl)
-                  toast.success('Enlace copiado')
-                }}
-                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors whitespace-nowrap"
+                onClick={createPortalLink} disabled={portalBusy}
+                className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 whitespace-nowrap"
               >
-                Copiar
+                {portalBusy ? 'Generando…' : '+ Nuevo enlace'}
               </button>
             </div>
+            {portalLinks === null ? (
+              <p className="text-sm text-text-muted py-4">Cargando enlaces…</p>
+            ) : portalLinks.length === 0 ? (
+              <p className="text-sm text-text-muted py-4">No hay enlaces activos. Crea uno para compartirlo con el paciente.</p>
+            ) : (
+              <ul className="divide-y divide-border border border-border rounded-xl max-h-72 overflow-y-auto">
+                {portalLinks.map(link => (
+                  <li key={link.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono text-gray-700 truncate">{portalUrl(link.token)}</p>
+                      <p className="text-[11px] text-text-muted">
+                        Creado {new Date(link.created_at).toLocaleDateString('es-CL')} · vence {new Date(link.expires_at).toLocaleDateString('es-CL')}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(portalUrl(link.token)); toast.success('Enlace copiado') }}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      onClick={() => revokePortalLink(link.id)}
+                      className="text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      Revocar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <button
-              onClick={() => setShareUrl(null)}
+              onClick={() => setPortalOpen(false)}
               className="mt-4 w-full py-2 border border-gray-200 rounded-lg text-sm font-semibold text-text-muted hover:bg-bg-light transition-colors"
             >
               Cerrar

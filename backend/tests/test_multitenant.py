@@ -112,3 +112,17 @@ def test_other_tenant_listings_exclude_foreign_data(tenants):
     tokens = client.get("/portal/tokens", headers=b).json()
     assert ids["token_id"] not in [t["id"] for t in tokens]
     assert client.get("/dashboard/stats", headers=b).json().get("total_patients", 0) == 0
+
+
+def test_portal_links_list_filter_and_revoke(tenants):
+    client, a, b, ids = tenants
+    pid = ids["patient"]
+    other = client.post("/patients", json={"name": "Otro", "sex": "F"}, headers=a).json()["id"]
+    client.post("/portal/tokens", json={"patient_id": other}, headers=a)
+    links = client.get("/portal/tokens", params={"patient_id": pid}, headers=a).json()
+    assert [l["patient_id"] for l in links] == [pid]
+    token = links[0]["token"]
+    assert client.get(f"/portal/{token}").status_code == 200
+    assert client.delete(f"/portal/tokens/{links[0]['id']}", headers=a).status_code == 200
+    assert client.get("/portal/tokens", params={"patient_id": pid}, headers=a).json() == []
+    assert client.get(f"/portal/{token}").status_code == 404

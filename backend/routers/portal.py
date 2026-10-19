@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 import models, schemas, auth
 from database import get_db
@@ -11,11 +11,16 @@ from database import get_db
 router = APIRouter(prefix="/portal", tags=["portal"])
 
 
+def _utcnow() -> datetime:
+    """UTC sin zona horaria: expires_at es una columna DateTime sin tz."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def _get_patient_by_token(token: str, db: Session) -> models.Patient:
     record = db.query(models.PatientShareToken).filter(
         models.PatientShareToken.token == token,
         models.PatientShareToken.revoked == False,
-        models.PatientShareToken.expires_at > datetime.now(timezone.utc),
+        models.PatientShareToken.expires_at > _utcnow(),
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="Token no válido o expirado")
@@ -38,7 +43,7 @@ async def create_share_token(
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
     token_str = secrets.token_urlsafe(48)
-    expires = datetime.now(timezone.utc) + timedelta(days=request.days_valid)
+    expires = _utcnow() + timedelta(days=request.days_valid)
     record = models.PatientShareToken(
         token=token_str,
         patient_id=patient.id,
@@ -61,14 +66,18 @@ async def create_share_token(
 
 @router.get("/tokens", response_model=List[schemas.ShareTokenResponse])
 async def list_share_tokens(
+    patient_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
-    records = db.query(models.PatientShareToken).filter(
+    query = db.query(models.PatientShareToken).filter(
         models.PatientShareToken.nutritionist_id == current_user.id,
         models.PatientShareToken.revoked == False,
-        models.PatientShareToken.expires_at > datetime.now(timezone.utc),
-    ).all()
+        models.PatientShareToken.expires_at > _utcnow(),
+    )
+    if patient_id is not None:
+        query = query.filter(models.PatientShareToken.patient_id == patient_id)
+    records = query.order_by(models.PatientShareToken.created_at.desc()).all()
     return [
         schemas.ShareTokenResponse(
             id=r.id, token=r.token, patient_id=r.patient_id,
