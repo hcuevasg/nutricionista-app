@@ -27,6 +27,16 @@ from database import engine, Base
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 NutriApp Backend Starting...")
+    from sqlalchemy import text
+    # Si la base no responde, no se intentan las ~70 migraciones una por una:
+    # el arranque se demoraría más que el healthcheck de Railway.
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        print(f"⚠️ Base de datos no disponible, se omiten tablas y migraciones: {e}")
+        yield
+        return
     try:
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
@@ -34,7 +44,6 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Database setup warning: {e}")
 
     # Run migrations for existing tables
-    from sqlalchemy import text
     migrations = [
         # patients
         "ALTER TABLE patients ALTER COLUMN sex TYPE VARCHAR(20)",
