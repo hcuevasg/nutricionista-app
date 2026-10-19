@@ -9,10 +9,13 @@ PATIENT = {
 }
 
 
-def test_list_patients_empty(auth_client):
+def test_list_patients_paginated(auth_client):
     resp = auth_client.get("/patients")
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    data = resp.json()
+    assert set(data) >= {"items", "total", "skip", "limit"}
+    assert isinstance(data["items"], list)
+    assert data["total"] >= len(data["items"])
 
 
 def test_create_patient(auth_client):
