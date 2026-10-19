@@ -23,21 +23,29 @@ PAUTA = {
 
 # ── Validación ──────────────────────────────────────────────────────────────
 
+def _raw(**tiempos):
+    """Respuesta del modelo en el formato del schema (lista de tiempos)."""
+    return json.dumps({"tiempos": [{"tiempo": t, **v} for t, v in tiempos.items()]})
+
+
 def test_parse_menu_valid():
-    menu = ai_service.parse_menu(json.dumps({"desayuno": TIEMPO, "cena": TIEMPO}), ["desayuno", "cena"])
+    menu = ai_service.parse_menu(_raw(cena=TIEMPO, desayuno=TIEMPO), ["desayuno", "cena"])
+    assert list(menu) == ["desayuno", "cena"]
     assert menu["cena"]["opcion1"][0]["nombre"] == "Avena cocida"
 
 
-@pytest.mark.parametrize("data", [
-    {"desayuno": TIEMPO},                                         # falta un tiempo
-    {"desayuno": TIEMPO, "cena": TIEMPO, "almuerzo": TIEMPO},      # tiempo extra
-    {"desayuno": TIEMPO, "cena": {"opcion1": [], "opcion2": [ITEM]}},           # opción vacía
-    {"desayuno": TIEMPO, "cena": {"opcion1": [{**ITEM, "kcal_100": -5}], "opcion2": [ITEM]}},
-    {"desayuno": TIEMPO, "cena": {"opcion1": [{**ITEM, "unidad": "taza"}], "opcion2": [ITEM]}},
+@pytest.mark.parametrize("raw", [
+    _raw(desayuno=TIEMPO),                                          # falta un tiempo
+    _raw(desayuno=TIEMPO, cena=TIEMPO, almuerzo=TIEMPO),            # tiempo extra
+    json.dumps({"tiempos": [{"tiempo": "cena", **TIEMPO}] * 2 + [{"tiempo": "desayuno", **TIEMPO}]}),  # repetido
+    _raw(desayuno=TIEMPO, cena={"opcion1": [], "opcion2": [ITEM]}),           # opción vacía
+    _raw(desayuno=TIEMPO, cena={"opcion1": [{**ITEM, "kcal_100": -5}], "opcion2": [ITEM]}),
+    _raw(desayuno=TIEMPO, cena={"opcion1": [{**ITEM, "unidad": "taza"}], "opcion2": [ITEM]}),
+    json.dumps({"desayuno": TIEMPO, "cena": TIEMPO}),               # formato antiguo
 ])
-def test_parse_menu_rejects_invalid(data):
+def test_parse_menu_rejects_invalid(raw):
     with pytest.raises(ValueError):  # pydantic.ValidationError hereda de ValueError
-        ai_service.parse_menu(json.dumps(data), ["desayuno", "cena"])
+        ai_service.parse_menu(raw, ["desayuno", "cena"])
 
 
 def test_build_menu_request_uses_only_active_tiempos():
@@ -45,7 +53,8 @@ def test_build_menu_request_uses_only_active_tiempos():
     req = ai_service.build_menu_request(pauta, json.dumps(["Maní"]))
     assert req.tiempos == ["desayuno", "cena"]
     assert "Maní" in req.prompt
-    assert ai_service.menu_schema(req.tiempos)["required"] == ["desayuno", "cena"]
+    schema = ai_service.menu_schema(req.tiempos)
+    assert schema["properties"]["tiempos"]["items"]["properties"]["tiempo"]["enum"] == ["desayuno", "cena"]
 
 
 def test_build_menu_request_without_distribution():
@@ -102,7 +111,7 @@ def _run(coro):
 
 
 def test_stream_menu_progress_schema_and_model(anthropic_key, monkeypatch):
-    raw = json.dumps({"desayuno": TIEMPO, "cena": TIEMPO})
+    raw = _raw(desayuno=TIEMPO, cena=TIEMPO)
     calls = []
     monkeypatch.setattr(ai_service, "_client", lambda: _fake_client([_FakeStream([raw[:60], raw[60:]])], calls))
     req = ai_service.MenuRequest(prompt="p", tiempos=["desayuno", "cena"])
@@ -110,14 +119,14 @@ def test_stream_menu_progress_schema_and_model(anthropic_key, monkeypatch):
     assert events[-1]["type"] == "menu"
     assert {"type": "progress", "done": 2, "total": 2} in events
     assert calls[0]["model"] == "claude-haiku-5-5"
-    assert calls[0]["output_config"]["format"]["schema"]["required"] == ["desayuno", "cena"]
+    assert calls[0]["output_config"]["format"]["schema"]["required"] == ["tiempos"]
 
 
 def test_stream_menu_retries_once_on_invalid_json(anthropic_key, monkeypatch):
-    good = json.dumps({"desayuno": TIEMPO})
+    good = _raw(desayuno=TIEMPO)
     calls = []
     monkeypatch.setattr(ai_service, "_client",
-                        lambda: _fake_client([_FakeStream(['{"desayuno": {}}']), _FakeStream([good])], calls))
+                        lambda: _fake_client([_FakeStream(['{"tiempos": [{"tiempo": "desayuno"}]}']), _FakeStream([good])], calls))
     events = _run(_collect(ai_service.MenuRequest(prompt="p", tiempos=["desayuno"])))
     assert len(calls) == 2
     assert events[-1]["menu"]["desayuno"]["opcion2"][0]["unidad"] == "g"

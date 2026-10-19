@@ -74,6 +74,8 @@ web: uvicorn main:app --host 0.0.0.0 --port $PORT
        (claude.ai → Billing → API credits → Link organization). Usa los créditos mensuales del plan;
        al agotarse, las llamadas de IA fallan hasta el siguiente ciclo salvo que haya créditos comprados.
      - `ANTHROPIC_MODEL` (opcional): modelo de Claude para la IA de pautas, por defecto `claude-haiku-5-5`
+     - `ANTHROPIC_WORKSPACE_ID` (opcional): solo si la API key no pertenece a un workspace
+       (error "This API key is not scoped to a workspace"); es el ID `wrkspc_...` de Console → Workspaces
      - `ALGORITHM`: HS256
      - `ACCESS_TOKEN_EXPIRE_DAYS`: 7
      - `DEBUG`: False

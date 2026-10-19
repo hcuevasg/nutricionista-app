@@ -6,6 +6,7 @@ cargan datos de la BD y traducen AIError a HTTP/SSE.
 Configuración por variables de entorno:
 - ANTHROPIC_API_KEY: key de la organización de Console vinculada al plan Max
 - ANTHROPIC_MODEL:   modelo a usar (por defecto claude-haiku-5-5)
+- ANTHROPIC_WORKSPACE_ID: solo si la key no pertenece a un workspace de Console
 """
 import json
 import logging
@@ -101,37 +102,55 @@ _ITEM_SCHEMA = {
     "required": ["nombre", "cantidad", "unidad", "kcal_100", "prot_100", "cho_100", "lip_100"],
     "additionalProperties": False,
 }
-_TIEMPO_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "opcion1": {"type": "array", "items": _ITEM_SCHEMA},
-        "opcion2": {"type": "array", "items": _ITEM_SCHEMA},
-    },
-    "required": ["opcion1", "opcion2"],
-    "additionalProperties": False,
-}
-
-
 def menu_schema(tiempos: List[str]) -> dict:
-    """JSON schema del menú: exactamente los tiempos de la pauta."""
+    """JSON schema del menú.
+
+    Es un arreglo de tiempos con una sola definición (y no un objeto con una
+    propiedad por tiempo) porque repetir la estructura por cada tiempo hace que
+    la gramática compilada de structured outputs supere el límite del API.
+    Que estén exactamente los tiempos de la pauta lo verifica parse_menu.
+    """
     return {
         "type": "object",
-        "properties": {t: _TIEMPO_SCHEMA for t in tiempos},
-        "required": list(tiempos),
+        "properties": {
+            "tiempos": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "tiempo": {"type": "string", "enum": list(tiempos)},
+                        "opcion1": {"type": "array", "items": _ITEM_SCHEMA},
+                        "opcion2": {"type": "array", "items": _ITEM_SCHEMA},
+                    },
+                    "required": ["tiempo", "opcion1", "opcion2"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["tiempos"],
         "additionalProperties": False,
     }
 
 
 def parse_menu(raw: str, tiempos: List[str]) -> Dict[str, dict]:
-    """Valida el JSON del modelo y lo devuelve normalizado. Lanza ValueError."""
+    """Valida el JSON del modelo y lo devuelve como {tiempo: {opcion1, opcion2}}.
+    Lanza ValueError (ValidationError hereda de ValueError)."""
     data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise ValueError("El menú no es un objeto JSON")
-    faltantes = [t for t in tiempos if t not in data]
-    sobrantes = [k for k in data if k not in tiempos]
-    if faltantes or sobrantes:
-        raise ValueError(f"Tiempos inesperados: faltan {faltantes}, sobran {sobrantes}")
-    return {t: MenuTiempo.model_validate(data[t]).model_dump() for t in tiempos}
+    entries = data.get("tiempos") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError("El menú no tiene la lista de tiempos")
+    menu: Dict[str, dict] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("tiempo") not in tiempos:
+            raise ValueError(f"Tiempo inesperado: {entry!r:.80}")
+        if entry["tiempo"] in menu:
+            raise ValueError(f"Tiempo repetido: {entry['tiempo']}")
+        body = {k: v for k, v in entry.items() if k != "tiempo"}
+        menu[entry["tiempo"]] = MenuTiempo.model_validate(body).model_dump()
+    faltantes = [t for t in tiempos if t not in menu]
+    if faltantes:
+        raise ValueError(f"Faltan tiempos: {faltantes}")
+    return {t: menu[t] for t in tiempos}
 
 
 # ── Construcción de prompts ─────────────────────────────────────────────────
@@ -177,7 +196,7 @@ Porciones por tiempo de comida:
 {chr(10).join(lineas)}
 
 Para cada tiempo de comida listado, propone dos opciones de menú (opcion1 y opcion2) de 2 a 4 alimentos cada una, que cubran esas porciones.
-- Usa como claves exactamente los identificadores de tiempo listados.
+- Incluye cada tiempo listado una sola vez, con su identificador exacto en el campo "tiempo".
 - Cantidades en g o ml; kcal_100, prot_100, cho_100 y lip_100 son por 100 g o 100 ml del alimento tal como se consume."""
     return MenuRequest(prompt=prompt, tiempos=tiempos)
 
@@ -216,7 +235,8 @@ Entrega un análisis clínico conciso con:
 3. Sugerencias específicas de ajuste (kcal, macros, proteína/kg) si corresponde
 4. Recomendaciones prácticas adicionales
 
-Responde en español, de forma directa y profesional, en máximo 250 palabras."""
+Responde en español, de forma directa y profesional, en máximo 250 palabras.
+El texto se muestra tal cual, sin formato: no uses markdown (ni **, ni #, ni tablas); para listas usa guiones."""
 
 
 # ── Llamadas a Claude ───────────────────────────────────────────────────────
@@ -232,7 +252,10 @@ def is_configured() -> bool:
 def _client() -> anthropic.AsyncAnthropic:
     if not is_configured():
         raise AIError("IA no configurada: falta ANTHROPIC_API_KEY en el servidor", status_code=503)
-    return anthropic.AsyncAnthropic(timeout=120.0)
+    # Las keys que no pertenecen a un workspace exigen indicar cuál usar
+    workspace_id = os.getenv("ANTHROPIC_WORKSPACE_ID")
+    headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+    return anthropic.AsyncAnthropic(timeout=120.0, default_headers=headers)
 
 
 def _api_error(exc: Exception, context: str) -> AIError:
@@ -242,8 +265,8 @@ def _api_error(exc: Exception, context: str) -> AIError:
     if isinstance(exc, (anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
         return AIError("La API key de Anthropic no es válida o no tiene permisos.", 503)
     if isinstance(exc, anthropic.BadRequestError):
-        # Incluye saldo de créditos agotado; el detalle queda en el log
-        return AIError("La IA rechazó la solicitud. Revisa los créditos de API en Console.", 502)
+        # Saldo agotado, key sin workspace, etc.; el detalle queda en el log
+        return AIError("La IA rechazó la solicitud. Revisa la configuración y los créditos de la API en Console.", 502)
     return AIError("No se pudo conectar con la IA. Intenta de nuevo.", 502)
 
 
