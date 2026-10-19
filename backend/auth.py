@@ -12,7 +12,18 @@ import schemas
 from database import get_db
 
 # Configuration
-SECRET_KEY = getenv("SECRET_KEY", "your-secret-key-change-in-production")
+_INSECURE_DEFAULT_KEY = "your-secret-key-change-in-production"
+SECRET_KEY = getenv("SECRET_KEY", "")
+if not SECRET_KEY or SECRET_KEY == _INSECURE_DEFAULT_KEY:
+    # Solo se tolera en desarrollo local (SQLite); en Railway/Postgres un JWT
+    # firmado con una clave conocida permitiría falsificar sesiones.
+    _is_production = bool(getenv("RAILWAY_ENVIRONMENT")) or not getenv(
+        "DATABASE_URL", "sqlite:///./test.db"
+    ).startswith("sqlite")
+    if _is_production:
+        raise RuntimeError("SECRET_KEY no configurada: defínela como variable de entorno en producción")
+    print("⚠️ SECRET_KEY no configurada — usando clave insegura solo para desarrollo local")
+    SECRET_KEY = _INSECURE_DEFAULT_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = int(getenv("ACCESS_TOKEN_EXPIRE_DAYS", "7"))
 
