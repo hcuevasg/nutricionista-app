@@ -62,13 +62,13 @@ def test_delete_anthropometric(auth_client):
 # ── Informe PDF ISAK ────────────────────────────────────────────────────────
 
 def test_is_male_accepts_form_and_legacy_values():
-    from routers.anthropometrics import _is_male
+    from pdf_isak import is_male as _is_male
     assert _is_male("Masculino") and _is_male("M") and _is_male("hombre")
     assert not _is_male("Femenino") and not _is_male("F") and not _is_male(None)
 
 
 def test_age_at_evaluation_date():
-    from routers.anthropometrics import _age_at
+    from pdf_isak import age_at as _age_at
     assert _age_at("1990-05-10", "2026-03-14") == 35
     assert _age_at("1990-05-10", "2026-05-10") == 36
     assert _age_at(None, "2026-03-14") is None
@@ -83,3 +83,31 @@ def test_isak_pdf_with_implausible_values(auth_client):
     resp = auth_client.get(f"/anthropometrics/{p['id']}/{ev['id']}/pdf")
     assert resp.status_code == 200
     assert resp.content.startswith(b"%PDF")
+
+
+def test_four_components_and_somatotype_category():
+    from types import SimpleNamespace as NS
+    from pdf_isak import four_components, somatotype_category
+    ev = NS(weight_kg=81.4, height_cm=179.2, wrist_cm=5.8, femur_width_cm=9.9,
+            fat_mass_pct=12.7, lean_mass_kg=71.1)
+    c = four_components(ev, male=True)
+    assert abs(sum(c.values()) - 81.4) < 1e-6
+    assert round(c["residual"], 1) == 19.6 and round(c["osea"], 1) == 12.5
+    assert four_components(NS(**{**vars(ev), "wrist_cm": None}), True) is None
+    assert somatotype_category(2.8, 5.8, 1.7) == "Mesomorfo endomórfico"
+    assert somatotype_category(3.0, 3.2, 3.1) == "Central"
+    assert somatotype_category(5.0, 2.0, 2.2) == "Endomorfo balanceado"
+
+
+def test_isak_pdf_compares_with_previous(auth_client):
+    p = auth_client.post("/patients", json={"name": "Comparación", "birth_date": "1997-03-02",
+                                            "sex": "Masculino"}).json()
+    first = auth_client.post(f"/anthropometrics?patient_id={p['id']}", json={**ISAK1, "date": "2026-04-12"}).json()
+    second = auth_client.post(f"/anthropometrics?patient_id={p['id']}",
+                              json={**ISAK1, "date": "2026-06-28", "weight_kg": 79.0,
+                                    "goals_text": "Bajar 2 kg\nSubir masa muscular",
+                                    "next_eval_date": "2026-09-15"}).json()
+    assert second["goals_text"].startswith("Bajar")
+    for ev_id in (first["id"], second["id"]):
+        resp = auth_client.get(f"/anthropometrics/{p['id']}/{ev_id}/pdf")
+        assert resp.status_code == 200 and resp.content.startswith(b"%PDF")
