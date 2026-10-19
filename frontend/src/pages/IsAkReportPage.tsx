@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { api, apiErrorMessage } from '../api/client'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import { isMale } from '../utils/calculations'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ const calcBMR = (patient: Patient, ev: Evaluation): number | null => {
     : null)
   if (!ev.weight_kg || !ev.height_cm || !age) return null
   const w = ev.weight_kg, h = ev.height_cm
-  return patient.sex === 'M'
+  return isMale(patient.sex)
     ? 88.362 + 13.397 * w + 4.799 * h - 5.677 * age
     : 447.593 + 9.247 * w + 3.098 * h - 4.330 * age
 }
@@ -346,7 +347,7 @@ export default function IsAkReportPage() {
   const isBadgeGreen = isak2
 
   const initials = patient.name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
-  const sexLabel = patient.sex === 'M' ? 'Masculino' : 'Femenino'
+  const sexLabel = isMale(patient.sex) ? 'Masculino' : 'Femenino'
   const ageStr = patient.age ? `${patient.age} años · ` : ''
 
   // Key perimeters for the anthropometry table

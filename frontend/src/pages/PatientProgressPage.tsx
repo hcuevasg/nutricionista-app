@@ -8,6 +8,7 @@ import {
 } from 'recharts'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import { isMale } from '../utils/calculations'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -224,7 +225,7 @@ export default function PatientProgressPage() {
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-slate-900">{patient.name}</h2>
                 <p className="text-[#6b7280] text-sm mt-1">
-                  {patient.sex === 'M' ? 'Masculino' : patient.sex === 'F' ? 'Femenino' : patient.sex}
+                  {patient.sex ? (isMale(patient.sex) ? 'Masculino' : 'Femenino') : '—'}
                   {first && ` · Primera eval: ${first.date}`}
                   {last && evals.length > 1 && ` · Última: ${last.date}`}
                 </p>

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { api, apiErrorMessage } from '../api/client'
 import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
+import { isMale } from '../utils/calculations'
 
 // ── Food group data (ported from desktop grupos_alimentos.py) ─────────────
 
@@ -298,7 +299,7 @@ export default function PautaFormPage() {
           const bd = pat.birth_date ? new Date(pat.birth_date) : null
           const age = bd ? Math.max(0, new Date().getFullYear() - bd.getFullYear()) : 30
           setForm(prev => ({
-            ...prev, sexo: pat.sex === 'M' ? 'M' : 'F', edad: age,
+            ...prev, sexo: isMale(pat.sex) ? 'M' : 'F', edad: age,
             peso: pat.weight_kg ?? 65, talla: pat.height_cm ?? 160,
           }))
         }

@@ -41,8 +41,9 @@ export interface SomatotypeResult {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isMale(sex: string): boolean {
-  const s = sex.toLowerCase()
+/** El formulario guarda "Masculino"/"Femenino"; datos antiguos usan "M"/"F". */
+export function isMale(sex: string | null | undefined): boolean {
+  const s = (sex ?? '').toLowerCase()
   return s.includes('masculino') || s === 'm' || s === 'hombre'
 }
 
