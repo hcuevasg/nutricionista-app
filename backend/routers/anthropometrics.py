@@ -219,6 +219,27 @@ def _hex(h):
     return HexColor(h)
 
 
+def _is_male(sex) -> bool:
+    """El formulario guarda "Masculino"/"Femenino"; datos antiguos usan "M"/"F"."""
+    s = (sex or "").strip().lower()
+    return s in ("m", "hombre") or "masculino" in s
+
+
+def _age_at(birth_date, on_date):
+    from datetime import date as _date
+    try:
+        b = _date.fromisoformat(str(birth_date)[:10])
+        d = _date.fromisoformat(str(on_date)[:10])
+    except (TypeError, ValueError):
+        return None
+    return d.year - b.year - ((d.month, d.day) < (b.month, b.day))
+
+
+# Rangos fisiológicos plausibles para detectar errores de digitación
+_RANGES_MM = (2.0, 80.0)
+_RANGES_PERIM_CM = (10.0, 200.0)
+
+
 def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
@@ -255,7 +276,11 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
     def fmt(v, d=1): return f"{float(v):.{d}f}" if v is not None else "—"
 
-    prof_name = nutritionist.name or nutritionist.username
+    from xml.sax.saxutils import escape as _esc
+    prof_name = _esc(nutritionist.name or nutritionist.username or "")
+    patient_name = _esc(patient.name or "")
+    is_male = _is_male(patient.sex)
+    age = _age_at(patient.birth_date, ev.date) or patient.age
 
     # ── Pre-compute key values ────────────────────────────────────────────────
     bmi_val = None
@@ -271,30 +296,53 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     sigma4_vals = [ev.biceps_mm, ev.triceps_mm, ev.subscapular_mm, ev.iliac_crest_mm]
     sigma4_sum = sum(float(v) for v in sigma4_vals) if all(v is not None for v in sigma4_vals) else None
 
-    lean_pct = None
-    if ev.lean_mass_kg and ev.weight_kg and float(ev.weight_kg) > 0:
-        raw = float(ev.lean_mass_kg) / float(ev.weight_kg) * 100
-        lean_pct = min(raw, 99.9)
+    # Composición corporal válida: % grasa positivo y masa magra menor al peso.
+    # Con pliegues mal digitados Durnin-Womersley da % negativo y masa magra > peso.
+    comp_valid = (
+        ev.fat_mass_pct is not None and 0 < float(ev.fat_mass_pct) < 70
+        and ev.lean_mass_kg is not None and ev.weight_kg
+        and float(ev.lean_mass_kg) < float(ev.weight_kg)
+    )
+    lean_pct = float(ev.lean_mass_kg) / float(ev.weight_kg) * 100 if comp_valid else None
 
-    # ── BMI insight text ──────────────────────────────────────────────────────
+    # Valores fuera de rango fisiológico (probables errores de digitación)
+    _sf_fields = [("Tríceps", ev.triceps_mm), ("Subescapular", ev.subscapular_mm), ("Bíceps", ev.biceps_mm),
+                  ("Cresta ilíaca", ev.iliac_crest_mm), ("Supraespinal", ev.supraspinal_mm),
+                  ("Abdominal", ev.abdominal_mm), ("Muslo medial", ev.medial_thigh_mm),
+                  ("Pantorrilla máx.", ev.max_calf_mm)]
+    _perim_fields = [("Cintura", ev.waist_cm), ("Cadera/glúteo", ev.hip_glute_cm),
+                     ("Brazo relajado", ev.arm_relaxed_cm), ("Brazo contraído", ev.arm_contracted_cm),
+                     ("Muslo máximo", ev.thigh_max_cm), ("Muslo medio", ev.thigh_mid_cm),
+                     ("Pantorrilla", ev.calf_cm)]
+    out_of_range = (
+        [n for n, v in _sf_fields if v is not None and not (_RANGES_MM[0] <= float(v) <= _RANGES_MM[1])] +
+        [n for n, v in _perim_fields if v is not None and not (_RANGES_PERIM_CM[0] <= float(v) <= _RANGES_PERIM_CM[1])]
+    )
+    suspicious = set(out_of_range)
+
+    # Resumen objetivo (sin recomendaciones clínicas: esas las da el profesional)
+    summary_parts = []
     if bmi_val is not None:
-        if bmi_val < 18.5:
-            insight = "Se recomienda plan de aumento de masa muscular y revisión de ingesta calórica."
-        elif bmi_val < 25:
-            insight = "Composición corporal en rangos normales. Continuar con hábitos actuales."
-        elif bmi_val < 30:
-            insight = "Se detecta sobrepeso. Orientar hacia reducción de masa grasa con plan adecuado."
-        else:
-            insight = "Se registra obesidad. Plan nutricional intensivo y seguimiento periódico recomendados."
-    else:
-        insight = "Evaluación antropométrica completa. Revisar resultados con el profesional tratante."
+        summary_parts.append(f"IMC {bmi_val:.1f} kg/m² ({bmi_note}, OMS)")
+    if comp_valid:
+        summary_parts.append(f"masa grasa {float(ev.fat_mass_pct):.1f}% (Durnin & Womersley + Siri)")
+    insight = ""
+    if summary_parts:
+        insight = "; ".join(summary_parts)
+        insight = insight[0].upper() + insight[1:] + "."
+    warning = ""
+    if out_of_range:
+        warning = ("Revisar mediciones: valores fuera de rango fisiológico en "
+                   + ", ".join(out_of_range[:6]) + (" y otros" if len(out_of_range) > 6 else "") + ".")
+    if not comp_valid and ev.fat_mass_pct is not None:
+        warning += (" " if warning else "") + "La composición corporal calculada no es válida y no se informa."
 
     # ── Header band ──────────────────────────────────────────────────────────
     hdr = Table([[
         Table([[Paragraph("NutriApp", S("HN", fontSize=22, textColor=WHITE, fontName="Helvetica-Bold", leading=26))],
                [Paragraph("Informe Antropométrico", S("HS", fontSize=9, textColor=LIGHT_GREEN, leading=12))]]),
         Paragraph(
-            f"<b>Paciente: {patient.name}</b><br/>"
+            f"<b>Paciente: {patient_name}</b><br/>"
             f"Evaluación: {ev.date}  ·  Dr/a. {prof_name}",
             S("HR", fontSize=9, textColor=LIGHT_GREEN, alignment=TA_RIGHT, leading=14)
         ),
@@ -309,76 +357,66 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     ]))
 
     # ── Hero section ─────────────────────────────────────────────────────────
-    sex_label = "Masculino" if patient.sex == "M" else "Femenino"
+    sex_label = "Masculino" if is_male else "Femenino"
     isak_badge_color = C_PRIMARY if ev.isak_level == "ISAK 2" else C_SAGE
 
     # Avatar: colored square with patient initials
     initials = "".join(p[0].upper() for p in patient.name.split()[:2]) if patient.name else "?"
-    avatar_inner = Table([[
+    avatar = Table([[
         Paragraph(initials, S("AVI", fontSize=18, textColor=WHITE, fontName="Helvetica-Bold",
                                alignment=TA_CENTER, leading=22))
-    ]])
-    avatar_inner.setStyle(TableStyle([
+    ]], colWidths=[1.6*cm], rowHeights=[1.6*cm])
+    avatar.setStyle(TableStyle([
         ("BACKGROUND",    (0,0), (-1,-1), C_PRIMARY),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ("LEFTPADDING",   (0,0), (-1,-1), 0),
         ("RIGHTPADDING",  (0,0), (-1,-1), 0),
-        ("TOPPADDING",    (0,0), (-1,-1), 10),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
-    ]))
-    avatar = Table([[avatar_inner]], colWidths=[1.6*cm])
-    avatar.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), C_PRIMARY),
-        ("BOX",        (0,0), (-1,-1), 2, C_PRIMARY),
-        ("LEFTPADDING",(0,0),(-1,-1), 0),
-        ("RIGHTPADDING",(0,0),(-1,-1),0),
-        ("TOPPADDING", (0,0),(-1,-1), 0),
-        ("BOTTOMPADDING",(0,0),(-1,-1),0),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
 
-    age_str = f"{patient.age} años  ·  " if patient.age else ""
-    hero_text = Table([[
-        Paragraph(
-            f"<b>Informe ISAK — {patient.name}</b>",
-            S("HT", fontSize=14, textColor=C_DARK, fontName="Helvetica-Bold", leading=18)
-        )],
-        [Paragraph(
-            f"{age_str}{sex_label}  ·  {ev.isak_level}",
-            S("HS2", fontSize=9, textColor=C_MUTED, leading=13)
-        )],
-        [Spacer(1, 4)],
-        [Paragraph(insight, S("HI", fontSize=9, textColor=C_DARK, leading=13))],
-    ])
+    age_str = f"{age} años  ·  " if age else ""
+    hero_rows = [
+        [Paragraph(f"<b>Informe ISAK — {patient_name}</b>",
+                   S("HT", fontSize=14, textColor=C_DARK, fontName="Helvetica-Bold", leading=18))],
+        [Paragraph(f"{age_str}{sex_label}  ·  Talla {fmt(ev.height_cm)} cm  ·  Peso {fmt(ev.weight_kg)} kg",
+                   S("HS2", fontSize=9, textColor=C_MUTED, leading=13))],
+    ]
+    if insight:
+        hero_rows.append([Paragraph(insight, S("HI", fontSize=9, textColor=C_DARK, leading=13))])
+    if warning:
+        hero_rows.append([Paragraph(f"* {warning}", S("HW", fontSize=8.5, textColor=C_TERRA,
+                                                             fontName="Helvetica-Bold", leading=12))])
+    hero_text = Table(hero_rows)
     hero_text.setStyle(TableStyle([
         ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
-        ("GRID",(0,0),(-1,-1),0,WHITE),
     ]))
 
     badge = Table([[
         Paragraph(f"<b>{ev.isak_level}</b>",
                   S("BD", fontSize=9, textColor=WHITE, fontName="Helvetica-Bold",
                     alignment=TA_CENTER, leading=12))
-    ]])
+    ]], colWidths=[1.9*cm])
     badge.setStyle(TableStyle([
         ("BACKGROUND",   (0,0), (-1,-1), isak_badge_color),
-        ("LEFTPADDING",  (0,0), (-1,-1), 12),
-        ("RIGHTPADDING", (0,0), (-1,-1), 12),
-        ("TOPPADDING",   (0,0), (-1,-1), 6),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 6),
+        ("LEFTPADDING",  (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING",   (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 5),
     ]))
 
+    AVATAR_COL, BADGE_COL = 2.2*cm, 2.8*cm
     hero = Table([[avatar, hero_text, badge]],
-                 colWidths=[1.8*cm, PAGE_W - 1.8*cm - 2.0*cm, 2.0*cm])
+                 colWidths=[AVATAR_COL, PAGE_W - AVATAR_COL - BADGE_COL, BADGE_COL])
     hero.setStyle(TableStyle([
         ("BACKGROUND",    (0,0), (-1,-1), C_HERO_BG),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING",   (0,0), (-1,-1), 12),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 12),
-        ("TOPPADDING",    (0,0), (-1,-1), 14),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 14),
-        ("LEFTPADDING",   (0,0), (0,0),   0),
-        ("RIGHTPADDING",  (0,0), (0,0),   12),
+        ("LEFTPADDING",   (0,0), (-1,-1), 14),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 8),
+        ("TOPPADDING",    (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING",  (-1,0), (-1,0), 14),
         ("BOX",           (0,0), (-1,-1), 0.5, C_BORDER),
     ]))
 
@@ -387,11 +425,9 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         inner = Table([
             [Paragraph(label.upper(), S("ML", fontSize=7, textColor=C_MUTED, fontName="Helvetica-Bold",
                                         leading=10, spaceBefore=2))],
-            [Table([[
-                Paragraph(big_value, S("MV", fontSize=26, textColor=C_DARK, fontName="Helvetica-Bold",
-                                       leading=28)),
-                Paragraph(unit, S("MU", fontSize=10, textColor=C_MUTED, leading=28)),
-            ]], colWidths=[None, 1.2*cm])],
+            [Paragraph(
+                f"{big_value}" + (f' <font size="9" color="#6b7280">{unit}</font>' if unit and big_value != "—" else ""),
+                S("MV", fontSize=20, textColor=C_DARK, fontName="Helvetica-Bold", leading=24))],
             [Paragraph(note, S("MN", fontSize=7, textColor=C_MUTED, leading=10, spaceAfter=2))
              if note else Spacer(1, 4)],
         ])
@@ -421,7 +457,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         if pct is None or pct <= 0:
             return None
         pct_clamped = min(float(pct), 100.0)
-        bar_w = total_w * 0.55
+        bar_w = total_w * 0.46
         filled_w = bar_w * (pct_clamped / 100.0)
         empty_w  = bar_w - filled_w
         bar = Table([[
@@ -439,7 +475,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             bar,
             Paragraph(f"{pct_clamped:.1f}%", S("BP", fontSize=8, textColor=fill_color,
                                                  fontName="Helvetica-Bold", alignment=TA_RIGHT, leading=10)),
-        ]], colWidths=[total_w * 0.30, total_w * 0.55, total_w * 0.15])
+        ]], colWidths=[total_w * 0.36, total_w * 0.46, total_w * 0.18])
         row.setStyle(TableStyle([
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
             ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
@@ -475,8 +511,8 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ("GRID",          (0,0),  (-1,-1), 0.3, C_BORDER),
             ("LEFTPADDING",   (0,0),  (-1,-1), 8),
             ("RIGHTPADDING",  (0,0),  (-1,-1), 8),
-            ("TOPPADDING",    (0,0),  (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0),  (-1,-1), 5),
+            ("TOPPADDING",    (0,0),  (-1,-1), 3.5),
+            ("BOTTOMPADDING", (0,0),  (-1,-1), 3.5),
             ("VALIGN",        (0,0),  (-1,-1), "MIDDLE"),
         ]
         if highlight_rows:
@@ -517,20 +553,27 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     story.append(Spacer(1, 0.4*cm))
 
     # ── 3. Key metric cards (4 in a row): IMC, % Grasa, Masa Magra, TMB ─────
-    tmb_val = ev.tmb if hasattr(ev, 'tmb') and ev.tmb else None
+    # TMB Harris-Benedict revisada (Roza & Shizgal 1984), la misma del informe web
+    tmb_val = None
+    if ev.weight_kg and ev.height_cm and age:
+        w, h = float(ev.weight_kg), float(ev.height_cm)
+        tmb_val = (88.362 + 13.397*w + 4.799*h - 5.677*age) if is_male \
+            else (447.593 + 9.247*w + 3.098*h - 4.330*age)
 
     cards_row = Table([[
         metric_card(fmt(bmi_val) if bmi_val else "—", "IMC",  "Índice de masa corporal", C_TERRA, bmi_note),
         Spacer(0.3*cm, 1),
-        metric_card(fmt(ev.fat_mass_pct) if (ev.fat_mass_pct is not None and ev.fat_mass_pct > 0) else "—",
-                    "%", "Masa grasa", C_TERRA),
+        metric_card(fmt(ev.fat_mass_pct) if comp_valid else "—", "%", "Masa grasa", C_TERRA,
+                    f"{fmt(ev.fat_mass_kg)} kg" if comp_valid and ev.fat_mass_kg else
+                    ("Revisar pliegues" if ev.fat_mass_pct is not None else "")),
         Spacer(0.3*cm, 1),
-        metric_card(fmt(ev.lean_mass_kg) if ev.lean_mass_kg else "—", "kg", "Masa magra", C_PRIMARY),
+        metric_card(fmt(ev.lean_mass_kg) if comp_valid else "—", "kg", "Masa magra", C_PRIMARY,
+                    f"{lean_pct:.1f}% del peso" if lean_pct else ""),
         Spacer(0.3*cm, 1),
         metric_card(
-            f"{int(tmb_val)}" if tmb_val else "—",
+            f"{tmb_val:.0f}" if tmb_val else "—",
             "kcal", "Tasa metabólica basal", C_AMBER,
-            "Requerimiento diario estimado"
+            "Harris-Benedict revisada" if tmb_val else "Requiere fecha de nacimiento"
         ),
     ]], colWidths=[
         PAGE_W*0.235, 0.02*PAGE_W,
@@ -544,7 +587,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0),
     ]))
     story.append(cards_row)
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 0.35*cm))
 
     # ── 4. Two-column layout: Medidas key (left 63%) + Distribución corporal (right 37%) ──
     LEFT_W  = PAGE_W * 0.62
@@ -552,15 +595,14 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     GAP_W   = PAGE_W - LEFT_W - RIGHT_W
 
     # ── Left: Medidas Principales table (perímetros clave) ───────────────────
-    key_perims = [
-        ("Cintura",        ev.waist_cm),
-        ("Cadera/glúteo",  ev.hip_glute_cm),
-        ("Brazo contraído",ev.arm_contracted_cm),
-        ("Muslo máximo",   ev.thigh_max_cm),
-        ("Pantorrilla",    ev.calf_cm),
-        ("Tórax",          getattr(ev, 'chest_cm', None)),
-    ]
-    key_perim_rows = [(n, f"{fmt(v)} cm") for n, v in key_perims if v is not None]
+    key_perim_rows = [(n, v) for n, v in [
+        ("Peso",                   f"{fmt(ev.weight_kg)} kg" if ev.weight_kg else None),
+        ("Talla",                  f"{fmt(ev.height_cm)} cm" if ev.height_cm else None),
+        ("Cintura",                f"{fmt(ev.waist_cm)} cm" if ev.waist_cm else None),
+        ("Σ4 pliegues (D&amp;W)",  f"{sigma4_sum:.1f} mm" if sigma4_sum is not None else None),
+        ("Σ6 pliegues",            f"{fmt(ev.sum_6_skinfolds)} mm" if ev.sum_6_skinfolds else None),
+        ("Densidad corporal",      f"{fmt(ev.body_density, 4)} g/ml" if ev.body_density and comp_valid else None),
+    ] if v is not None]
 
     if key_perim_rows:
         S_KH  = S("KH",  fontSize=8, textColor=WHITE,    fontName="Helvetica-Bold",
@@ -571,7 +613,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         S_KDR = S("KDR", fontSize=9, textColor=C_PRIMARY,fontName="Helvetica-Bold",
                   alignment=TA_CENTER, leading=13)
         k_data = (
-            [[Paragraph("Medida", S_KH), Paragraph("cm", S_KHR)]] +
+            [[Paragraph("Dato", S_KH), Paragraph("Valor", S_KHR)]] +
             [[Paragraph(n, S_KD), Paragraph(v, S_KDR)] for n, v in key_perim_rows]
         )
         k_table = Table(k_data, colWidths=[LEFT_W*0.72, LEFT_W*0.28])
@@ -581,12 +623,12 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ("GRID",          (0,0), (-1,-1), 0.3, C_BORDER),
             ("LEFTPADDING",   (0,0), (-1,-1), 8),
             ("RIGHTPADDING",  (0,0), (-1,-1), 8),
-            ("TOPPADDING",    (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("TOPPADDING",    (0,0), (-1,-1), 3.5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3.5),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
         left_col_content = [
-            Paragraph("Medidas Antropométricas", S("LT", fontSize=10, textColor=C_PRIMARY,
+            Paragraph("Datos Básicos", S("LT", fontSize=10, textColor=C_PRIMARY,
                       fontName="Helvetica-Bold", leading=14, spaceAfter=6)),
             k_table,
         ]
@@ -602,8 +644,9 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
     # ── Right: Body Distribution bars ────────────────────────────────────────
     _bar_w = RIGHT_W - 16  # account for card padding
-    b1 = progress_bar("Masa magra",  lean_pct,        C_PRIMARY, total_w=_bar_w)
-    b2 = progress_bar("Masa grasa",  ev.fat_mass_pct, C_TERRA,   total_w=_bar_w)
+    b1 = progress_bar("Masa magra",  lean_pct, C_PRIMARY, total_w=_bar_w) if comp_valid else None
+    b2 = progress_bar("Masa grasa",  float(ev.fat_mass_pct) if comp_valid else None, C_TERRA,
+                      total_w=_bar_w) if comp_valid else None
 
     dist_items = []
     if b1: dist_items.append(b1)
@@ -611,12 +654,16 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
     # Detail stats below bars
     detail_items = []
-    if ev.weight_kg:
-        detail_items.append(("Peso", f"{fmt(ev.weight_kg)} kg"))
-    if sigma4_sum is not None:
-        detail_items.append(("Σ4 D&W", f"{sigma4_sum:.1f} mm"))
-    if ev.body_density is not None:
-        detail_items.append(("Densidad", f"{fmt(ev.body_density, 4)}"))
+    if comp_valid:
+        if ev.fat_mass_kg:
+            detail_items.append(("Masa grasa", f"{fmt(ev.fat_mass_kg)} kg"))
+        detail_items.append(("Masa magra", f"{fmt(ev.lean_mass_kg)} kg"))
+        if ev.weight_kg:
+            detail_items.append(("Peso total", f"{fmt(ev.weight_kg)} kg"))
+    else:
+        dist_items.append(Paragraph(
+            "Sin datos válidos de composición corporal. Revise los pliegues cutáneos registrados.",
+            S("DNA", fontSize=8, textColor=C_MUTED, leading=11)))
 
     right_rows = [
         [Paragraph("Distribución Corporal", S("RT", fontSize=10, textColor=C_PRIMARY,
@@ -664,12 +711,12 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
         ("BOTTOMPADDING", (0,0), (-1,-1), 0),
     ]))
     story.append(two_col)
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 0.35*cm))
 
     # ── 5. Pliegues cutáneos ─────────────────────────────────────────────────
     skinfolds = [
         ("Tríceps", ev.triceps_mm),       ("Subescapular", ev.subscapular_mm),
-        ("Bíceps", ev.biceps_mm),         ("Cresta iliaca", ev.iliac_crest_mm),
+        ("Bíceps", ev.biceps_mm),         ("Cresta ilíaca", ev.iliac_crest_mm),
         ("Supraespinal", ev.supraspinal_mm), ("Abdominal", ev.abdominal_mm),
         ("Muslo medial", ev.medial_thigh_mm), ("Pantorrilla máx.", ev.max_calf_mm),
     ]
@@ -679,7 +726,10 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ("Axilar medio", ev.axillary_mm),
             ("Muslo anterior", ev.front_thigh_mm),
         ]
-    sf_rows = [(n, f"{fmt(v)} mm") for n, v in skinfolds if v is not None]
+    def _flag(n, txt):
+        # Helvetica estándar no tiene "⚠": se marca en color con asterisco
+        return f'<font color="#c06c52">{txt} *</font>' if n in suspicious else txt
+    sf_rows = [(n, _flag(n, f"{fmt(v)} mm")) for n, v in skinfolds if v is not None]
     if sf_rows:
         mid = (len(sf_rows) + 1) // 2
         left_sf, right_sf = sf_rows[:mid], sf_rows[mid:]
@@ -708,15 +758,15 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ("GRID",          (0,0),  (-1,-1), 0.3, C_BORDER),
             ("LEFTPADDING",   (0,0),  (-1,-1), 8),
             ("RIGHTPADDING",  (0,0),  (-1,-1), 8),
-            ("TOPPADDING",    (0,0),  (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0),  (-1,-1), 5),
+            ("TOPPADDING",    (0,0),  (-1,-1), 3.5),
+            ("BOTTOMPADDING", (0,0),  (-1,-1), 3.5),
             ("VALIGN",        (0,0),  (-1,-1), "MIDDLE"),
         ]))
         story.append(KeepTogether([
             section_label("Pliegues Cutáneos (mm)"),
             Spacer(1, 0.2*cm),
             sf_table,
-            Spacer(1, 0.5*cm),
+            Spacer(1, 0.35*cm),
         ]))
 
     # ── 6. Perímetros completos ───────────────────────────────────────────────
@@ -727,7 +777,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
     ]
     if ev.isak_level == "ISAK 2":
         perims += [("Cuello", ev.neck_cm), ("Tórax", ev.chest_cm), ("Tobillo mínimo", ev.ankle_min_cm)]
-    p_rows = [(n, f"{fmt(v)} cm") for n, v in perims if v is not None]
+    p_rows = [(n, _flag(n, f"{fmt(v)} cm")) for n, v in perims if v is not None]
     if p_rows:
         mid = (len(p_rows) + 1) // 2
         lp, rp = p_rows[:mid], p_rows[mid:]
@@ -741,10 +791,10 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
               Paragraph("cm",        S("TH4C",fontSize=8, textColor=WHITE, fontName="Helvetica-Bold",
                                        alignment=TA_CENTER, leading=11))]] +
             [[Paragraph(r[0], S("TD4", fontSize=9, textColor=C_DARK, leading=13)),
-              Paragraph(r[1], S("TD4C",fontSize=9, textColor=C_SAGE, fontName="Helvetica-Bold",
+              Paragraph(r[1], S("TD4C",fontSize=9, textColor=C_DARK, fontName="Helvetica-Bold",
                                 alignment=TA_CENTER, leading=13)),
               Paragraph(r[2], S("TD4", fontSize=9, textColor=C_DARK, leading=13)),
-              Paragraph(r[3], S("TD4C",fontSize=9, textColor=C_SAGE, fontName="Helvetica-Bold",
+              Paragraph(r[3], S("TD4C",fontSize=9, textColor=C_DARK, fontName="Helvetica-Bold",
                                 alignment=TA_CENTER, leading=13))] for r in combined_p],
             colWidths=[PAGE_W*0.37, PAGE_W*0.13, PAGE_W*0.37, PAGE_W*0.13],
         )
@@ -754,15 +804,15 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             ("GRID",          (0,0), (-1,-1), 0.3, C_BORDER),
             ("LEFTPADDING",   (0,0), (-1,-1), 8),
             ("RIGHTPADDING",  (0,0), (-1,-1), 8),
-            ("TOPPADDING",    (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("TOPPADDING",    (0,0), (-1,-1), 3.5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3.5),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
         story.append(KeepTogether([
             section_label("Perímetros (cm)", C_SAGE),
             Spacer(1, 0.2*cm),
             p_table,
-            Spacer(1, 0.5*cm),
+            Spacer(1, 0.35*cm),
         ]))
 
     # ── 7. Índices antropométricos ────────────────────────────────────────────
@@ -772,20 +822,26 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
 
     idx_basic = []
     if ev.waist_cm and ev.hip_glute_cm:
-        idx_basic.append(["Cociente Cintura-Cadera", _idx(ev.waist_cm, ev.hip_glute_cm)])
-    if ev.fat_mass_kg and ev.lean_mass_kg:
+        if {"Cintura", "Cadera/glúteo"} & suspicious:
+            idx_basic.append(["Cociente Cintura-Cadera", "— (revisar perímetros)"])
+        else:
+            idx_basic.append(["Cociente Cintura-Cadera", _idx(ev.waist_cm, ev.hip_glute_cm)])
+    if comp_valid and ev.fat_mass_kg:
         idx_basic.append(["Cociente Adiposo-Muscular", _idx(ev.fat_mass_kg, ev.lean_mass_kg, decimals=3)])
+    if ev.waist_cm and ev.height_cm:
+        idx_basic.append(["Índice Cintura-Talla", _idx(ev.waist_cm, ev.height_cm)])
     if ev.waist_cm and ev.weight_kg and ev.height_cm:
+        # Valdez (1993): cintura (m) / (0.109 · √(peso kg / talla m))
         h_m = ev.height_cm / 100
         denom = 0.109 * _math.sqrt(ev.weight_kg / h_m)
         if denom > 0:
-            idx_basic.append(["Índice de Conicidad", f"{ev.waist_cm / denom:.3f}"])
+            idx_basic.append(["Índice de Conicidad", f"{(ev.waist_cm / 100) / denom:.3f}"])
     if idx_basic:
         story.append(KeepTogether([
             section_label("Índices Antropométricos", C_TERRA),
             Spacer(1, 0.2*cm),
             data_table(["Índice", "Valor"], idx_basic, [PAGE_W*0.70, PAGE_W*0.30]),
-            Spacer(1, 0.5*cm),
+            Spacer(1, 0.35*cm),
         ]))
 
     # ── 8. Índices ISAK 2 ─────────────────────────────────────────────────────
@@ -821,7 +877,7 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
                 section_label("Índices ISAK 2", C_TERRA),
                 Spacer(1, 0.2*cm),
                 data_table(["Índice", "Valor"], idx2, [PAGE_W*0.70, PAGE_W*0.30]),
-                Spacer(1, 0.5*cm),
+                Spacer(1, 0.35*cm),
             ]))
 
     # ── 9. Somatotipo + Somatocarta ───────────────────────────────────────────
@@ -856,31 +912,25 @@ def _generate_isak_pdf(patient, ev, nutritionist) -> bytes:
             from reportlab.platypus import Image as RLImage
             soma_elements.append(RLImage(soma_img, width=11*cm, height=9*cm))
         story.append(KeepTogether(soma_elements))
-        story.append(Spacer(1, 0.5*cm))
+        story.append(Spacer(1, 0.35*cm))
 
-    # ── 10. Footer ────────────────────────────────────────────────────────────
-    story.append(Spacer(1, 0.5*cm))
-    footer = Table([[
-        Paragraph(
-            f"NutriApp  ·  Generado el {dt_date.today().strftime('%d/%m/%Y')}  ·  Dr/a. {prof_name}",
-            S("FT", fontSize=7, textColor=WHITE, leading=10)
-        ),
-        Paragraph(
-            "Documento de uso profesional y confidencial",
-            S("FTR", fontSize=7, textColor=_hex("#a7f3d0"), alignment=TA_RIGHT, leading=10)
-        ),
-    ]], colWidths=[PAGE_W * 0.6, PAGE_W * 0.4])
-    footer.setStyle(TableStyle([
-        ("BACKGROUND",   (0,0), (-1,-1), C_PRIMARY2),
-        ("LEFTPADDING",  (0,0), (-1,-1), 12),
-        ("RIGHTPADDING", (0,0), (-1,-1), 12),
-        ("TOPPADDING",   (0,0), (-1,-1), 10),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 10),
-        ("VALIGN",       (0,0), (-1,-1), "MIDDLE"),
-    ]))
-    story.append(footer)
+    # ── 10. Footer fijo en cada página ────────────────────────────────────────
+    generated = dt_date.today().strftime('%d/%m/%Y')
 
-    doc.build(story)
+    def _footer(canvas, doc_):
+        canvas.saveState()
+        y = 1.1*cm
+        canvas.setStrokeColor(C_BORDER)
+        canvas.setLineWidth(0.5)
+        canvas.line(2*cm, y + 0.45*cm, A4[0] - 2*cm, y + 0.45*cm)
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(C_MUTED)
+        canvas.drawString(2*cm, y, f"NutriApp  ·  Generado el {generated}  ·  Dr/a. {nutritionist.name or nutritionist.username}")
+        canvas.drawRightString(A4[0] - 2*cm, y,
+                               f"Documento de uso profesional y confidencial  ·  Pág. {doc_.page}")
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
     return buf.getvalue()
 
 

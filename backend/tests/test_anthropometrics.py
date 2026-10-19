@@ -57,3 +57,29 @@ def test_delete_anthropometric(auth_client):
     assert resp.status_code == 200
     resp2 = auth_client.get(f"/anthropometrics/{p['id']}/{ev['id']}")
     assert resp2.status_code == 404
+
+
+# ── Informe PDF ISAK ────────────────────────────────────────────────────────
+
+def test_is_male_accepts_form_and_legacy_values():
+    from routers.anthropometrics import _is_male
+    assert _is_male("Masculino") and _is_male("M") and _is_male("hombre")
+    assert not _is_male("Femenino") and not _is_male("F") and not _is_male(None)
+
+
+def test_age_at_evaluation_date():
+    from routers.anthropometrics import _age_at
+    assert _age_at("1990-05-10", "2026-03-14") == 35
+    assert _age_at("1990-05-10", "2026-05-10") == 36
+    assert _age_at(None, "2026-03-14") is None
+
+
+def test_isak_pdf_with_implausible_values(auth_client):
+    p = auth_client.post("/patients", json={"name": "Datos <raros> & Co", "birth_date": "1990-05-10",
+                                            "sex": "Masculino"}).json()
+    bad = {**ISAK1, "triceps_mm": 1.0, "hip_glute_cm": 1.0, "fat_mass_pct": -3.8,
+           "fat_mass_kg": -3.0, "lean_mass_kg": 83.0}
+    ev = auth_client.post(f"/anthropometrics?patient_id={p['id']}", json=bad).json()
+    resp = auth_client.get(f"/anthropometrics/{p['id']}/{ev['id']}/pdf")
+    assert resp.status_code == 200
+    assert resp.content.startswith(b"%PDF")
