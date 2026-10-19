@@ -530,9 +530,9 @@ export default function PautaFormPage() {
     setMenu(prev => ({
       ...prev,
       [tiempo]: {
+        ...(prev[tiempo] ?? {}),
         opcion1: (prev[tiempo] as Record<string, unknown>)?.opcion1 as MenuOpcion ?? [],
         opcion2: (prev[tiempo] as Record<string, unknown>)?.opcion2 as MenuOpcion ?? [],
-        ...(prev[tiempo] ?? {}),
         receta: { id: receta.id, nombre: receta.nombre, categoria: receta.categoria, descripcion: receta.descripcion },
       },
     }))

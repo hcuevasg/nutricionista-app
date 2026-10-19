@@ -76,7 +76,7 @@ function StatCard({ label, value, borderColor, badge, badgeColor, icon }: StatCa
 }
 
 export default function DashboardPage() {
-  const { token, user } = useAuth()
+  const { token } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState<Stats | null>(null)
   const [recent, setRecent] = useState<RecentPatient[]>([])

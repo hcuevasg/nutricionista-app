@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api } from '../api/client'
@@ -34,17 +34,6 @@ interface Patient {
   notes?: string
   allergies?: string[]
   created_at: string
-}
-
-interface MealPlan {
-  id: number
-  name: string
-  date: string
-  goal?: string | null
-  calories?: number | null
-  protein_g?: number | null
-  carbs_g?: number | null
-  fat_g?: number | null
 }
 
 interface Pauta {
@@ -117,7 +106,6 @@ type TabKey = 'basico' | 'pliegues' | 'resultados'
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { token } = useAuth()
-  const navigate = useNavigate()
   const toast = useToast()
   const [patient, setPatient] = useState<Patient | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -128,8 +116,6 @@ export default function PatientDetailPage() {
   const [selectedEvalIdx, setSelectedEvalIdx] = useState(0)
   const [pautas, setPautas] = useState<Pauta[]>([])
   const [selectedPautaIdx, setSelectedPautaIdx] = useState(0)
-  const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
-  const [selectedPlanIdx, setSelectedPlanIdx] = useState(0)
 
   const API = import.meta.env.VITE_API_URL
   const H = { Authorization: `Bearer ${token}` }
@@ -150,11 +136,6 @@ export default function PatientDetailPage() {
     fetch(`${API}/pautas/${id}`, { headers: H })
       .then(r => r.ok ? r.json() : [])
       .then(ps => setPautas(Array.isArray(ps) ? ps : []))
-      .catch(() => {})
-
-    fetch(`${API}/meal-plans/${id}`, { headers: H })
-      .then(r => r.ok ? r.json() : [])
-      .then(ms => setMealPlans(Array.isArray(ms) ? ms : []))
       .catch(() => {})
   }, [id, token])
 

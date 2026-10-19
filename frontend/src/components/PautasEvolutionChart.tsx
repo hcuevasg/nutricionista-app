@@ -39,7 +39,7 @@ export default function PautasEvolutionChart({ pautas }: Props) {
           <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5EAE7' }}
-            formatter={(value: number, name: string) =>
+            formatter={(value, name) =>
               name === 'Kcal objetivo' ? [`${value} kcal`, name] : [`${value}%`, name]
             }
           />

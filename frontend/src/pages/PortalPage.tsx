@@ -175,7 +175,7 @@ export default function PortalPage() {
                     <h4 className="font-bold text-[#4b7c60] mb-2">{labels[t]}</h4>
                     {fmt(entry.opcion1) && <p className="text-sm text-gray-700 mb-1"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 1:</span>{fmt(entry.opcion1)}</p>}
                     {fmt(entry.opcion2) && <p className="text-sm text-gray-700"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 2:</span>{fmt(entry.opcion2)}</p>}
-                    {entry.receta && <p className="text-sm text-[#c06c52] mt-1">🍳 {(entry.receta as Record<string, unknown>).nombre as string}</p>}
+                    {!!entry.receta && <p className="text-sm text-[#c06c52] mt-1">🍳 {(entry.receta as Record<string, unknown>).nombre as string}</p>}
                   </div>
                 )
               })}

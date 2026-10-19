@@ -405,7 +405,6 @@ export default function IsAkReportPage() {
   // Colors
   const C_PRIMARY = '#4b7c60'
   const C_TERRA = '#c06c52'
-  const C_AMBER = '#d9a441'
   const C_SAGE = '#8da399'
 
   // Delta helper: returns formatted string and color

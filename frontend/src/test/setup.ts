@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { beforeAll, afterEach } from 'vitest'
 import { server } from './mocks/server'
 
 // Polyfill localStorage for jsdom environments where it may be incomplete
