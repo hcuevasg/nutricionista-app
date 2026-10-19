@@ -69,7 +69,11 @@ web: uvicorn main:app --host 0.0.0.0 --port $PORT
    - Set root directory: `backend/`
    - Add environment variables:
      - `DATABASE_URL`: (from PostgreSQL service)
-     - `SECRET_KEY`: (from .env)
+     - `SECRET_KEY`: (from .env) — obligatoria: sin ella el backend no arranca
+     - `ANTHROPIC_API_KEY`: API key creada en la organización de Console vinculada al plan Max
+       (claude.ai → Billing → API credits → Link organization). Usa los créditos mensuales del plan;
+       al agotarse, las llamadas de IA fallan hasta el siguiente ciclo salvo que haya créditos comprados.
+     - `ANTHROPIC_MODEL` (opcional): modelo de Claude para la IA de pautas, por defecto `claude-haiku-5-5`
      - `ALGORITHM`: HS256
      - `ACCESS_TOKEN_EXPIRE_DAYS`: 7
      - `DEBUG`: False

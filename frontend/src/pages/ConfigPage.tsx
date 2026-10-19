@@ -104,7 +104,7 @@ export default function ConfigPage() {
           {aiStatus && !aiStatus.configured && (
             <p className="mt-3 text-xs text-text-muted">
               Para habilitar la generación de menús con IA, configura la variable de entorno
-              <code className="bg-gray-100 px-1 rounded ml-1">GROQ_API_KEY</code> en el servidor (Railway).
+              <code className="bg-gray-100 px-1 rounded ml-1">ANTHROPIC_API_KEY</code> en el servidor (Railway).
             </p>
           )}
         </div>

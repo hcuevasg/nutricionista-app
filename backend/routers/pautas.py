@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List
 import io
 import json
-import asyncio
 
 import logging
 
+import ai_service
 import models, schemas, auth
+from ai_service import AIError, TIPO_LABELS, NOMBRES_GRUPOS as _NOMBRES_GRUPOS, TIEMPOS_COMIDA as _TIEMPOS_COMIDA
 from database import get_db, SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -36,21 +37,6 @@ _GRUPOS_MACROS = {
     "azucares":           {"kcal": 20,  "cho": 5,   "lip": 0,   "prot": 0},
 }
 
-_NOMBRES_GRUPOS = {
-    "cereales": "Cereales", "verduras_cg": "Verduras CG", "verduras_lc": "Verduras LC",
-    "frutas": "Frutas", "lacteos_ag": "Lácteos AG", "lacteos_mg": "Lácteos MG",
-    "lacteos_bg": "Lácteos BG", "legumbres": "Legumbres", "carnes_ag": "Carnes AG",
-    "carnes_bg": "Carnes BG", "otros_proteicos": "Otros Proteicos",
-    "aceite_grasas": "Aceite y Grasas", "alim_ricos_lipidos": "Ricos en Lípidos",
-    "leches_vegetales": "Leches Vegetales", "lacteos_soya": "Lácteos de Soya",
-    "semillas_chia": "Semillas Chía", "azucares": "Azúcares",
-}
-
-_TIEMPOS_COMIDA = [
-    ("desayuno", "Desayuno"), ("colacion1", "Colación 1"), ("almuerzo", "Almuerzo"),
-    ("colacion2", "Colación 2"), ("once", "Once"), ("cena", "Cena"),
-]
-
 router = APIRouter(prefix="/pautas", tags=["pautas"])
 
 
@@ -60,12 +46,10 @@ router = APIRouter(prefix="/pautas", tags=["pautas"])
 async def ai_status(
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
-    import os
-    key = os.getenv("GROQ_API_KEY", "")
     return {
-        "configured": bool(key),
-        "model": "llama-3.3-70b-versatile",
-        "provider": "Groq",
+        "configured": ai_service.is_configured(),
+        "model": ai_service.model_name(),
+        "provider": ai_service.PROVIDER,
     }
 
 
@@ -80,8 +64,6 @@ async def generar_menu_stream(
 ):
     """SSE endpoint for AI menu generation. El frontend lo consume con fetch +
     ReadableStream para poder enviar el JWT en el header Authorization."""
-    import os
-
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
         models.Patient.nutritionist_id == current_user.id
@@ -96,103 +78,30 @@ async def generar_menu_stream(
     if not pauta:
         raise HTTPException(status_code=404, detail="Pauta no encontrada")
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada")
-
-    # Capture data for the generator before closing over DB session
+    if not ai_service.is_configured():
+        raise HTTPException(status_code=503, detail="IA no configurada: falta ANTHROPIC_API_KEY en el servidor")
+    try:
+        menu_request = ai_service.build_menu_request(pauta, patient.allergies)
+    except AIError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     pauta_id_val = pauta.id
-    pauta_tipo = pauta.tipo_pauta
-    pauta_kcal = pauta.kcal_objetivo
-    pauta_distribucion = pauta.distribucion_json
-    pauta_porciones = pauta.porciones_json
-    patient_allergies = patient.allergies
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
     async def event_stream():
-        yield f'event: status\ndata: {json.dumps({"step": "connecting", "msg": "Conectando con IA..."})}\n\n'
-        await asyncio.sleep(0)
-
-        yield f'event: status\ndata: {json.dumps({"step": "generating", "msg": "Generando ideas de menú con IA..."})}\n\n'
-        await asyncio.sleep(0)
-
-        # Build prompt (same logic as POST endpoint)
+        total = len(menu_request.tiempos)
+        yield sse("status", {"step": "generating", "msg": f"Generando menú con IA (0 de {total} tiempos)..."})
+        menu = None
         try:
-            distribucion = json.loads(pauta_distribucion or "{}") if pauta_distribucion else {}
-        except Exception:
-            distribucion = {}
-
-        tiempos_info = []
-        for key_t, label in _TIEMPOS_COMIDA:
-            grupos_t = distribucion.get(key_t, {})
-            grupos_activos = [(g, float(p)) for g, p in grupos_t.items() if float(p or 0) > 0]
-            if not grupos_activos:
-                continue
-            grupos_str = ", ".join(f"{_NOMBRES_GRUPOS.get(g, g)} {p:g}p" for g, p in grupos_activos)
-            tiempos_info.append(f"- {label}: {grupos_str}")
-
-        if not tiempos_info:
-            yield f'event: error\ndata: {json.dumps({"message": "Sin distribución de tiempos en la pauta"})}\n\n'
-            return
-
-        try:
-            _allergies = json.loads(patient_allergies or "[]") if patient_allergies else []
-        except Exception:
-            _allergies = []
-        allergy_line = (
-            f"\nRESTRICCIONES: alergia a {', '.join(_allergies)}. NO incluir derivados.\n"
-            if _allergies else ""
-        )
-
-        tipo_label = TIPO_LABELS.get(pauta_tipo, pauta_tipo)
-        prompt = f"""Pauta {tipo_label}, {pauta_kcal:.0f} kcal/día, paciente chileno.{allergy_line}
-
-Tiempos de comida y grupos:
-{chr(10).join(tiempos_info)}
-
-Genera dos opciones de menú para CADA tiempo listado arriba.
-Responde SOLO con JSON, sin texto antes ni después, sin markdown.
-
-Formato exacto:
-{{
-  "desayuno": {{
-    "opcion1": [{{"nombre": "Avena cocida", "cantidad": 180, "unidad": "g", "kcal_100": 71, "prot_100": 2.5, "cho_100": 12.0, "lip_100": 1.4}}],
-    "opcion2": [{{"nombre": "Pan marraqueta", "cantidad": 60, "unidad": "g", "kcal_100": 275, "prot_100": 9.0, "cho_100": 54.0, "lip_100": 2.0}}]
-  }}
-}}
-
-Reglas: solo los tiempos listados, claves exactas, 2-4 alimentos por opción, alimentos chilenos reales."""
-
-        def _call_groq():
-            from groq import Groq
-            client = Groq(api_key=api_key)
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": "Eres nutricionista clínico. Respondes ÚNICAMENTE con JSON válido."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.4,
-                max_tokens=4000,
-                timeout=60,
-            )
-            return completion.choices[0].message.content.strip()
-
-        try:
-            loop = asyncio.get_event_loop()
-            raw = await loop.run_in_executor(None, _call_groq)
-
-            import re as _re
-            match = _re.search(r'\{.*\}', raw, _re.DOTALL)
-            if match:
-                raw = match.group(0)
-            menu = json.loads(raw)
-        except json.JSONDecodeError:
-            logger.exception("Respuesta IA no es JSON válido (pauta %s)", pauta_id_val)
-            yield f'event: error\ndata: {json.dumps({"message": "La IA devolvió una respuesta inválida. Intenta de nuevo."})}\n\n'
-            return
-        except Exception:
-            logger.exception("Error llamando a Groq (pauta %s)", pauta_id_val)
-            yield f'event: error\ndata: {json.dumps({"message": "No se pudo generar el menú con IA. Intenta de nuevo."})}\n\n'
+            async for event in ai_service.stream_menu(menu_request):
+                if event["type"] == "progress":
+                    yield sse("status", {"step": "generating",
+                                         "msg": f"Generando menú con IA ({event['done']} de {event['total']} tiempos)..."})
+                elif event["type"] == "menu":
+                    menu = event["menu"]
+        except AIError as e:
+            yield sse("error", {"message": e.message})
             return
 
         # Persist menu con una sesión propia: la sesión de la request puede estar
@@ -206,7 +115,7 @@ Reglas: solo los tiempos listados, claves exactas, 2-4 alimentos por opción, al
         finally:
             stream_db.close()
 
-        yield f'event: result\ndata: {json.dumps({"menu": menu})}\n\n'
+        yield sse("result", {"menu": menu})
 
     return StreamingResponse(
         event_stream(),
@@ -407,7 +316,7 @@ async def download_pauta_pdf(
     )
 
 
-# ── Generador de menú con IA (Groq) ─────────────────────────────────────────
+# ── Generador de menú con IA (Claude) ─────────────────────────────────────────
 
 @router.post("/{patient_id}/{pauta_id}/generar-menu")
 async def generar_menu_ia(
@@ -429,99 +338,10 @@ async def generar_menu_ia(
     if not pauta:
         raise HTTPException(status_code=404, detail="Pauta not found")
 
-    import os
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada en el servidor")
-
     try:
-        porciones = json.loads(pauta.porciones_json or "{}") if pauta.porciones_json else {}
-        distribucion = json.loads(pauta.distribucion_json or "{}") if pauta.distribucion_json else {}
-    except Exception:
-        porciones = {}
-        distribucion = {}
-
-    # Construir descripción de tiempos con porciones
-    tiempos_info = []
-    for key, label in _TIEMPOS_COMIDA:
-        grupos_t = distribucion.get(key, {})
-        grupos_activos = [(g, float(p)) for g, p in grupos_t.items() if float(p or 0) > 0]
-        if not grupos_activos:
-            continue
-        grupos_str = ", ".join(
-            f"{_NOMBRES_GRUPOS.get(g, g)} {p:g}p" for g, p in grupos_activos
-        )
-        tiempos_info.append(f"- {label}: {grupos_str}")
-
-    if not tiempos_info:
-        raise HTTPException(status_code=400, detail="La pauta no tiene distribución por tiempos definida")
-
-    import json as _json
-    try:
-        _allergies = _json.loads(patient.allergies or "[]") if patient.allergies else []
-    except Exception:
-        _allergies = []
-    _allergy_str = ", ".join(_allergies)
-    allergy_line = f"\nRESTRICCIONES — ALERGIAS: El paciente tiene alergia a {_allergy_str}. NO incluir NINGÚN alimento que contenga estos ingredientes ni derivados.\n" if _allergies else ""
-
-    tipo_label = TIPO_LABELS.get(pauta.tipo_pauta, pauta.tipo_pauta)
-    prompt = f"""Pauta {tipo_label}, {pauta.kcal_objetivo:.0f} kcal/día, paciente chileno.{allergy_line}
-
-Tiempos de comida y grupos:
-{chr(10).join(tiempos_info)}
-
-Genera dos opciones de menú para CADA tiempo listado arriba.
-Responde SOLO con JSON, sin texto antes ni después, sin markdown.
-
-Formato exacto (cada opción es un array de alimentos):
-{{
-  "desayuno": {{
-    "opcion1": [
-      {{"nombre": "Avena cocida", "cantidad": 180, "unidad": "g", "kcal_100": 71, "prot_100": 2.5, "cho_100": 12.0, "lip_100": 1.4}},
-      {{"nombre": "Leche semidescremada", "cantidad": 200, "unidad": "ml", "kcal_100": 45, "prot_100": 3.5, "cho_100": 4.8, "lip_100": 1.5}},
-      {{"nombre": "Plátano", "cantidad": 80, "unidad": "g", "kcal_100": 89, "prot_100": 1.1, "cho_100": 22.8, "lip_100": 0.3}}
-    ],
-    "opcion2": [
-      {{"nombre": "Pan marraqueta", "cantidad": 60, "unidad": "g", "kcal_100": 275, "prot_100": 9.0, "cho_100": 54.0, "lip_100": 2.0}},
-      {{"nombre": "Palta", "cantidad": 40, "unidad": "g", "kcal_100": 160, "prot_100": 2.0, "cho_100": 8.5, "lip_100": 14.7}},
-      {{"nombre": "Jugo naranja natural", "cantidad": 200, "unidad": "ml", "kcal_100": 45, "prot_100": 0.7, "cho_100": 10.4, "lip_100": 0.2}}
-    ]
-  }}
-}}
-
-Reglas:
-- Incluye SOLO los tiempos listados, con las claves exactas (desayuno, colacion1, almuerzo, colacion2, once, cena)
-- Cada opción: 2 a 4 alimentos
-- Valores kcal_100/prot_100/cho_100/lip_100 = por 100g o 100ml del alimento crudo/tal cual
-- Alimentos chilenos reales: marraqueta, cazuela, porotos, plateada, yogur, quesillo, etc."""
-
-    try:
-        from groq import Groq
-        import re as _re
-        client = Groq(api_key=api_key)
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "Eres nutricionista clínico. Respondes ÚNICAMENTE con JSON válido, sin texto extra, sin markdown."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.4,
-            max_tokens=4000,
-        )
-        raw = completion.choices[0].message.content.strip()
-
-        # Extraer bloque JSON robusto: busca desde el primer { hasta el último }
-        match = _re.search(r'\{.*\}', raw, _re.DOTALL)
-        if match:
-            raw = match.group(0)
-
-        menu = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.exception("Respuesta IA no es JSON válido (pauta %s)", pauta_id)
-        raise HTTPException(status_code=502, detail="La IA devolvió una respuesta inválida. Intenta de nuevo.")
-    except Exception:
-        logger.exception("Error llamando a Groq (pauta %s)", pauta_id)
-        raise HTTPException(status_code=502, detail="No se pudo generar el menú con IA. Intenta de nuevo.")
+        menu = await ai_service.generate_menu(ai_service.build_menu_request(pauta, patient.allergies))
+    except AIError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
     pauta.menu_json = json.dumps(menu, ensure_ascii=False)
     db.commit()
@@ -539,7 +359,6 @@ async def ai_suggest_pauta(
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
     """Analiza la pauta activa + historial antropométrico y sugiere ajustes con IA."""
-    import os
     patient = db.query(models.Patient).filter(
         models.Patient.id == patient_id,
         models.Patient.nutritionist_id == current_user.id
@@ -554,68 +373,15 @@ async def ai_suggest_pauta(
     if not pauta:
         raise HTTPException(status_code=404, detail="Pauta no encontrada")
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="GROQ_API_KEY no configurada")
-
     # Obtener últimas 5 evaluaciones antropométricas
     evals = db.query(models.Anthropometric).filter(
         models.Anthropometric.patient_id == patient_id
     ).order_by(models.Anthropometric.date.desc()).limit(5).all()
 
-    # Construir resumen de evaluaciones
-    evals_lines = []
-    for e in reversed(evals):
-        parts = [f"Fecha: {e.date}"]
-        if e.weight_kg: parts.append(f"Peso: {e.weight_kg}kg")
-        if e.fat_mass_pct: parts.append(f"Grasa: {e.fat_mass_pct:.1f}%")
-        if e.lean_mass_kg: parts.append(f"Masa magra: {e.lean_mass_kg:.1f}kg")
-        if e.fat_mass_kg: parts.append(f"Masa grasa: {e.fat_mass_kg:.1f}kg")
-        evals_lines.append(" | ".join(parts))
-
-    evals_summary = "\n".join(evals_lines) if evals_lines else "Sin evaluaciones registradas"
-
-    prompt = f"""Eres un nutricionista clínico experto. Analiza la siguiente pauta nutricional y el historial antropométrico del paciente.
-
-PAUTA ACTUAL:
-- Nombre: {pauta.name}
-- Tipo: {pauta.tipo_pauta}
-- Kcal objetivo: {pauta.kcal_objetivo:.0f} kcal
-- Proteínas: {pauta.prot_g:.1f}g ({pauta.prot_pct:.0f}%)
-- Lípidos: {pauta.lip_g:.1f}g ({pauta.lip_pct:.0f}%)
-- Carbohidratos: {pauta.cho_g:.1f}g ({pauta.cho_pct:.0f}%)
-- Proteínas por kg: {pauta.prot_g_kg:.2f} g/kg
-- TMB: {pauta.tmb:.0f} kcal | GET: {pauta.get_kcal:.0f} kcal
-- Factor actividad: {pauta.fa_key}
-- Paciente: {pauta.sexo}, {pauta.edad} años, {pauta.peso}kg
-
-HISTORIAL ANTROPOMÉTRICO (de más antiguo a más reciente):
-{evals_summary}
-
-Proporciona un análisis clínico conciso con:
-1. Evaluación de la tendencia de composición corporal
-2. Si la pauta actual es adecuada para los resultados observados
-3. Sugerencias específicas de ajuste (kcal, macros, proteína/kg) si corresponde
-4. Recomendaciones prácticas adicionales
-
-Responde en español, de forma directa y profesional. Máximo 250 palabras."""
-
     try:
-        from groq import Groq
-        client = Groq(api_key=api_key)
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "Eres nutricionista clínico experto en Chile. Eres conciso, práctico y basas tus análisis en evidencia."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=800,
-        )
-        suggestions = completion.choices[0].message.content.strip()
-    except Exception:
-        logger.exception("Error llamando a Groq para sugerencias")
-        raise HTTPException(status_code=502, detail="No se pudieron generar sugerencias con IA. Intenta de nuevo.")
+        suggestions = await ai_service.suggest_adjustments(pauta, list(reversed(evals)))
+    except AIError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
     return {"suggestions": suggestions, "evals_count": len(evals)}
 
@@ -627,16 +393,6 @@ def _hex(h: str):
     from reportlab.lib.colors import HexColor
     return HexColor(h)
 
-
-TIPO_LABELS = {
-    "omnivoro": "Omnívoro",
-    "ovolacto": "Ovo-lacto vegetariano",
-    "vegano": "Vegano",
-    "vegetariano": "Vegetariano",
-    "renal": "Renal",
-    "diabetico": "Diabético",
-    "hipocalorico": "Hipocalórico",
-}
 
 FA_LABELS = {
     "sedentaria": "Sedentaria (×1.2)",

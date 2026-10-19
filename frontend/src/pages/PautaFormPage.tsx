@@ -1231,7 +1231,7 @@ export default function PautaFormPage() {
                 </Link>
                 <button onClick={handleGenerarMenu}
                   disabled={generatingMenu || aiConfigured === null || aiConfigured === false}
-                  title={aiConfigured === false ? 'IA no configurada. Configura GROQ_API_KEY en el servidor.' : undefined}
+                  title={aiConfigured === false ? 'IA no configurada. Configura ANTHROPIC_API_KEY en el servidor.' : undefined}
                   className="bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
                   {generatingMenu ? (
                     <>
