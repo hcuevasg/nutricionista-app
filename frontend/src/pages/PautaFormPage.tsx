@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { api, apiErrorMessage } from '../api/client'
 import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
 
@@ -271,13 +272,12 @@ export default function PautaFormPage() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
   const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   useEffect(() => {
     if (!token || !id) return
-    const patientFetch = fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json())
+    const patientFetch = api.get<any>(`/patients/${id}`)
     const pautaFetch = (isView || isEdit)
-      ? fetch(`${API}/pautas/${id}/${pautaId}`, { headers: H }).then(r => r.json())
+      ? api.get<any>(`/pautas/${id}/${pautaId}`)
       : Promise.resolve(null)
 
     Promise.all([patientFetch, pautaFetch])
@@ -303,13 +303,13 @@ export default function PautaFormPage() {
           }))
         }
       })
+      .catch(err => setError(apiErrorMessage(err, 'Error al cargar la pauta')))
       .finally(() => setLoading(false))
   }, [id, pautaId, token])
 
   useEffect(() => {
     if (!token) return
-    fetch(`${API}/pautas/ai-status`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+    api.get<{ configured?: boolean }>('/pautas/ai-status')
       .then(d => setAiConfigured(d.configured ?? false))
       .catch(() => setAiConfigured(false))
   }, [token])
@@ -421,15 +421,11 @@ export default function PautaFormPage() {
     }
 
     try {
-      const url = isEdit
-        ? `${API}/pautas/${id}/${pautaId}`
-        : `${API}/pautas?patient_id=${id}`
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch(url, { method, headers: H, body: JSON.stringify(payload) })
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail ?? `Error ${res.status}`) }
+      if (isEdit) await api.put(`/pautas/${id}/${pautaId}`, payload)
+      else await api.post(`/pautas?patient_id=${id}`, payload)
       navigate(`/patients/${id}/pautas`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      setError(apiErrorMessage(err, 'Error al guardar'))
     } finally {
       setSaving(false)
     }
@@ -485,10 +481,7 @@ export default function PautaFormPage() {
     if (!pautaId) return
     setSavingMenu(true); setError(null)
     try {
-      const res = await fetch(`${API}/pautas/${id}/${pautaId}/menu`, {
-        method: 'PATCH', headers: H, body: JSON.stringify({ menu }),
-      })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
+      await api.patch(`/pautas/${id}/${pautaId}/menu`, { menu })
     } catch {
       setError('No se pudo guardar el menú')
     } finally {
@@ -500,9 +493,7 @@ export default function PautaFormPage() {
     if (!pautaId) return
     setDownloading(true)
     try {
-      const res = await fetch(`${API}/pautas/${id}/${pautaId}/pdf`, { headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const blob = await res.blob()
+      const blob = await api.blob(`/pautas/${id}/${pautaId}/pdf`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = `pauta_${patientName.replace(/ /g, '_')}_${form.date}.pdf`
@@ -519,8 +510,7 @@ export default function PautaFormPage() {
   const loadRecetas = () => {
     if (recetasLoaded || recetasLoading) return
     setRecetasLoading(true)
-    fetch(`${API}/recetas/?limit=200`, { headers: H })
-      .then(r => r.json())
+    api.get<RecetaListItem[] | { items?: RecetaListItem[] }>('/recetas/', { limit: 200 })
       .then(data => { setRecetas(Array.isArray(data) ? data : (data.items ?? [])); setRecetasLoaded(true) })
       .catch(() => {})
       .finally(() => setRecetasLoading(false))
@@ -1267,11 +1257,7 @@ export default function PautaFormPage() {
                     setLoadingSuggestions(true)
                     setAiSuggestions(null)
                     try {
-                      const res = await fetch(`${API}/pautas/${id}/${pautaId}/ai-suggest`, {
-                        method: 'POST', headers: H,
-                      })
-                      if (!res.ok) throw new Error()
-                      const data = await res.json()
+                      const data = await api.post<{ suggestions: string }>(`/pautas/${id}/${pautaId}/ai-suggest`)
                       setAiSuggestions(data.suggestions)
                     } catch {
                       toast.error('Error al obtener sugerencias IA')

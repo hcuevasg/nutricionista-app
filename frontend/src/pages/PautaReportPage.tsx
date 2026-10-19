@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { api, apiErrorMessage } from '../api/client'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
@@ -115,25 +116,24 @@ export default function PautaReportPage() {
   const { id, pautaId } = useParams<{ id: string; pautaId: string }>()
   const { token, user } = useAuth()
   const reportRef = useRef<HTMLDivElement>(null)
-  const API = import.meta.env.VITE_API_URL
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [pauta, setPauta] = useState<Pauta | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id || !pautaId || !token) return
-    const H = { Authorization: `Bearer ${token}` }
     Promise.all([
-      fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/pautas/${id}/${pautaId}`, { headers: H }).then(r => r.json()),
+      api.get<Patient>(`/patients/${id}`),
+      api.get<Pauta>(`/pautas/${id}/${pautaId}`),
     ]).then(([p, pa]) => {
       setPatient(p)
       setPauta(pa)
       setLoading(false)
-    })
-  }, [id, pautaId, token, API])
+    }).catch(err => setError(apiErrorMessage(err, 'Error al cargar el informe')))
+  }, [id, pautaId, token])
 
   const captureCanvas = async () => {
     if (!reportRef.current) return null
@@ -180,7 +180,7 @@ export default function PautaReportPage() {
   if (loading || !patient || !pauta) {
     return (
       <div className="min-h-screen bg-bg-light flex items-center justify-center">
-        <p className="text-text-muted text-sm">Cargando informe...</p>
+        <p className="text-text-muted text-sm">{error ?? 'Cargando informe...'}</p>
       </div>
     )
   }

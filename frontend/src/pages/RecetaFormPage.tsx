@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
+import { api } from '../api/client'
 
 // ── Grupos alimentarios (constantes nutricionales) ────────────────────────────
 const GRUPOS_MACROS: Record<string, { kcal: number; cho: number; lip: number; prot: number }> = {
@@ -115,14 +116,11 @@ export default function RecetaFormPage() {
     Object.fromEntries(Object.keys(GRUPOS_MACROS).map(k => [k, '0']))
   )
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   // Load if editing
   useEffect(() => {
     if (!isEditing || !token) return
-    fetch(`${API}/recetas/${recetaId}`, { headers: H })
-      .then(r => r.json())
+    api.get<Record<string, any>>(`/recetas/${recetaId}`)
       .then(data => {
         setNombre(data.nombre ?? '')
         setCategoria(data.categoria ?? 'General')
@@ -184,8 +182,7 @@ export default function RecetaFormPage() {
     searchRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await fetch(`${API}/alimentos/search?q=${encodeURIComponent(searchQ)}`, { headers: H })
-        const data = await res.json()
+        const data = await api.get<AlimentoResult[]>('/alimentos/search', { q: searchQ })
         setSearchResults(Array.isArray(data) ? data : [])
       } catch { setSearchResults([]) }
       finally { setSearching(false) }
@@ -243,10 +240,8 @@ export default function RecetaFormPage() {
         .map(([grupo, v]) => ({ grupo, porciones: pf(v) })),
     }
     try {
-      const url = isEditing ? `${API}/recetas/${recetaId}` : `${API}/recetas/`
-      const method = isEditing ? 'PUT' : 'POST'
-      const res = await fetch(url, { method, headers: H, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error()
+      if (isEditing) await api.put(`/recetas/${recetaId}`, body)
+      else await api.post('/recetas/', body)
       toast.success(isEditing ? 'Receta actualizada' : 'Receta creada')
       navigate('/recetas')
     } catch {

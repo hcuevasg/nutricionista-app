@@ -53,6 +53,22 @@ export const api = {
 
   delete: <T>(url: string) =>
     axiosInstance.delete<T>(url).then((r) => r.data),
+
+  // Descargas (PDF, backup): devuelve el Blob
+  blob: (url: string, params?: object) =>
+    axiosInstance.get<Blob>(url, { params, responseType: 'blob' }).then((r) => r.data),
+}
+
+/** Mensaje legible de un error de API: usa `detail` del backend si existe. */
+export function apiErrorMessage(err: unknown, fallback = 'Ocurrió un error'): string {
+  if (axios.isAxiosError(err)) {
+    const detail = (err.response?.data as { detail?: unknown } | undefined)?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg)
+    if (err.response) return `${fallback} (${err.response.status})`
+    return 'Error de red. Verifica tu conexión.'
+  }
+  return err instanceof Error ? err.message : fallback
 }
 
 export default axiosInstance

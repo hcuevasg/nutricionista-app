@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { useToast } from '../context/ToastContext'
+import { api, apiErrorMessage } from '../api/client'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ScatterChart, Scatter, ReferenceLine, Label,
@@ -134,22 +135,17 @@ export default function IsAkPage() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const toast = useToast()
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-
   const toggleSection = (key: string) =>
     setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }))
 
   useEffect(() => {
     if (!token || !id) return
 
-    fetch(`${API}/patients/${id}`, { headers: H })
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+    api.get<Patient>(`/patients/${id}`)
       .then(pat => setPatient(pat))
       .catch(() => setError('Error al cargar paciente'))
 
-    fetch(`${API}/anthropometrics/${id}`, { headers: H })
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+    api.get<Evaluation[]>(`/anthropometrics/${id}`)
       .then(evals => setEvaluations(Array.isArray(evals) ? evals : []))
       .catch(() => setEvaluations([]))
       .finally(() => setLoadingHistory(false))
@@ -238,8 +234,7 @@ export default function IsAkPage() {
     if (!confirm('¿Eliminar esta evaluación? Esta acción no se puede deshacer.')) return
     setDeletingId(evalId)
     try {
-      const res = await fetch(`${API}/anthropometrics/${id}/${evalId}`, { method: 'DELETE', headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
+      await api.delete(`/anthropometrics/${id}/${evalId}`)
       setEvaluations(prev => prev.filter(e => e.id !== evalId))
       toast.success('Evaluación eliminada')
     } catch {
@@ -298,16 +293,9 @@ export default function IsAkPage() {
     }
 
     try {
-      const url = editingEvalId
-        ? `${API}/anthropometrics/${id}/${editingEvalId}`
-        : `${API}/anthropometrics?patient_id=${id}`
-      const method = editingEvalId ? 'PUT' : 'POST'
-      const res = await fetch(url, { method, headers: H, body: JSON.stringify(payload) })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.detail ?? `Error ${res.status}`)
-      }
-      const saved = await res.json()
+      const saved = editingEvalId
+        ? await api.put<Evaluation>(`/anthropometrics/${id}/${editingEvalId}`, payload)
+        : await api.post<Evaluation>(`/anthropometrics?patient_id=${id}`, payload)
       if (editingEvalId) {
         setEvaluations(prev => prev.map(e => e.id === editingEvalId ? saved : e))
       } else {
@@ -316,7 +304,7 @@ export default function IsAkPage() {
       closeForm()
       toast.success(editingEvalId ? 'Evaluación actualizada' : 'Evaluación guardada')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      const msg = apiErrorMessage(err, 'Error al guardar')
       toast.error(msg)
       setError(msg)
     } finally {
@@ -327,9 +315,7 @@ export default function IsAkPage() {
   const handleDownloadIsak = async (evalId: number, date: string) => {
     setDownloadingId(evalId)
     try {
-      const res = await fetch(`${API}/anthropometrics/${id}/${evalId}/pdf`, { headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const blob = await res.blob()
+      const blob = await api.blob(`/anthropometrics/${id}/${evalId}/pdf`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -346,9 +332,7 @@ export default function IsAkPage() {
   const handleDownloadComparativo = async () => {
     setDownloadingComparativo(true)
     try {
-      const res = await fetch(`${API}/anthropometrics/${id}/pdf/comparativo`, { headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const blob = await res.blob()
+      const blob = await api.blob(`/anthropometrics/${id}/pdf/comparativo`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

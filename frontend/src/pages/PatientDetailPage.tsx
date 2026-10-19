@@ -117,26 +117,20 @@ export default function PatientDetailPage() {
   const [pautas, setPautas] = useState<Pauta[]>([])
   const [selectedPautaIdx, setSelectedPautaIdx] = useState(0)
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}` }
-
   useEffect(() => {
     if (!token || !id) return
-    fetch(`${API}/patients/${id}`, { headers: H })
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+    api.get<Patient>(`/patients/${id}`)
       .then(setPatient)
       .catch(() => setError('No se pudo cargar el paciente'))
       .finally(() => setLoading(false))
 
-    fetch(`${API}/anthropometrics/${id}`, { headers: H })
-      .then(r => r.ok ? r.json() : [])
+    api.get<Evaluation[]>(`/anthropometrics/${id}`)
+      .catch(() => [])
       .then(evals => setEvaluations(Array.isArray(evals) ? evals : []))
-      .catch(() => {})
 
-    fetch(`${API}/pautas/${id}`, { headers: H })
-      .then(r => r.ok ? r.json() : [])
+    api.get<Pauta[]>(`/pautas/${id}`)
+      .catch(() => [])
       .then(ps => setPautas(Array.isArray(ps) ? ps : []))
-      .catch(() => {})
   }, [id, token])
 
   if (loading) {

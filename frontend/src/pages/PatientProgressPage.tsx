@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { api, apiErrorMessage } from '../api/client'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
@@ -61,26 +62,28 @@ export default function PatientProgressPage() {
   const { id } = useParams<{ id: string }>()
   const { token, user } = useAuth()
   const reportRef = useRef<HTMLDivElement>(null)
-  const API = import.meta.env.VITE_API_URL
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [evals, setEvals]     = useState<Eval[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!id || !token) return
-    const H = { Authorization: `Bearer ${token}` }
     Promise.all([
-      fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/anthropometrics/${id}`, { headers: H }).then(r => r.json()),
+      api.get<Patient>(`/patients/${id}`),
+      api.get<Eval[]>(`/anthropometrics/${id}`),
     ]).then(([p, ev]) => {
       setPatient(p)
       const list: Eval[] = Array.isArray(ev) ? ev : []
       setEvals(list.sort((a, b) => a.date.localeCompare(b.date)))
       setLoading(false)
+    }).catch(err => {
+      setError(apiErrorMessage(err, 'No se pudo cargar el informe de progreso'))
+      setLoading(false)
     })
-  }, [id, token, API])
+  }, [id, token])
 
   const captureCanvas = async () => {
     if (!reportRef.current) return null
@@ -127,7 +130,7 @@ export default function PatientProgressPage() {
   if (loading || !patient) {
     return (
       <div className="min-h-screen bg-[#F7F5F2] flex items-center justify-center">
-        <p className="text-[#6b7280] text-sm">Cargando informe de progreso...</p>
+        <p className="text-[#6b7280] text-sm">{error ?? 'Cargando informe de progreso...'}</p>
       </div>
     )
   }

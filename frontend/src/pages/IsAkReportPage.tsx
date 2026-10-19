@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { api, apiErrorMessage } from '../api/client'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
@@ -246,21 +247,20 @@ export default function IsAkReportPage() {
   const { id, evalId } = useParams<{ id: string; evalId: string }>()
   const { token, user } = useAuth()
   const reportRef = useRef<HTMLDivElement>(null)
-  const API = import.meta.env.VITE_API_URL
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [ev, setEv] = useState<Evaluation | null>(null)
   const [prevEv, setPrevEv] = useState<Evaluation | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!id || !evalId || !token) return
-    const headers = { Authorization: `Bearer ${token}` }
     Promise.all([
-      fetch(`${API}/patients/${id}`, { headers }).then(r => r.json()),
-      fetch(`${API}/anthropometrics/${id}/${evalId}`, { headers }).then(r => r.json()),
-      fetch(`${API}/anthropometrics/${id}`, { headers }).then(r => r.json()),
+      api.get<Patient>(`/patients/${id}`),
+      api.get<Evaluation>(`/anthropometrics/${id}/${evalId}`),
+      api.get<Evaluation[]>(`/anthropometrics/${id}`),
     ]).then(([p, e, allEvals]) => {
       setPatient(p)
       setEv(e)
@@ -272,8 +272,11 @@ export default function IsAkReportPage() {
         }
       }
       setLoading(false)
+    }).catch(err => {
+      setError(apiErrorMessage(err, 'No se pudo cargar el informe'))
+      setLoading(false)
     })
-  }, [id, evalId, token, API])
+  }, [id, evalId, token])
 
   const captureCanvas = async () => {
     if (!reportRef.current) return null
@@ -316,7 +319,7 @@ export default function IsAkReportPage() {
   if (loading || !patient || !ev) {
     return (
       <div className="min-h-screen bg-bg-light flex items-center justify-center">
-        <div className="text-text-muted text-sm">Cargando informe...</div>
+        <div className="text-text-muted text-sm">{error ?? 'Cargando informe...'}</div>
       </div>
     )
   }

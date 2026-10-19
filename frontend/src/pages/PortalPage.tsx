@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-
-const API = import.meta.env.VITE_API_URL as string
+import { api } from '../api/client'
 
 interface PortalInfo {
   patient_name: string
@@ -41,9 +40,9 @@ export default function PortalPage() {
   useEffect(() => {
     if (!token) return
     Promise.all([
-      fetch(`${API}/portal/${token}`).then(r => { if (!r.ok) throw new Error('invalid'); return r.json() }),
-      fetch(`${API}/portal/${token}/pautas`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/portal/${token}/evaluations`).then(r => r.ok ? r.json() : []),
+      api.get<PortalInfo>(`/portal/${token}`),
+      api.get<Pauta[]>(`/portal/${token}/pautas`).catch(() => []),
+      api.get<Evaluation[]>(`/portal/${token}/evaluations`).catch(() => []),
     ])
       .then(([inf, pau, evs]) => {
         setInfo(inf)

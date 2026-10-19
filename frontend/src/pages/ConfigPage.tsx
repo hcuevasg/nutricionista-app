@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { api } from '../api/client'
 
 interface AuditEntry {
   id: number
@@ -32,10 +32,6 @@ const ACTION_COLOR: Record<string, string> = {
 }
 
 export default function ConfigPage() {
-  const { token } = useAuth()
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-
   const [logs, setLogs] = useState<AuditEntry[]>([])
   const [total, setTotal] = useState(0)
   const [loadingLogs, setLoadingLogs] = useState(true)
@@ -44,15 +40,13 @@ export default function ConfigPage() {
   const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; provider: string } | null>(null)
 
   useEffect(() => {
-    fetch(`${API}/pautas/ai-status`, { headers: H })
-      .then(r => r.json())
+    api.get<{ configured: boolean; model: string; provider: string }>('/pautas/ai-status')
       .then(setAiStatus)
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    fetch(`${API}/settings/audit-logs?limit=50`, { headers: H })
-      .then(r => r.json())
+    api.get<{ logs?: AuditEntry[]; total?: number }>('/settings/audit-logs', { limit: 50 })
       .then(d => { setLogs(d.logs ?? []); setTotal(d.total ?? 0) })
       .catch(() => setError('No se pudieron cargar los registros'))
       .finally(() => setLoadingLogs(false))
@@ -61,9 +55,7 @@ export default function ConfigPage() {
   const handleBackup = async () => {
     setDownloading(true)
     try {
-      const res = await fetch(`${API}/settings/backup`, { headers: H })
-      if (!res.ok) throw new Error()
-      const blob = await res.blob()
+      const blob = await api.blob('/settings/backup')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

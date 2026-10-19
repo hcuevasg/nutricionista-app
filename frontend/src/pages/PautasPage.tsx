@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { SkeletonTableRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
+import { api, apiErrorMessage } from '../api/client'
 
 interface Pauta {
   id: number
@@ -44,31 +45,26 @@ export default function PautasPage() {
   const [activatingId, setActivatingId] = useState<number | null>(null)
   const toast = useToast()
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}` }
-
   useEffect(() => {
     if (!token || !id) return
     Promise.all([
-      fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/pautas/${id}`, { headers: H }).then(r => r.json()),
+      api.get<{ name?: string }>(`/patients/${id}`),
+      api.get<Pauta[]>(`/pautas/${id}`),
     ])
       .then(([pat, pl]) => {
         setPatientName(pat.name ?? '')
         setPautas(Array.isArray(pl) ? pl : [])
       })
-      .catch(() => setError('Error al cargar pautas'))
+      .catch(err => setError(apiErrorMessage(err, 'Error al cargar pautas')))
       .finally(() => setLoading(false))
   }, [id, token])
 
   const handleSetActive = async (pautaId: number) => {
     setActivatingId(pautaId)
     try {
-      const res = await fetch(`${API}/pautas/${id}/${pautaId}/set-active`, { method: 'PATCH', headers: H })
-      if (res.ok) {
-        setPautas(prev => prev.map(p => ({ ...p, is_active: p.id === pautaId })))
-        toast.success('Pauta activa actualizada')
-      }
+      await api.patch(`/pautas/${id}/${pautaId}/set-active`)
+      setPautas(prev => prev.map(p => ({ ...p, is_active: p.id === pautaId })))
+      toast.success('Pauta activa actualizada')
     } catch {
       toast.error('Error al activar pauta')
     } finally {
@@ -78,17 +74,19 @@ export default function PautasPage() {
 
   const handleDelete = async (pautaId: number) => {
     if (!confirm('¿Eliminar esta pauta?')) return
-    await fetch(`${API}/pautas/${id}/${pautaId}`, { method: 'DELETE', headers: H })
-    setPautas(prev => prev.filter(p => p.id !== pautaId))
-    toast.success('Pauta eliminada')
+    try {
+      await api.delete(`/pautas/${id}/${pautaId}`)
+      setPautas(prev => prev.filter(p => p.id !== pautaId))
+      toast.success('Pauta eliminada')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Error al eliminar pauta'))
+    }
   }
 
   const handleDownloadPdf = async (p: Pauta) => {
     setDownloadingId(p.id)
     try {
-      const res = await fetch(`${API}/pautas/${id}/${p.id}/pdf`, { headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const blob = await res.blob()
+      const blob = await api.blob(`/pautas/${id}/${p.id}/pdf`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

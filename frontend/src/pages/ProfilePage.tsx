@@ -1,13 +1,12 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { api, apiErrorMessage } from '../api/client'
 
 const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function ProfilePage() {
-  const { token, user, updateUser } = useAuth()
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  const { user, updateUser } = useAuth()
 
   const [name, setName] = useState(user?.name ?? user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -43,15 +42,11 @@ export default function ProfilePage() {
         report_tagline: reportTagline || null,
         logo_base64: logoBase64 || null,
       }
-      const res = await fetch(`${API}/auth/profile`, {
-        method: 'PUT', headers: H, body: JSON.stringify(body),
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail ?? `Error ${res.status}`)
+      const d = await api.put<{ clinic_name?: string; report_tagline?: string; logo_base64?: string }>('/auth/profile', body)
       updateUser({ clinic_name: d.clinic_name, report_tagline: d.report_tagline, logo_base64: d.logo_base64 })
       setBrandMsg({ ok: true, text: 'Marca actualizada correctamente' })
     } catch (err) {
-      setBrandMsg({ ok: false, text: err instanceof Error ? err.message : 'Error al guardar' })
+      setBrandMsg({ ok: false, text: apiErrorMessage(err, 'Error al guardar') })
     } finally {
       setSavingBrand(false)
     }
@@ -67,14 +62,10 @@ export default function ProfilePage() {
     e.preventDefault()
     setSavingProfile(true); setProfileMsg(null)
     try {
-      const res = await fetch(`${API}/auth/profile`, {
-        method: 'PUT', headers: H, body: JSON.stringify({ name, email }),
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail ?? `Error ${res.status}`)
+      await api.put('/auth/profile', { name, email })
       setProfileMsg({ ok: true, text: 'Perfil actualizado correctamente' })
     } catch (err) {
-      setProfileMsg({ ok: false, text: err instanceof Error ? err.message : 'Error al guardar' })
+      setProfileMsg({ ok: false, text: apiErrorMessage(err, 'Error al guardar') })
     } finally {
       setSavingProfile(false)
     }
@@ -85,16 +76,11 @@ export default function ProfilePage() {
     if (newPw !== confirmPw) { setPwMsg({ ok: false, text: 'Las contraseñas no coinciden' }); return }
     setSavingPw(true); setPwMsg(null)
     try {
-      const res = await fetch(`${API}/auth/password`, {
-        method: 'PUT', headers: H,
-        body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail ?? `Error ${res.status}`)
+      await api.put('/auth/password', { current_password: currentPw, new_password: newPw })
       setPwMsg({ ok: true, text: 'Contraseña actualizada correctamente' })
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
     } catch (err) {
-      setPwMsg({ ok: false, text: err instanceof Error ? err.message : 'Error al cambiar contraseña' })
+      setPwMsg({ ok: false, text: apiErrorMessage(err, 'Error al cambiar contraseña') })
     } finally {
       setSavingPw(false)
     }

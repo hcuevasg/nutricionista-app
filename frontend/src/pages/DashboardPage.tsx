@@ -83,14 +83,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   const [upcomingAppts, setUpcomingAppts] = useState<UpcomingAppointment[]>([])
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}` }
 
   useEffect(() => {
     if (!token) return
     Promise.all([
-      fetch(`${API}/dashboard/stats`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/dashboard/recent-patients`, { headers: H }).then(r => r.json()),
+      api.get<Stats>('/dashboard/stats').catch(() => null),
+      api.get<RecentPatient[]>('/dashboard/recent-patients').catch(() => []),
       api.get<UpcomingAppointment[]>('/appointments', { limit: 5 }).catch(() => []),
     ])
       .then(([s, r, appts]) => {

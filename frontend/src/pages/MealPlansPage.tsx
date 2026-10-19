@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { api } from '../api/client'
 import { SkeletonTableRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
@@ -36,14 +37,11 @@ export default function MealPlansPage() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
   const toast = useToast()
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}` }
-
   useEffect(() => {
     if (!token || !id) return
     Promise.all([
-      fetch(`${API}/patients/${id}`, { headers: H }).then(r => r.json()),
-      fetch(`${API}/meal-plans/${id}`, { headers: H }).then(r => r.json()),
+      api.get<{ name?: string }>(`/patients/${id}`),
+      api.get<MealPlan[]>(`/meal-plans/${id}`),
     ])
       .then(([pat, pl]) => { setPatientName(pat.name ?? ''); setPlans(Array.isArray(pl) ? pl : []) })
       .catch(() => setError('Error al cargar planes'))
@@ -52,17 +50,19 @@ export default function MealPlansPage() {
 
   const handleDelete = async (planId: number) => {
     if (!confirm('¿Eliminar este plan?')) return
-    await fetch(`${API}/meal-plans/${id}/${planId}`, { method: 'DELETE', headers: H })
-    setPlans(prev => prev.filter(p => p.id !== planId))
-    toast.success('Plan eliminado')
+    try {
+      await api.delete(`/meal-plans/${id}/${planId}`)
+      setPlans(prev => prev.filter(p => p.id !== planId))
+      toast.success('Plan eliminado')
+    } catch {
+      toast.error('No se pudo eliminar el plan')
+    }
   }
 
   const handleDownloadPdf = async (plan: MealPlan) => {
     setDownloadingId(plan.id)
     try {
-      const res = await fetch(`${API}/meal-plans/${id}/${plan.id}/pdf`, { headers: H })
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const blob = await res.blob()
+      const blob = await api.blob(`/meal-plans/${id}/${plan.id}/pdf`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

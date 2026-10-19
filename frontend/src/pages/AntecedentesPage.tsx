@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
+import { api } from '../api/client'
 
 const TABS = [
   'Identificación',
@@ -197,7 +198,6 @@ function BoolSelect({ value, onChange, name }: { value: string; onChange: (e: Re
 export default function AntecedentesPage() {
   const { id } = useParams<{ id: string }>()
   const { token } = useAuth()
-  const API = import.meta.env.VITE_API_URL
   const [activeTab, setActiveTab] = useState(0)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [recordatorioSemana, setRecordatorioSemana] = useState<RecordatorioRow[]>([])
@@ -214,48 +214,40 @@ export default function AntecedentesPage() {
 
   useEffect(() => {
     if (!token || !id) return
-    const H = { Authorization: `Bearer ${token}` }
     const load = async () => {
       try {
-        const res = await fetch(`${API}/patients/${id}`, { headers: H })
-        if (res.ok) {
-          const patient = await res.json()
-          setPatientName(patient.name)
-        }
+        const patient = await api.get<{ name: string }>(`/patients/${id}`)
+        setPatientName(patient.name)
       } catch {
         // ignore
       }
       try {
-        const res = await fetch(`${API}/antecedentes/${id}`, { headers: H })
-        if (res.ok) {
-          const data = await res.json()
-          const mapped: Partial<FormData> = {}
-          for (const key of Object.keys(EMPTY_FORM) as (keyof FormData)[]) {
-            const val = (data as Record<string, unknown>)[key]
-            if (val === null || val === undefined) {
-              mapped[key] = ''
-            } else if (typeof val === 'boolean') {
-              mapped[key] = val ? 'true' : 'false'
-            } else {
-              mapped[key] = String(val)
-            }
-          }
-          setForm({ ...EMPTY_FORM, ...mapped })
-          if (data.recordatorio_semana) {
-            try { setRecordatorioSemana(JSON.parse(data.recordatorio_semana)) } catch { /* noop */ }
-          }
-          if (data.recordatorio_finde) {
-            try { setRecordatorioFinde(JSON.parse(data.recordatorio_finde)) } catch { /* noop */ }
+        const data = await api.get<Record<string, unknown> & { recordatorio_semana?: string | null; recordatorio_finde?: string | null }>(`/antecedentes/${id}`)
+        const mapped: Partial<FormData> = {}
+        for (const key of Object.keys(EMPTY_FORM) as (keyof FormData)[]) {
+          const val = (data as Record<string, unknown>)[key]
+          if (val === null || val === undefined) {
+            mapped[key] = ''
+          } else if (typeof val === 'boolean') {
+            mapped[key] = val ? 'true' : 'false'
+          } else {
+            mapped[key] = String(val)
           }
         }
-        // 404 = new record, stay with empty form
+        setForm({ ...EMPTY_FORM, ...mapped })
+        if (data.recordatorio_semana) {
+          try { setRecordatorioSemana(JSON.parse(data.recordatorio_semana)) } catch { /* noop */ }
+        }
+        if (data.recordatorio_finde) {
+          try { setRecordatorioFinde(JSON.parse(data.recordatorio_finde)) } catch { /* noop */ }
+        }
       } catch {
-        // network error, stay with empty form
+        // 404 = new record (or other error), stay with empty form
       }
       setLoading(false)
     }
     load()
-  }, [id, token, API])
+  }, [id, token])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -286,16 +278,8 @@ export default function AntecedentesPage() {
     if (!token || !id) return
     setSaving(true)
     try {
-      const res = await fetch(`${API}/antecedentes/${id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload()),
-      })
-      if (res.ok) {
-        showToast('Antecedentes guardados correctamente', 'success')
-      } else {
-        showToast('Error al guardar antecedentes', 'error')
-      }
+      await api.post(`/antecedentes/${id}`, buildPayload())
+      showToast('Antecedentes guardados correctamente', 'success')
     } catch {
       showToast('Error al guardar antecedentes', 'error')
     } finally {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { api, apiErrorMessage } from '../api/client'
 
 interface PatientFormData {
   name: string
@@ -76,10 +77,7 @@ export default function PatientFormPage() {
   // Load patient data when editing
   useEffect(() => {
     if (!isEditing || !token) return
-    fetch(`${import.meta.env.VITE_API_URL}/patients/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
+    api.get<Record<string, any>>(`/patients/${id}`)
       .then((data) => {
         setForm({
           name: data.name ?? '',
@@ -95,7 +93,7 @@ export default function PatientFormPage() {
           allergies: Array.isArray(data.allergies) ? data.allergies : [],
         })
       })
-      .catch(() => setError('Error al cargar el paciente'))
+      .catch((err) => setError(apiErrorMessage(err, 'Error al cargar el paciente')))
       .finally(() => setLoading(false))
   }, [id, isEditing, token])
 
@@ -138,28 +136,16 @@ export default function PatientFormPage() {
       allergies: form.allergies,
     }
 
-    const url = isEditing
-      ? `${import.meta.env.VITE_API_URL}/patients/${id}`
-      : `${import.meta.env.VITE_API_URL}/patients`
-
     try {
-      const response = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.detail ?? `Error ${response.status}`)
+      if (isEditing) {
+        await api.put(`/patients/${id}`, payload)
+      } else {
+        await api.post('/patients', payload)
       }
 
       navigate('/patients')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      setError(apiErrorMessage(err, 'Error al guardar'))
     } finally {
       setSaving(false)
     }

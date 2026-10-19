@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import { api, apiErrorMessage } from '../api/client'
 
 const MEAL_TYPES = ['Desayuno', 'Media mañana', 'Almuerzo', 'Merienda', 'Cena', 'Colación']
 const UNITS = ['g', 'ml', 'taza', 'cdta', 'cda', 'unidad', 'porción', 'rebanada']
@@ -61,16 +62,13 @@ export default function MealPlanFormPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const API = import.meta.env.VITE_API_URL
-  const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-
   useEffect(() => {
     if (!token || !id) return
-    fetch(`${API}/patients/${id}`, { headers: H })
-      .then(r => r.json()).then(p => setPatientName(p.name ?? ''))
+    api.get<{ name?: string }>(`/patients/${id}`)
+      .then(p => setPatientName(p.name ?? ''))
+      .catch(() => {})
     if (isEditing) {
-      fetch(`${API}/meal-plans/${id}/${planId}`, { headers: H })
-        .then(r => r.json())
+      api.get<{ name: string; date: string; goal?: string | null; notes?: string | null; items?: Record<string, unknown>[] }>(`/meal-plans/${id}/${planId}`)
         .then(plan => {
           setForm({ name: plan.name, date: plan.date, goal: plan.goal ?? '', notes: plan.notes ?? '' })
           setItems((plan.items ?? []).map((it: Record<string, unknown>) => ({
@@ -86,6 +84,7 @@ export default function MealPlanFormPage() {
             fiber_g: it.fiber_g != null ? String(it.fiber_g) : '',
           })))
         })
+        .catch(err => setError(apiErrorMessage(err, 'Error al cargar el plan')))
         .finally(() => setLoading(false))
     }
   }, [id, planId, token])
@@ -130,15 +129,12 @@ export default function MealPlanFormPage() {
       })),
     }
 
-    const url = isEditing ? `${API}/meal-plans/${id}/${planId}` : `${API}/meal-plans?patient_id=${id}`
-    const method = isEditing ? 'PUT' : 'POST'
-
     try {
-      const res = await fetch(url, { method, headers: H, body: JSON.stringify(payload) })
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail ?? `Error ${res.status}`) }
+      if (isEditing) await api.put(`/meal-plans/${id}/${planId}`, payload)
+      else await api.post(`/meal-plans?patient_id=${id}`, payload)
       navigate(`/patients/${id}/plans`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      setError(apiErrorMessage(err, 'Error al guardar'))
     } finally {
       setSaving(false)
     }
