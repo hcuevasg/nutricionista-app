@@ -58,8 +58,22 @@ def migrate(pg_url):
     try:
         total_rows = 0
         
+        # Tablas permitidas — evita interpolación de nombres desconocidos
+        EXPECTED_TABLES = {
+            "patients", "anthropometrics", "meal_plans", "meal_items",
+            "alimentos_db", "plan_templates", "template_items", "template_usage",
+            "pautas", "pauta_porciones", "pauta_distribucion", "pauta_menu",
+            "pauta_menu_alimentos", "pauta_plantillas", "plantilla_porciones",
+            "plantilla_distribucion", "eq_grupos", "eq_alimentos",
+            "menu_plantillas_ref", "menu_plantilla_tiempos", "menu_plantilla_alimentos",
+            "pauta_ia_config",
+        }
+
         # Migrate each table
         for table_name in tables:
+            if table_name not in EXPECTED_TABLES:
+                print(f"   ⚠️  Skipping unexpected table: {table_name}")
+                continue
             cursor.execute(f"SELECT * FROM {table_name}")
             rows = cursor.fetchall()
             

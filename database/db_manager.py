@@ -13,6 +13,18 @@ def get_connection():
     return conn
 
 
+_ALLOWED_COL_TYPES = {"TEXT", "REAL", "INTEGER", "BLOB", "NUMERIC"}
+
+
+def _safe_alter_table(conn, table: str, col: str, col_type: str) -> None:
+    """ALTER TABLE con validación de whitelist — SQLite no soporta parámetros aquí."""
+    if col_type not in _ALLOWED_COL_TYPES:
+        raise ValueError(f"Tipo SQL no permitido en migración: {col_type!r}")
+    if not col.replace("_", "").isalnum():
+        raise ValueError(f"Nombre de columna inválido en migración: {col!r}")
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+
+
 def initialize_db():
     conn = get_connection()
     cur = conn.cursor()
@@ -414,9 +426,7 @@ def _migrate(conn):
                 conn.execute("PRAGMA table_info(anthropometrics)").fetchall()}
     for col, col_type in new_cols:
         if col not in existing:
-            conn.execute(
-                f"ALTER TABLE anthropometrics ADD COLUMN {col} {col_type}"
-            )
+            _safe_alter_table(conn, "anthropometrics", col, col_type)
     # Populate session_date from date for existing records
     conn.execute(
         "UPDATE anthropometrics SET session_date = date WHERE session_date IS NULL"
@@ -428,7 +438,7 @@ def _migrate(conn):
                    conn.execute("PRAGMA table_info(meal_items)").fetchall()}
     for col, col_type in meal_item_cols:
         if col not in existing_mi:
-            conn.execute(f"ALTER TABLE meal_items ADD COLUMN {col} {col_type}")
+            _safe_alter_table(conn, "meal_items", col, col_type)
 
     # Migrate meal_plans for template tracking
     meal_plan_new_cols = [("template_id", "INTEGER")]
@@ -436,7 +446,7 @@ def _migrate(conn):
                    conn.execute("PRAGMA table_info(meal_plans)").fetchall()}
     for col, col_type in meal_plan_new_cols:
         if col not in existing_mp:
-            conn.execute(f"ALTER TABLE meal_plans ADD COLUMN {col} {col_type}")
+            _safe_alter_table(conn, "meal_plans", col, col_type)
 
     # Migrate pauta_menu_alimentos table
     menu_alim_new_cols = [("nombre_usda_original", "TEXT")]
@@ -444,7 +454,7 @@ def _migrate(conn):
                     conn.execute("PRAGMA table_info(pauta_menu_alimentos)").fetchall()}
     for col, col_type in menu_alim_new_cols:
         if col not in existing_pma:
-            conn.execute(f"ALTER TABLE pauta_menu_alimentos ADD COLUMN {col} {col_type}")
+            _safe_alter_table(conn, "pauta_menu_alimentos", col, col_type)
 
     # Migrate patients table
     patient_new_cols = [
@@ -459,7 +469,7 @@ def _migrate(conn):
                   conn.execute("PRAGMA table_info(patients)").fetchall()}
     for col, col_type in patient_new_cols:
         if col not in existing_p:
-            conn.execute(f"ALTER TABLE patients ADD COLUMN {col} {col_type}")
+            _safe_alter_table(conn, "patients", col, col_type)
     conn.commit()
 
 
