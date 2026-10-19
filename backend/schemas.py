@@ -166,6 +166,10 @@ class AnthropometricCreate(BaseModel):
     somatotype_meso: Optional[float] = None
     somatotype_ecto: Optional[float] = None
 
+    # Metas para la próxima evaluación
+    goals_text: Optional[str] = None
+    next_eval_date: Optional[str] = None
+
 
 class AnthropometricResponse(AnthropometricCreate):
     id: int

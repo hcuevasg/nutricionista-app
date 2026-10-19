@@ -128,6 +128,10 @@ class Anthropometric(Base):
     # ISAK Level
     isak_level = Column(String(20), default="ISAK 1")
 
+    # Metas para la próxima evaluación (una por línea) y fecha estimada
+    goals_text = Column(Text, nullable=True)
+    next_eval_date = Column(String, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationship

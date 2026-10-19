@@ -46,6 +46,7 @@ interface Evaluation {
   acromion_radial_cm?: number; radial_styloid_cm?: number
   iliospinal_height_cm?: number; trochanter_tibial_cm?: number
   tibiale_height_cm?: number; arm_span_cm?: number
+  goals_text?: string | null; next_eval_date?: string | null
   created_at: string
 }
 
@@ -73,6 +74,8 @@ interface FormState {
   acromion_radial_cm: string; radial_styloid_cm: string
   iliospinal_height_cm: string; trochanter_tibial_cm: string
   tibiale_height_cm: string; arm_span_cm: string
+  // Metas para la próxima evaluación
+  goals_text: string; next_eval_date: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -90,6 +93,7 @@ const EMPTY_FORM: FormState = {
   acromion_radial_cm: '', radial_styloid_cm: '',
   iliospinal_height_cm: '', trochanter_tibial_cm: '',
   tibiale_height_cm: '', arm_span_cm: '',
+  goals_text: '', next_eval_date: '',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -225,6 +229,7 @@ export default function IsAkPage() {
       acromion_radial_cm: s(ev.acromion_radial_cm), radial_styloid_cm: s(ev.radial_styloid_cm),
       iliospinal_height_cm: s(ev.iliospinal_height_cm), trochanter_tibial_cm: s(ev.trochanter_tibial_cm),
       tibiale_height_cm: s(ev.tibiale_height_cm), arm_span_cm: s(ev.arm_span_cm),
+      goals_text: ev.goals_text ?? '', next_eval_date: ev.next_eval_date ?? '',
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -267,6 +272,8 @@ export default function IsAkPage() {
       body_density: result.body_density, fat_mass_pct: result.fat_mass_pct,
       fat_mass_kg: result.fat_mass_kg, lean_mass_kg: result.lean_mass_kg,
       sum_6_skinfolds: result.sum_6_skinfolds,
+      goals_text: form.goals_text.trim() || null,
+      next_eval_date: form.next_eval_date || null,
     }
 
     if (form.isak_level === 'ISAK 2') {
@@ -604,6 +611,23 @@ export default function IsAkPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border space-y-3">
+            <h4 className="text-xs font-bold text-text-muted uppercase tracking-widest">
+              Metas para la próxima evaluación
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="sm:col-span-2 block">
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Metas (una por línea, salen en el PDF)</span>
+                <textarea
+                  value={form.goals_text} onChange={e => set('goals_text', e.target.value)} rows={3}
+                  placeholder={'Mantener el peso entre 80 y 82 kg\nLlevar la suma de 6 pliegues bajo 62 mm'}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+              <Field label="Próxima evaluación" value={form.next_eval_date} onChange={v => set('next_eval_date', v)} type="date" />
             </div>
           </div>
 
