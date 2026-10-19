@@ -23,8 +23,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
+  // Hidratar de forma síncrona: si se lee en useEffect, PrivateRoute ve token=null
+  // en el primer render y redirige a /login al recargar cualquier página privada.
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('user')
+    return storedUser && localStorage.getItem('token') ? JSON.parse(storedUser) : null
+  })
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem('user') ? localStorage.getItem('token') : null
+  )
 
   const fetchProfile = async (accessToken: string): Promise<User> => {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
@@ -39,8 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedToken = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
     if (storedToken && storedUser) {
-      setToken(storedToken)
-      setUser(JSON.parse(storedUser))
       // Refresh from server to get latest branding fields
       fetchProfile(storedToken)
         .then(profile => {
