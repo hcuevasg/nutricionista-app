@@ -10,7 +10,7 @@ import {
 } from 'recharts'
 import {
   calcIsAk1, calcSomatotype, calcArmMuscleArea, calcWaistHeightRatio,
-  calcBmi, bmiCategory, fatCategory, whtrCategory,
+  calcBmi, bmiRaw, bmiCategory, fatCategory, whtrCategory,
   calcWaistHipRatio, calcAdiposeMuscularRatio, calcConicityIndex,
   calcBoneMassMartin, calcMuscleBoneRatio,
   calcIresUpper, calcIresLower, calcIntermembralIndex, calcBrachialIndex,
@@ -563,7 +563,7 @@ export default function IsAkPage() {
                   />
                   <ResultCard label="Masa grasa (kg)" value={`${result.fat_mass_kg} kg`} />
                   <ResultCard label="Masa magra (kg)" value={`${result.lean_mass_kg} kg`} highlight />
-                  {bmi != null && <ResultCard label="IMC / Body Mass Index" value={`${bmi}`} sub={bmiCategory(bmi)} />}
+                  {bmi != null && <ResultCard label="IMC / Body Mass Index" value={`${bmi}`} sub={bmiCategory(bmiRaw(pf(form.weight_kg), pf(form.height_cm))!)} />}
                   {whtr != null && <ResultCard label="Indice Cin./Talla" value={`${whtr}`} sub={whtrCategory(whtr)} />}
                   {amb != null && <ResultCard label="Area Musc. Brazo" value={`${amb} cm2`} />}
                   {waistHipRatio != null && <ResultCard label="Coc. Cintura-Cadera" value={`${waistHipRatio}`} />}

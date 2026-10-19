@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import Layout from '../components/Layout'
 import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 import PautasEvolutionChart from '../components/PautasEvolutionChart'
+import { bmiRaw, bmiCategory, calcBmi } from '../utils/calculations'
 
 const ALLERGY_LABELS: Record<string, string> = {
   gluten:       'Gluten',
@@ -88,17 +89,13 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
   )
 }
 
-function calcBMI(weight?: number | null, height_cm?: number | null): number | null {
-  if (!weight || !height_cm || height_cm <= 0) return null
-  const h = height_cm / 100
-  return +(weight / (h * h)).toFixed(1)
-}
-
-function bmiBadge(bmi: number): { label: string; color: string } {
-  if (bmi < 18.5) return { label: 'Bajo peso', color: 'text-blue-600 bg-blue-50 border-blue-100' }
-  if (bmi < 25)   return { label: 'Normal',    color: 'text-green-700 bg-green-50 border-green-100' }
-  if (bmi < 30)   return { label: 'Sobrepeso', color: 'text-yellow-600 bg-yellow-50 border-yellow-100' }
-  return { label: 'Obesidad', color: 'text-red-600 bg-red-50 border-red-100' }
+function bmiBadge(bmiExact: number): { label: string; color: string } {
+  const label = bmiCategory(bmiExact)
+  const color = label === 'Bajo peso' ? 'text-blue-600 bg-blue-50 border-blue-100'
+    : label === 'Normal' ? 'text-green-700 bg-green-50 border-green-100'
+    : label === 'Sobrepeso' ? 'text-yellow-600 bg-yellow-50 border-yellow-100'
+    : 'text-red-600 bg-red-50 border-red-100'
+  return { label, color }
 }
 
 type TabKey = 'basico' | 'pliegues' | 'resultados'
@@ -155,8 +152,9 @@ export default function PatientDetailPage() {
   const initials = patient.name.slice(0, 2).toUpperCase()
   const lastEval = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
   const displayWeight = lastEval?.weight_kg ?? patient.weight_kg
-  const bmi = calcBMI(displayWeight, patient.height_cm)
-  const bmiInfo = bmi != null ? bmiBadge(bmi) : null
+  const bmiExact = bmiRaw(displayWeight, patient.height_cm)
+  const bmi = bmiExact != null ? +bmiExact.toFixed(1) : null
+  const bmiInfo = bmiExact != null ? bmiBadge(bmiExact) : null
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'basico',     label: 'Básico' },
@@ -197,7 +195,7 @@ export default function PatientDetailPage() {
               <div className="flex gap-2 mt-3 flex-wrap">
                 {bmi != null && bmiInfo && (
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${bmiInfo.color}`}>
-                    IMC: {bmi} ({bmiInfo.label})
+                    IMC: {bmiExact!.toFixed(1)} ({bmiInfo.label})
                   </div>
                 )}
                 {lastEval?.fat_mass_pct != null && (
@@ -435,7 +433,7 @@ export default function PatientDetailPage() {
           {activeTab === 'resultados' && (() => {
             const ev = evaluations[selectedEvalIdx]
             if (!ev) return <div className="bg-white rounded-xl border border-border p-6 text-sm text-text-muted">Sin evaluaciones registradas.</div>
-            const evBmi = ev.weight_kg && ev.height_cm ? +((ev.weight_kg / ((ev.height_cm / 100) ** 2)).toFixed(1)) : null
+            const evBmi = calcBmi(ev.weight_kg ?? null, ev.height_cm ?? null)
             const f = (v?: number | null, d = 1) => v != null ? v.toFixed(d) : '—'
             const rows: [string, string, boolean][] = [
               ['Densidad corporal', ev.body_density != null ? `${f(ev.body_density, 4)} g/mL` : '—', false],

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { api, apiErrorMessage } from '../api/client'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { isMale } from '../utils/calculations'
+import { isMale, bmiCategory } from '../utils/calculations'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -67,12 +67,6 @@ interface Evaluation {
 const fmt = (v: number | undefined | null, d = 1): string =>
   v != null ? Number(v).toFixed(d) : '—'
 
-const bmiCategory = (bmi: number): string => {
-  if (bmi < 18.5) return 'Bajo peso'
-  if (bmi < 25) return 'Normal'
-  if (bmi < 30) return 'Sobrepeso'
-  return 'Obesidad'
-}
 
 
 // Harris-Benedict BMR

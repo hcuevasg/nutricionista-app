@@ -227,6 +227,13 @@ export function calcBmi(weight_kg: number | null, height_cm: number | null): num
   return round(weight_kg! / (height_cm! / 100) ** 2, 1)
 }
 
+/** IMC sin redondear: usar este valor para clasificar (24,98 es Normal aunque se muestre 25,0). */
+export function bmiRaw(weight_kg: number | null | undefined, height_cm: number | null | undefined): number | null {
+  if (!validNum(weight_kg ?? null) || !validNum(height_cm ?? null) || height_cm! <= 0) return null
+  return weight_kg! / (height_cm! / 100) ** 2
+}
+
+/** Clasificación OMS. Recibe el IMC sin redondear (bmiRaw). */
 export function bmiCategory(bmi: number): string {
   if (bmi < 18.5) return 'Bajo peso'
   if (bmi < 25.0) return 'Normal'

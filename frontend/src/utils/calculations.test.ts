@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcIsAk1, calcSomatotype, calcBmi, calcWaistHeightRatio } from './calculations'
+import { calcIsAk1, calcSomatotype, calcBmi, calcWaistHeightRatio, bmiRaw, bmiCategory, isMale } from './calculations'
 
 // ── calcBmi ───────────────────────────────────────────────────────────────────
 
@@ -121,5 +121,25 @@ describe('calcSomatotype', () => {
 
   it('returns null when any value is zero', () => {
     expect(calcSomatotype(0, 70, 15, 12, 10, 6.5, 9.5, 32, 36, 7)).toBeNull()
+  })
+})
+
+
+describe('bmiCategory con IMC sin redondear', () => {
+  it('24,98 se muestra 25,0 pero es Normal', () => {
+    expect(calcBmi(68, 165)).toBe(25)
+    expect(bmiCategory(bmiRaw(68, 165)!)).toBe('Normal')
+  })
+  it('25,0 exacto es Sobrepeso', () => {
+    expect(bmiCategory(25)).toBe('Sobrepeso')
+  })
+})
+
+describe('isMale', () => {
+  it('acepta valores del formulario y antiguos', () => {
+    expect(isMale('Masculino')).toBe(true)
+    expect(isMale('M')).toBe(true)
+    expect(isMale('Femenino')).toBe(false)
+    expect(isMale(null)).toBe(false)
   })
 })
