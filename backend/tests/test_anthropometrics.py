@@ -111,3 +111,26 @@ def test_isak_pdf_compares_with_previous(auth_client):
     for ev_id in (first["id"], second["id"]):
         resp = auth_client.get(f"/anthropometrics/{p['id']}/{ev_id}/pdf")
         assert resp.status_code == 200 and resp.content.startswith(b"%PDF")
+
+
+def test_isak1_pdf_with_bone_diameters_uses_four_components(auth_client, monkeypatch):
+    import pdf_isak
+    calls = []
+    real = pdf_isak.four_components
+
+    def spy(ev, male):
+        c = real(ev, male)
+        calls.append(c)
+        return c
+
+    monkeypatch.setattr(pdf_isak, "four_components", spy)
+    p = _create_patient(auth_client)
+    ev = auth_client.post(f"/anthropometrics?patient_id={p['id']}",
+                          json={**ISAK1, "humerus_width_cm": 7.0, "wrist_cm": 5.8,
+                                "femur_width_cm": 9.9}).json()
+    assert ev["isak_level"] == "ISAK 1" and ev["wrist_cm"] == 5.8 and ev["femur_width_cm"] == 9.9
+    resp = auth_client.get(f"/anthropometrics/{p['id']}/{ev['id']}/pdf")
+    assert resp.status_code == 200 and resp.content.startswith(b"%PDF")
+    comps = calls[0]
+    assert comps is not None and set(comps) == {"muscular", "residual", "osea", "grasa"}
+    assert abs(sum(comps.values()) - 80.0) < 1e-6

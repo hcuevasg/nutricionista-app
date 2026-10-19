@@ -268,6 +268,9 @@ export default function IsAkPage() {
       biceps_mm: pf(form.biceps_mm), iliac_crest_mm: pf(form.iliac_crest_mm),
       supraspinal_mm: pf(form.supraspinal_mm), abdominal_mm: pf(form.abdominal_mm),
       medial_thigh_mm: pf(form.medial_thigh_mm), max_calf_mm: pf(form.max_calf_mm),
+      // Diámetros óseos (también ISAK 1: muñeca y fémur dan la masa ósea de Rocha)
+      humerus_width_cm: pf(form.humerus_width_cm), wrist_cm: pf(form.wrist_cm),
+      femur_width_cm: pf(form.femur_width_cm),
       // Calculados ISAK 1
       body_density: result.body_density, fat_mass_pct: result.fat_mass_pct,
       fat_mass_kg: result.fat_mass_kg, lean_mass_kg: result.lean_mass_kg,
@@ -282,10 +285,9 @@ export default function IsAkPage() {
         front_thigh_mm: pf(form.front_thigh_mm),
         head_cm: pf(form.head_cm), neck_cm: pf(form.neck_cm),
         chest_cm: pf(form.chest_cm), ankle_min_cm: pf(form.ankle_min_cm),
-        humerus_width_cm: pf(form.humerus_width_cm), femur_width_cm: pf(form.femur_width_cm),
         biacromial_cm: pf(form.biacromial_cm), biiliocrestal_cm: pf(form.biiliocrestal_cm),
         ap_chest_cm: pf(form.ap_chest_cm), transv_chest_cm: pf(form.transv_chest_cm),
-        foot_length_cm: pf(form.foot_length_cm), wrist_cm: pf(form.wrist_cm),
+        foot_length_cm: pf(form.foot_length_cm),
         ankle_bimalleolar_cm: pf(form.ankle_bimalleolar_cm),
         acromion_radial_cm: pf(form.acromion_radial_cm),
         radial_styloid_cm: pf(form.radial_styloid_cm),
@@ -475,6 +477,18 @@ export default function IsAkPage() {
                   D&amp;W * = Durnin &amp; Womersley | S6 * = Suma 6 pliegues
                 </p>
               </CollapsibleSection>
+
+              {/* Diametros oseos -- ISAK 1 (ISAK 2 los incluye en su seccion completa) */}
+              {form.isak_level === 'ISAK 1' && (
+                <CollapsibleSection title="Diametros Oseos (cm)" sectionKey="diametros1" collapsed={collapsedSections} toggle={toggleSection}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <Field label="Humero bicondileo" value={form.humerus_width_cm} onChange={v => set('humerus_width_cm', v)} />
+                    <Field label="Muneca biestiloideo (4C *)" value={form.wrist_cm} onChange={v => set('wrist_cm', v)} />
+                    <Field label="Femur bicondileo (4C *)" value={form.femur_width_cm} onChange={v => set('femur_width_cm', v)} />
+                  </div>
+                  <p className="text-xs text-text-muted mt-2">4C * = requeridos para la composicion en 4 componentes del informe</p>
+                </CollapsibleSection>
+              )}
 
               {/* ISAK 2 extra */}
               {form.isak_level === 'ISAK 2' && (
