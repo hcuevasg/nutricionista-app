@@ -222,14 +222,16 @@ async def lifespan(app: FastAPI):
         "CREATE INDEX IF NOT EXISTS ix_patient_share_tokens_token ON patient_share_tokens (token)",
         "CREATE INDEX IF NOT EXISTS ix_patient_share_tokens_patient_id ON patient_share_tokens (patient_id)",
     ]
-    with engine.connect() as conn:
-        for sql in migrations:
-            try:
+    # Una transacción por sentencia: en Postgres un error aborta la transacción
+    # completa, así que una migración fallida no debe arrastrar a las siguientes.
+    failed = 0
+    for sql in migrations:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(sql))
-            except Exception:
-                pass
-        conn.commit()
-    print("✅ Migrations complete")
+        except Exception:
+            failed += 1
+    print(f"✅ Migrations complete ({len(migrations) - failed} aplicadas, {failed} omitidas)")
 
     yield
     print("🛑 NutriApp Backend Shutting down...")
