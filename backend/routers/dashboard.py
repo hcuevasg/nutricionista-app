@@ -30,10 +30,6 @@ async def get_stats(
         models.Anthropometric.patient_id.in_(patient_ids)
     ).scalar()
 
-    total_plans = db.query(func.count(models.MealPlan.id)).filter(
-        models.MealPlan.patient_id.in_(patient_ids)
-    ).scalar()
-
     total_pautas = db.query(func.count(models.Pauta.id)).filter(
         models.Pauta.patient_id.in_(patient_ids)
     ).scalar()
@@ -41,7 +37,6 @@ async def get_stats(
     return {
         "total_patients": total_patients or 0,
         "total_evaluations": total_evaluations or 0,
-        "total_plans": total_plans or 0,
         "total_pautas": total_pautas or 0,
     }
 
@@ -68,12 +63,6 @@ async def get_recent_patients(
             .order_by(models.Anthropometric.created_at.desc())
             .first()
         )
-        latest_plan = (
-            db.query(models.MealPlan)
-            .filter(models.MealPlan.patient_id == p.id)
-            .order_by(models.MealPlan.created_at.desc())
-            .first()
-        )
         result.append({
             "id": p.id,
             "name": p.name,
@@ -81,7 +70,6 @@ async def get_recent_patients(
             "birth_date": p.birth_date,
             "created_at": p.created_at.isoformat() if p.created_at else None,
             "last_evaluation": latest_eval.date if latest_eval else None,
-            "last_plan": latest_plan.name if latest_plan else None,
         })
 
     return result

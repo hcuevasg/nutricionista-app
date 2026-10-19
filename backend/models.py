@@ -48,7 +48,6 @@ class Patient(Base):
     # Relationships
     nutritionist = relationship("Nutritionist", back_populates="patients")
     anthropometrics = relationship("Anthropometric", back_populates="patient", cascade="all, delete-orphan")
-    meal_plans = relationship("MealPlan", back_populates="patient", cascade="all, delete-orphan")
     pautas = relationship("Pauta", back_populates="patient", cascade="all, delete-orphan")
     antecedentes = relationship("Antecedentes", back_populates="patient", uselist=False)
 
@@ -136,27 +135,6 @@ class Anthropometric(Base):
 
     # Relationship
     patient = relationship("Patient", back_populates="anthropometrics")
-
-
-class MealPlan(Base):
-    """Plan alimenticio."""
-    __tablename__ = "meal_plans"
-
-    id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"), index=True)
-    name = Column(String(255))
-    date = Column(String)
-    goal = Column(String(255), nullable=True)
-    calories = Column(Float, nullable=True)
-    protein_g = Column(Float, nullable=True)
-    carbs_g = Column(Float, nullable=True)
-    fat_g = Column(Float, nullable=True)
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    patient = relationship("Patient", back_populates="meal_plans")
-    items = relationship("MealItem", back_populates="meal_plan", cascade="all, delete-orphan")
 
 
 class Pauta(Base):
@@ -286,26 +264,6 @@ class Antecedentes(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     patient = relationship("Patient", back_populates="antecedentes")
-
-
-class MealItem(Base):
-    """Item en plan alimenticio."""
-    __tablename__ = "meal_items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    plan_id = Column(Integer, ForeignKey("meal_plans.id"), index=True)
-    meal_type = Column(String(50))  # desayuno, almuerzo, etc.
-    food_name = Column(String(255))
-    quantity = Column(Float, nullable=True)
-    unit = Column(String(50), nullable=True)
-    calories = Column(Float, nullable=True)
-    protein_g = Column(Float, nullable=True)
-    carbs_g = Column(Float, nullable=True)
-    fat_g = Column(Float, nullable=True)
-    fiber_g = Column(Float, nullable=True)
-
-    # Relationship
-    meal_plan = relationship("MealPlan", back_populates="items")
 
 
 class Alimento(Base):

@@ -57,3 +57,6 @@ frontend/.vite/
 # Temp files
 *.log
 .vercel
+
+# Respaldos locales (pueden contener datos de pacientes)
+backups/

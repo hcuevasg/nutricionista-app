@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, meal_plans, dashboard, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
+from routers import auth, patients, anthropometrics, dashboard, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
 
 # Import database
 from database import engine, Base
@@ -345,7 +345,6 @@ async def rate_limit_middleware(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(anthropometrics.router)
-app.include_router(meal_plans.router)
 app.include_router(dashboard.router)
 app.include_router(pautas.router)
 app.include_router(settings.router)

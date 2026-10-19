@@ -4,7 +4,9 @@ La restauración nunca borra ni sobrescribe: crea registros nuevos con IDs
 nuevos y omite pacientes y recetas que ya existen (mismo nombre, y para
 pacientes también misma fecha de nacimiento), así importar dos veces el mismo
 archivo no duplica datos. Los enlaces del portal no se exportan: restaurarlos
-podría reactivar accesos que el profesional ya revocó.
+podría reactivar accesos que el profesional ya revocó. Los planes
+alimenticios ("meal_plans") de backups antiguos se ignoran: el módulo se
+reemplazó por las pautas.
 """
 from datetime import date, datetime
 from typing import Any, Dict, List
@@ -15,7 +17,7 @@ from sqlalchemy.orm import Session
 import models
 
 BACKUP_VERSION = 2
-_SKIP = {"id", "nutritionist_id", "patient_id", "plan_id", "receta_id"}
+_SKIP = {"id", "nutritionist_id", "patient_id", "receta_id"}
 
 
 def _row(obj) -> Dict[str, Any]:
@@ -67,12 +69,6 @@ def export_data(db: Session, user: models.Nutritionist) -> Dict[str, Any]:
         pd["anthropometrics"] = [_row(a) for a in db.query(models.Anthropometric)
                                  .filter(models.Anthropometric.patient_id == p.id).all()]
         pd["pautas"] = [_row(x) for x in db.query(models.Pauta).filter(models.Pauta.patient_id == p.id).all()]
-        plans = []
-        for mp in db.query(models.MealPlan).filter(models.MealPlan.patient_id == p.id).all():
-            md = _row(mp)
-            md["items"] = [_row(i) for i in db.query(models.MealItem).filter(models.MealItem.plan_id == mp.id).all()]
-            plans.append(md)
-        pd["meal_plans"] = plans
         ant = db.query(models.Antecedentes).filter(models.Antecedentes.patient_id == p.id).first()
         pd["antecedentes"] = _row(ant) if ant else None
         pd["appointments"] = [_row(a) for a in db.query(models.Appointment).filter(
@@ -103,7 +99,7 @@ def restore_data(db: Session, user: models.Nutritionist, data: Dict[str, Any]) -
     if version > BACKUP_VERSION:
         raise BackupError("El backup es de una versión más nueva de NutriApp")
 
-    counts = {k: 0 for k in ("pacientes", "pacientes_omitidos", "evaluaciones", "pautas", "planes",
+    counts = {k: 0 for k in ("pacientes", "pacientes_omitidos", "evaluaciones", "pautas",
                              "antecedentes", "citas", "recetas", "recetas_omitidas")}
     existing = {(p.name or "", p.birth_date or "") for p in
                 db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()}
@@ -124,13 +120,6 @@ def restore_data(db: Session, user: models.Nutritionist, data: Dict[str, Any]) -
             for pa in pd.get("pautas") or []:
                 db.add(_build(models.Pauta, pa, patient_id=patient.id))
                 counts["pautas"] += 1
-            for mp in pd.get("meal_plans") or []:
-                plan = _build(models.MealPlan, mp, patient_id=patient.id)
-                db.add(plan)
-                db.flush()
-                for it in mp.get("items") or []:
-                    db.add(_build(models.MealItem, it, plan_id=plan.id))
-                counts["planes"] += 1
             if pd.get("antecedentes"):
                 db.add(_build(models.Antecedentes, pd["antecedentes"], patient_id=patient.id))
                 counts["antecedentes"] += 1

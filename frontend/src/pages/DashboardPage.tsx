@@ -8,7 +8,6 @@ import { api } from '../api/client'
 interface Stats {
   total_patients: number
   total_evaluations: number
-  total_plans: number
   total_pautas: number
 }
 
@@ -27,7 +26,6 @@ interface RecentPatient {
   birth_date?: string
   created_at?: string
   last_evaluation?: string
-  last_plan?: string
 }
 
 function calcAge(bd?: string): number | null {

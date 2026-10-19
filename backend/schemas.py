@@ -181,57 +181,6 @@ class AnthropometricResponse(AnthropometricCreate):
 
 
 # ── Meal Plan Schemas ─────────────────────────────────────────────
-class MealItemCreate(BaseModel):
-    meal_type: str
-    food_name: str
-    quantity: Optional[float] = None
-    unit: Optional[str] = None
-    calories: Optional[float] = None
-    protein_g: Optional[float] = None
-    carbs_g: Optional[float] = None
-    fat_g: Optional[float] = None
-    fiber_g: Optional[float] = None
-
-
-class MealItemResponse(MealItemCreate):
-    id: int
-    plan_id: int
-
-    class Config:
-        from_attributes = True
-
-
-class MealPlanCreate(BaseModel):
-    name: str
-    date: str
-    goal: Optional[str] = None
-    calories: Optional[float] = None
-    protein_g: Optional[float] = None
-    carbs_g: Optional[float] = None
-    fat_g: Optional[float] = None
-    notes: Optional[str] = None
-    items: List[MealItemCreate] = []
-
-
-class MealPlanResponse(BaseModel):
-    id: int
-    patient_id: int
-    name: str
-    date: str
-    goal: Optional[str] = None
-    calories: Optional[float] = None
-    protein_g: Optional[float] = None
-    carbs_g: Optional[float] = None
-    fat_g: Optional[float] = None
-    notes: Optional[str] = None
-    items: List[MealItemResponse] = []
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ── Pauta Schemas ──────────────────────────────────────────────────
 class PautaCreate(BaseModel):
     name: str
     date: str
