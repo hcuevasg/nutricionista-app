@@ -53,7 +53,9 @@ interface Ingrediente {
 type Equivalencias = Record<string, string>
 
 interface AlimentoResult {
-  fdcId: number
+  fdcId: number | null
+  id?: number
+  fuente?: 'base' | 'chile' | 'usda'
   nombre: string
   calorias_100g: number
   proteinas_100g: number
@@ -342,12 +344,16 @@ export default function RecetaFormPage() {
                     <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto">
                       {searchResults.map(food => (
                         <button
-                          key={food.fdcId}
+                          key={`${food.fuente ?? 'usda'}-${food.id ?? food.fdcId}`}
                           type="button"
                           onClick={() => selectFood(food)}
                           className="w-full text-left px-3 py-2 hover:bg-primary/5 border-b border-border last:border-0"
                         >
-                          <p className="text-sm font-medium text-gray-800 truncate">{food.nombre}</p>
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {food.nombre}
+                            {food.fuente === 'chile' && <span className="ml-2 text-[10px] font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5">Chile</span>}
+                            {food.fuente === 'usda' && <span className="ml-2 text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">USDA</span>}
+                          </p>
                           <p className="text-xs text-gray-400">
                             {food.calorias_100g} kcal · {food.proteinas_100g}g prot · {food.carbohidratos_100g}g CHO · {food.grasas_100g}g grasas <span className="text-gray-300">(por 100g)</span>
                           </p>

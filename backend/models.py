@@ -305,6 +305,22 @@ class MealItem(Base):
     meal_plan = relationship("MealPlan", back_populates="items")
 
 
+class Alimento(Base):
+    """Catálogo global de alimentos (valores por 100 g), compartido por todos."""
+    __tablename__ = "alimentos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(255), nullable=False)
+    nombre_en = Column(String(255), nullable=True)
+    nombre_norm = Column(String(255), index=True)   # minúsculas y sin tildes, para buscar
+    calorias_100g = Column(Float, default=0)
+    proteinas_100g = Column(Float, default=0)
+    carbohidratos_100g = Column(Float, default=0)
+    grasas_100g = Column(Float, default=0)
+    fibra_100g = Column(Float, default=0)
+    fuente = Column(String(30), default="base")     # base | chile
+
+
 class Receta(Base):
     """Receta personalizada del nutricionista."""
     __tablename__ = "recetas"

@@ -245,6 +245,19 @@ async def lifespan(app: FastAPI):
             failed += 1
     print(f"✅ Migrations complete ({len(migrations) - failed} aplicadas, {failed} omitidas)")
 
+    # Catálogo de alimentos integrado (solo si la tabla está vacía)
+    from database import SessionLocal
+    from routers.alimentos import seed_alimentos
+    seed_db = SessionLocal()
+    try:
+        n = seed_alimentos(seed_db)
+        if n:
+            print(f"✅ Alimentos cargados: {n}")
+    except Exception as e:
+        print(f"⚠️ No se pudieron cargar los alimentos: {e}")
+    finally:
+        seed_db.close()
+
     yield
     print("🛑 NutriApp Backend Shutting down...")
 
