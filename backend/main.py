@@ -245,6 +245,19 @@ async def lifespan(app: FastAPI):
             failed += 1
     print(f"✅ Migrations complete ({len(migrations) - failed} aplicadas, {failed} omitidas)")
 
+    # Migraciones versionadas (Alembic): los cambios de esquema nuevos van en
+    # backend/migrations/versions, no en la lista de arriba.
+    try:
+        from alembic import command
+        from alembic.config import Config
+        cfg = Config(os.path.join(os.path.dirname(os.path.abspath(__file__)), "alembic.ini"))
+        cfg.set_main_option("script_location",
+                            os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations"))
+        command.upgrade(cfg, "head")
+        print("✅ Alembic: esquema en la última versión")
+    except Exception as e:
+        print(f"⚠️ Alembic no pudo actualizar el esquema: {e}")
+
     # Catálogo de alimentos integrado (solo si la tabla está vacía)
     from database import SessionLocal
     from routers.alimentos import seed_alimentos

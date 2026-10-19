@@ -1,5 +1,5 @@
 """SQLAlchemy models for database."""
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, Index, func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -215,6 +215,9 @@ class AuditLog(Base):
 class Antecedentes(Base):
     """Antecedentes clínicos del paciente."""
     __tablename__ = "antecedentes"
+    # Índice creado por la migración heredada (main.py); declarado para que
+    # `alembic revision --autogenerate` no proponga borrarlo.
+    __table_args__ = (Index("ix_antecedentes_patient_id", "patient_id"),)
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), unique=True, nullable=False)
