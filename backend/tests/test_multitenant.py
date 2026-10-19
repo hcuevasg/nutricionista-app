@@ -126,3 +126,33 @@ def test_portal_links_list_filter_and_revoke(tenants):
     assert client.delete(f"/portal/tokens/{links[0]['id']}", headers=a).status_code == 200
     assert client.get("/portal/tokens", params={"patient_id": pid}, headers=a).json() == []
     assert client.get(f"/portal/{token}").status_code == 404
+
+
+def test_backup_roundtrip_into_other_account(tenants):
+    client, a, b, ids = tenants
+    client.post("/recetas/", json={"nombre": "Receta con ingredientes"}, headers=a)
+    data = client.get("/settings/backup", headers=a).json()
+    assert data["version"] == 2
+    pac = next(p for p in data["patients"] if p["id"] == ids["patient"])
+    assert pac["antecedentes"]["motivo_consulta"] == "privado"
+    assert pac["appointments"] and pac["pautas"] and pac["anthropometrics"]
+    assert {r["nombre"] for r in data["recetas"]} >= {"Receta A", "Receta con ingredientes"}
+    assert "patient_share_tokens" not in str(data.keys())
+
+    counts = client.post("/settings/restore", json=data, headers=b).json()
+    assert counts["pacientes"] == len(data["patients"]) and counts["recetas"] == len(data["recetas"])
+    assert counts["evaluaciones"] >= 1 and counts["antecedentes"] == 1 and counts["citas"] >= 1
+    b_patients = client.get("/patients", headers=b).json()["items"]
+    assert "Paciente A" in [p["name"] for p in b_patients]
+    # IDs nuevos: los de A siguen siendo de A
+    assert ids["patient"] not in [p["id"] for p in b_patients]
+
+    again = client.post("/settings/restore", json=data, headers=b).json()
+    assert again["pacientes"] == 0 and again["pacientes_omitidos"] == len(data["patients"])
+    assert again["recetas"] == 0
+
+
+def test_restore_rejects_invalid_file(tenants):
+    client, a, _, _ = tenants
+    assert client.post("/settings/restore", json={"foo": 1}, headers=a).status_code == 400
+    assert client.post("/settings/restore", json={"version": 99, "patients": []}, headers=a).status_code == 400

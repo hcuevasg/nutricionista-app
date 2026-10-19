@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
-import { api } from '../api/client'
+import { api, apiErrorMessage } from '../api/client'
 
 interface AuditEntry {
   id: number
@@ -19,6 +19,7 @@ const ACTION_LABEL: Record<string, string> = {
   update: 'Editar',
   delete: 'Eliminar',
   export: 'Exportar',
+  import: 'Restaurar',
 }
 
 const ACTION_COLOR: Record<string, string> = {
@@ -29,6 +30,7 @@ const ACTION_COLOR: Record<string, string> = {
   update: 'bg-yellow-100 text-yellow-700',
   delete: 'bg-red-100 text-red-600',
   export: 'bg-terracotta/10 text-terracotta',
+  import: 'bg-blue-100 text-blue-700',
 }
 
 export default function ConfigPage() {
@@ -37,6 +39,8 @@ export default function ConfigPage() {
   const [loadingLogs, setLoadingLogs] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<string | null>(null)
   const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; provider: string } | null>(null)
 
   useEffect(() => {
@@ -67,6 +71,32 @@ export default function ConfigPage() {
       setError('No se pudo descargar el backup')
     } finally {
       setDownloading(false)
+    }
+  }
+
+  const handleRestore = async (file: File) => {
+    setError(null); setRestoreResult(null)
+    let data: unknown
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      setError('El archivo no es un JSON válido')
+      return
+    }
+    if (!confirm('Se agregarán los pacientes y recetas del backup que no existan en tu cuenta. ' +
+                 'No se borra ni se modifica nada de lo que ya tienes. ¿Continuar?')) return
+    setRestoring(true)
+    try {
+      const c = await api.post<Record<string, number>>('/settings/restore', data)
+      const omitidos = c.pacientes_omitidos + c.recetas_omitidas
+      setRestoreResult(
+        `Restaurados: ${c.pacientes} pacientes, ${c.evaluaciones} evaluaciones, ${c.pautas} pautas, ` +
+        `${c.recetas} recetas y ${c.citas} citas.` + (omitidos ? ` Omitidos por ya existir: ${omitidos}.` : '')
+      )
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo restaurar el backup'))
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -117,7 +147,7 @@ export default function ConfigPage() {
               <div>
                 <h2 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Backup de datos</h2>
                 <p className="text-sm text-gray-600">
-                  Descarga todos tus datos (pacientes, evaluaciones, planes, pautas) en formato JSON.
+                  Descarga todos tus datos (pacientes, evaluaciones, pautas, planes, antecedentes, citas y recetas) en formato JSON.
                 </p>
               </div>
             </div>
@@ -130,9 +160,22 @@ export default function ConfigPage() {
             </button>
           </div>
           <div className="border-t border-border my-4" />
-          <p className="text-xs text-text-muted">
-            Guarda el archivo en un lugar seguro (Google Drive, iCloud, etc.). Se recomienda hacer backup mensualmente.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-text-muted">
+              Guarda el archivo en un lugar seguro (Google Drive, iCloud, etc.). Se recomienda hacer backup mensualmente.
+              Al restaurar se agregan los datos que falten; nada existente se borra ni se modifica.
+            </p>
+            <label className={`shrink-0 border border-border px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-bg-light cursor-pointer ${restoring ? 'opacity-50 pointer-events-none' : ''}`}>
+              {restoring ? 'Restaurando...' : 'Restaurar backup'}
+              <input
+                type="file" accept="application/json,.json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleRestore(f) }}
+              />
+            </label>
+          </div>
+          {restoreResult && (
+            <div className="mt-3 bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded-lg text-xs">{restoreResult}</div>
+          )}
         </div>
 
         {/* Audit logs */}
