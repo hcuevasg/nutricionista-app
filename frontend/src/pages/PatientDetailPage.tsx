@@ -34,6 +34,7 @@ interface Patient {
   occupation?: string
   notes?: string
   allergies?: string[]
+  consent_at?: string | null
   created_at: string
 }
 
@@ -148,6 +149,42 @@ export default function PatientDetailPage() {
       toast.error(apiErrorMessage(err, 'No se pudo revocar el enlace'))
     }
   }
+  const [recordBusy, setRecordBusy] = useState(false)
+
+  const toggleConsent = async () => {
+    if (!patient) return
+    const accepted = !patient.consent_at
+    const ok = window.confirm(accepted
+      ? `¿Confirmas que ${patient.name} autorizó el tratamiento de sus datos de salud según la política de privacidad?`
+      : `¿Revocar el consentimiento de ${patient.name}? Sus datos se conservan, pero quedará registrado.`)
+    if (!ok) return
+    setRecordBusy(true)
+    try {
+      setPatient(await api.post<Patient>(`/patients/${id}/consent`, { accepted }))
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudo registrar el consentimiento'))
+    } finally {
+      setRecordBusy(false)
+    }
+  }
+
+  const exportRecord = async () => {
+    setRecordBusy(true)
+    try {
+      const blob = await api.blob(`/patients/${id}/export`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ficha_${(patient?.name ?? 'paciente').replace(/\s+/g, '_')}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudo exportar la ficha'))
+    } finally {
+      setRecordBusy(false)
+    }
+  }
+
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -245,6 +282,18 @@ export default function PatientDetailPage() {
                     Grasa: {lastEval.fat_mass_pct.toFixed(1)}%
                   </div>
                 )}
+                <button
+                  onClick={toggleConsent}
+                  disabled={recordBusy}
+                  title={patient.consent_at ? 'Clic para revocar' : 'Registrar que el paciente autorizó el tratamiento de sus datos'}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border ${patient.consent_at
+                    ? 'bg-green-50 text-green-700 border-green-100'
+                    : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
+                >
+                  {patient.consent_at
+                    ? `✓ Consentimiento ${new Date(patient.consent_at + (patient.consent_at.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-CL')}`
+                    : 'Sin consentimiento · registrar'}
+                </button>
                 {patient.allergies && patient.allergies.length > 0 && patient.allergies.map((key) => (
                   <div
                     key={key}
@@ -275,6 +324,14 @@ export default function PatientDetailPage() {
             >
               Editar
             </Link>
+            <button
+              onClick={exportRecord}
+              disabled={recordBusy}
+              title="Descargar la ficha completa del paciente (JSON)"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors disabled:opacity-50"
+            >
+              Exportar ficha
+            </button>
             <button
               onClick={openPortal}
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-bg-light transition-colors"

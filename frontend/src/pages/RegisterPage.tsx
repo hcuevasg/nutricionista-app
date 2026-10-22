@@ -113,6 +113,9 @@ export default function RegisterPage() {
               Inicia sesión aquí
             </Link>
           </p>
+          <p className="mt-3 text-center text-xs text-text-muted">
+            <Link to="/privacidad" className="hover:underline">Política de privacidad</Link>
+          </p>
         </div>
       </div>
     </div>

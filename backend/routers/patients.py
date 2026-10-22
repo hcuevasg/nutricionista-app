@@ -1,6 +1,8 @@
 """Patient routes."""
 import json as _json
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -8,6 +10,7 @@ import models
 import schemas
 import auth
 import audit
+import backup
 from database import get_db
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -114,3 +117,54 @@ async def delete_patient(
     audit.log(db, action="delete", resource="patient", nutritionist_id=current_user.id,
                resource_id=patient_id, detail=name)
     return {"message": "Patient deleted"}
+
+
+CONSENT_VERSION = "2026-10"
+
+
+def _owned_patient(db: Session, patient_id: int, user: models.Nutritionist) -> models.Patient:
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+
+@router.post("/{patient_id}/consent", response_model=schemas.PatientResponse)
+async def set_consent(
+    patient_id: int,
+    req: schemas.PatientConsentRequest,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user)
+):
+    """Registra (o revoca) el consentimiento del paciente para tratar sus datos de salud."""
+    patient = _owned_patient(db, patient_id, current_user)
+    patient.consent_at = datetime.utcnow() if req.accepted else None
+    patient.consent_version = CONSENT_VERSION if req.accepted else None
+    db.commit()
+    db.refresh(patient)
+    audit.log(db, action="consent" if req.accepted else "consent_revoked", resource="patient",
+              nutritionist_id=current_user.id, resource_id=patient.id, detail=patient.name)
+    return patient
+
+
+@router.get("/{patient_id}/export")
+async def export_patient(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user)
+):
+    """Ficha completa del paciente en JSON (derecho de acceso y portabilidad)."""
+    patient = _owned_patient(db, patient_id, current_user)
+    data = {
+        "exported_at": datetime.utcnow().isoformat(),
+        "profesional": {"name": current_user.name, "clinic_name": current_user.clinic_name,
+                        "email": current_user.email},
+        "paciente": backup.export_patient(db, current_user, patient),
+    }
+    audit.log(db, action="export", resource="patient", nutritionist_id=current_user.id,
+              resource_id=patient.id, detail=patient.name)
+    filename = f"ficha_paciente_{patient.id}_{date.today().isoformat()}.json"
+    return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

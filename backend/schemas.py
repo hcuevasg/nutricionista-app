@@ -98,6 +98,8 @@ class PatientUpdate(PatientCreate):
 class PatientResponse(PatientCreate):
     id: int
     nutritionist_id: int
+    consent_at: Optional[datetime] = None
+    consent_version: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -114,6 +116,10 @@ class PatientResponse(PatientCreate):
             except Exception:
                 return []
         return v or []
+
+
+class PatientConsentRequest(BaseModel):
+    accepted: bool
 
 
 # ── Anthropometric Schemas ────────────────────────────────────────

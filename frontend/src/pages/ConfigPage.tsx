@@ -20,6 +20,8 @@ const ACTION_LABEL: Record<string, string> = {
   delete: 'Eliminar',
   export: 'Exportar',
   import: 'Restaurar',
+  consent: 'Consentimiento',
+  consent_revoked: 'Revocar consentimiento',
 }
 
 const ACTION_COLOR: Record<string, string> = {
@@ -31,6 +33,8 @@ const ACTION_COLOR: Record<string, string> = {
   delete: 'bg-red-100 text-red-600',
   export: 'bg-terracotta/10 text-terracotta',
   import: 'bg-blue-100 text-blue-700',
+  consent: 'bg-green-100 text-green-700',
+  consent_revoked: 'bg-amber-100 text-amber-700',
 }
 
 export default function ConfigPage() {

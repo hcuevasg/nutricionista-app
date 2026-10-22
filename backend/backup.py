@@ -50,6 +50,19 @@ def _build(model, data: Dict[str, Any], **fks):
     return model(**kwargs)
 
 
+def export_patient(db: Session, user: models.Nutritionist, p: models.Patient) -> Dict[str, Any]:
+    """Ficha completa de un paciente: datos, evaluaciones, pautas, antecedentes y citas."""
+    pd = _row(p)
+    pd["anthropometrics"] = [_row(a) for a in db.query(models.Anthropometric)
+                             .filter(models.Anthropometric.patient_id == p.id).all()]
+    pd["pautas"] = [_row(x) for x in db.query(models.Pauta).filter(models.Pauta.patient_id == p.id).all()]
+    ant = db.query(models.Antecedentes).filter(models.Antecedentes.patient_id == p.id).first()
+    pd["antecedentes"] = _row(ant) if ant else None
+    pd["appointments"] = [_row(a) for a in db.query(models.Appointment).filter(
+        models.Appointment.nutritionist_id == user.id, models.Appointment.patient_id == p.id).all()]
+    return pd
+
+
 def export_data(db: Session, user: models.Nutritionist) -> Dict[str, Any]:
     patients = db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()
     data: Dict[str, Any] = {
@@ -65,15 +78,7 @@ def export_data(db: Session, user: models.Nutritionist) -> Dict[str, Any]:
         "appointments_sin_paciente": [],
     }
     for p in patients:
-        pd = _row(p)
-        pd["anthropometrics"] = [_row(a) for a in db.query(models.Anthropometric)
-                                 .filter(models.Anthropometric.patient_id == p.id).all()]
-        pd["pautas"] = [_row(x) for x in db.query(models.Pauta).filter(models.Pauta.patient_id == p.id).all()]
-        ant = db.query(models.Antecedentes).filter(models.Antecedentes.patient_id == p.id).first()
-        pd["antecedentes"] = _row(ant) if ant else None
-        pd["appointments"] = [_row(a) for a in db.query(models.Appointment).filter(
-            models.Appointment.nutritionist_id == user.id, models.Appointment.patient_id == p.id).all()]
-        data["patients"].append(pd)
+        data["patients"].append(export_patient(db, user, p))
 
     for r in db.query(models.Receta).filter(models.Receta.nutritionist_id == user.id).all():
         rd = _row(r)
