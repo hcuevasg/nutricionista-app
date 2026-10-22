@@ -73,6 +73,19 @@ function StatCard({ label, value, borderColor, badge, badgeColor, icon }: StatCa
   )
 }
 
+interface FollowUpAlert {
+  patient_id: number; patient_name: string; detalle: string; fecha: string | null
+  tipo: 'evaluacion_vencida' | 'sin_control' | 'evaluacion_proxima' | 'sin_evaluacion' | 'sin_pauta'
+}
+
+const ALERT_STYLE: Record<FollowUpAlert['tipo'], { label: string; cls: string }> = {
+  evaluacion_vencida: { label: 'Vencida', cls: 'bg-red-50 text-red-700' },
+  sin_control: { label: 'Sin control', cls: 'bg-amber-50 text-amber-700' },
+  evaluacion_proxima: { label: 'Próxima', cls: 'bg-blue-50 text-blue-700' },
+  sin_evaluacion: { label: 'Sin evaluación', cls: 'bg-gray-100 text-gray-600' },
+  sin_pauta: { label: 'Sin pauta', cls: 'bg-gray-100 text-gray-600' },
+}
+
 export default function DashboardPage() {
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -81,6 +94,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   const [upcomingAppts, setUpcomingAppts] = useState<UpcomingAppointment[]>([])
+  const [alerts, setAlerts] = useState<FollowUpAlert[]>([])
+  const [showAllAlerts, setShowAllAlerts] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -88,8 +103,10 @@ export default function DashboardPage() {
       api.get<Stats>('/dashboard/stats').catch(() => null),
       api.get<RecentPatient[]>('/dashboard/recent-patients').catch(() => []),
       api.get<UpcomingAppointment[]>('/appointments', { limit: 5 }).catch(() => []),
+      api.get<FollowUpAlert[]>('/dashboard/alerts').catch(() => []),
     ])
-      .then(([s, r, appts]) => {
+      .then(([s, r, appts, al]) => {
+        setAlerts(Array.isArray(al) ? al : [])
         setStats(s)
         setRecent(Array.isArray(r) ? r : [])
         setUpcomingAppts(Array.isArray(appts) ? appts : [])
@@ -253,6 +270,38 @@ export default function DashboardPage() {
                 <span className="font-medium text-gray-700">Nueva pauta nutricional</span>
               </Link>
             </div>
+          </div>
+
+          {/* Seguimiento */}
+          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-gray-800">Seguimiento</h3>
+              {alerts.length > 0 && <span className="text-xs font-semibold text-text-muted">{alerts.length}</span>}
+            </div>
+            {alerts.length === 0 ? (
+              <p className="text-sm text-text-muted">Todos tus pacientes están al día.</p>
+            ) : (
+              <ul className="space-y-2">
+                {(showAllAlerts ? alerts : alerts.slice(0, 6)).map(a => (
+                  <li key={`${a.patient_id}-${a.tipo}`}>
+                    <Link to={`/patients/${a.patient_id}`} className="flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-bg-light">
+                      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 mt-0.5 ${ALERT_STYLE[a.tipo].cls}`}>
+                        {ALERT_STYLE[a.tipo].label}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-gray-800 truncate">{a.patient_name}</span>
+                        <span className="block text-xs text-text-muted">{a.detalle}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {alerts.length > 6 && (
+              <button onClick={() => setShowAllAlerts(v => !v)} className="mt-2 text-xs text-primary font-semibold hover:underline">
+                {showAllAlerts ? 'Ver menos' : `Ver las ${alerts.length}`}
+              </button>
+            )}
           </div>
 
           {/* Proximas consultas */}
