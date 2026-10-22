@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 interface PortalInfo {
   patient_name: string
@@ -23,9 +24,87 @@ interface Pauta {
 interface Evaluation {
   id: number
   date: string
-  weight_kg?: number
-  fat_mass_pct?: number
-  lean_mass_kg?: number
+  weight_kg?: number | null
+  fat_mass_pct?: number | null
+  lean_mass_kg?: number | null
+  sum_6_skinfolds?: number | null
+  waist_cm?: number | null
+  goals_text?: string | null
+  next_eval_date?: string | null
+}
+
+const fmtNum = (v: number, d = 1) => v.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d })
+const fmtDate = (iso: string) => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}-${m}-${y}` }
+
+type MetricKey = 'weight_kg' | 'fat_mass_pct' | 'sum_6_skinfolds' | 'waist_cm'
+const METRICS: { key: MetricKey; label: string; unit: string; lowerIsBetter: boolean }[] = [
+  { key: 'weight_kg', label: 'Peso', unit: 'kg', lowerIsBetter: false },
+  { key: 'fat_mass_pct', label: 'Grasa corporal', unit: '%', lowerIsBetter: true },
+  { key: 'sum_6_skinfolds', label: 'Σ 6 pliegues', unit: 'mm', lowerIsBetter: true },
+  { key: 'waist_cm', label: 'Cintura', unit: 'cm', lowerIsBetter: true },
+]
+
+function ProgressView({ evaluations }: { evaluations: Evaluation[] }) {
+  const last = evaluations[evaluations.length - 1]
+  const goals = (last.goals_text ?? '').split('\n').map(g => g.trim()).filter(Boolean)
+  const series = METRICS.map(m => {
+    const pts = evaluations.filter(e => e[m.key] != null).map(e => ({ date: fmtDate(e.date), value: e[m.key] as number }))
+    return { ...m, pts }
+  }).filter(m => m.pts.length > 0)
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {series.map(m => {
+          const first = m.pts[0].value, cur = m.pts[m.pts.length - 1].value, diff = cur - first
+          const good = m.lowerIsBetter ? diff < 0 : null
+          return (
+            <div key={m.key} className="bg-white rounded-xl border border-[#E5EAE7] p-4">
+              <p className="text-xs text-[#6b7280]">{m.label}</p>
+              <p className="text-2xl font-bold text-gray-800">{fmtNum(cur)} <span className="text-sm font-normal text-[#6b7280]">{m.unit}</span></p>
+              {m.pts.length > 1 && Math.abs(diff) >= 0.05 && (
+                <p className={`text-xs font-semibold mt-1 ${good === null ? 'text-[#6b7280]' : good ? 'text-[#4b7c60]' : 'text-[#c06c52]'}`}>
+                  {diff > 0 ? '+' : '−'}{fmtNum(Math.abs(diff))} {m.unit} desde el inicio
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {series.filter(m => m.pts.length > 1).map(m => (
+        <div key={m.key} className="bg-white rounded-xl border border-[#E5EAE7] p-4">
+          <h4 className="text-sm font-bold text-gray-800 mb-2">{m.label} ({m.unit})</h4>
+          <div className="h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={m.pts} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5EAE7" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} domain={['auto', 'auto']} tickFormatter={(v: number) => fmtNum(v)} />
+                <Tooltip formatter={(v) => [`${fmtNum(Number(v))} ${m.unit}`, m.label]} />
+                <Line type="monotone" dataKey="value" stroke="#4b7c60" strokeWidth={2.5} dot={{ r: 4, fill: '#4b7c60' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ))}
+
+      {goals.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#E5EAE7] overflow-hidden">
+          <div className="bg-[#F7F5F2] px-4 py-3 flex justify-between items-center border-b border-[#E5EAE7]">
+            <h4 className="text-sm font-bold text-gray-800">Metas para tu próxima evaluación</h4>
+            {last.next_eval_date && <span className="text-xs font-semibold text-[#4b7c60]">{fmtDate(last.next_eval_date)}</span>}
+          </div>
+          <ul className="px-4 py-3 space-y-2">
+            {goals.map(g => (
+              <li key={g} className="flex items-start gap-2 text-sm text-gray-700">
+                <span className="mt-1 h-3 w-3 shrink-0 rounded border-2 border-[#4b7c60]" />{g}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function PortalPage() {
@@ -189,7 +268,9 @@ export default function PortalPage() {
                 Aún no tienes evaluaciones registradas.
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-[#E5EAE7] overflow-hidden">
+              <>
+              <ProgressView evaluations={evaluations} />
+              <div className="bg-white rounded-xl border border-[#E5EAE7] overflow-hidden mt-4">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[400px]">
                     <thead className="bg-[#F7F5F2] border-b border-[#E5EAE7]">
@@ -197,22 +278,25 @@ export default function PortalPage() {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-[#6b7280] uppercase">Fecha</th>
                         <th className="px-4 py-3 text-right text-xs font-semibold text-[#6b7280] uppercase">Peso</th>
                         <th className="px-4 py-3 text-right text-xs font-semibold text-[#6b7280] uppercase">% Grasa</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-[#6b7280] uppercase">Masa Magra</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-[#6b7280] uppercase">Masa magra</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-[#6b7280] uppercase">Σ 6 pliegues</th>
                       </tr>
                     </thead>
                     <tbody>
                       {[...evaluations].reverse().map((ev, i) => (
                         <tr key={ev.id} className={`border-b border-[#E5EAE7] ${i === 0 ? 'bg-[#4b7c60]/5 font-semibold' : ''}`}>
-                          <td className="px-4 py-3 text-sm text-gray-800">{ev.date}{i === 0 && <span className="ml-2 text-xs text-[#4b7c60]">↑ última</span>}</td>
-                          <td className="px-4 py-3 text-sm text-right">{ev.weight_kg != null ? `${ev.weight_kg} kg` : '—'}</td>
-                          <td className="px-4 py-3 text-sm text-right">{ev.fat_mass_pct != null ? `${ev.fat_mass_pct.toFixed(1)}%` : '—'}</td>
-                          <td className="px-4 py-3 text-sm text-right">{ev.lean_mass_kg != null ? `${ev.lean_mass_kg.toFixed(1)} kg` : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-800">{fmtDate(ev.date)}{i === 0 && <span className="ml-2 text-xs text-[#4b7c60]">↑ última</span>}</td>
+                          <td className="px-4 py-3 text-sm text-right">{ev.weight_kg != null ? `${fmtNum(ev.weight_kg)} kg` : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-right">{ev.fat_mass_pct != null ? `${fmtNum(ev.fat_mass_pct)}%` : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-right">{ev.lean_mass_kg != null ? `${fmtNum(ev.lean_mass_kg)} kg` : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-right">{ev.sum_6_skinfolds != null ? `${fmtNum(ev.sum_6_skinfolds)} mm` : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
+              </>
             )}
           </>
         )}

@@ -419,6 +419,10 @@ class PortalEvaluationSummary(BaseModel):
     weight_kg: Optional[float] = None
     fat_mass_pct: Optional[float] = None
     lean_mass_kg: Optional[float] = None
+    sum_6_skinfolds: Optional[float] = None
+    waist_cm: Optional[float] = None
+    goals_text: Optional[str] = None
+    next_eval_date: Optional[str] = None
 
     class Config:
         from_attributes = True

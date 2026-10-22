@@ -152,3 +152,22 @@ def test_restore_rejects_invalid_file(tenants):
     client, a, _, _ = tenants
     assert client.post("/settings/restore", json={"foo": 1}, headers=a).status_code == 400
     assert client.post("/settings/restore", json={"version": 99, "patients": []}, headers=a).status_code == 400
+
+
+def test_portal_progress_summary(tenants):
+    client, a, _, ids = tenants
+    pid = ids["patient"]
+    client.post(f"/anthropometrics?patient_id={pid}",
+                json={"date": "2026-04-01", "isak_level": "ISAK 1", "weight_kg": 61, "fat_mass_pct": -2,
+                      "lean_mass_kg": 63, "sum_6_skinfolds": 70, "goals_text": "vieja"}, headers=a)
+    client.post(f"/anthropometrics?patient_id={pid}",
+                json={"date": "2026-06-01", "isak_level": "ISAK 1", "weight_kg": 60, "fat_mass_pct": 25,
+                      "lean_mass_kg": 45, "sum_6_skinfolds": 65, "goals_text": "Bajar 1 kg",
+                      "next_eval_date": "2026-09-01"}, headers=a)
+    token = client.post("/portal/tokens", json={"patient_id": pid}, headers=a).json()["token"]
+    evs = client.get(f"/portal/{token}/evaluations").json()
+    by_date = {e["date"]: e for e in evs}
+    assert by_date["2026-04-01"]["fat_mass_pct"] is None  # composición inválida oculta
+    assert by_date["2026-04-01"]["goals_text"] is None     # metas solo de la última
+    assert by_date["2026-06-01"]["goals_text"] == "Bajar 1 kg"
+    assert by_date["2026-06-01"]["sum_6_skinfolds"] == 65

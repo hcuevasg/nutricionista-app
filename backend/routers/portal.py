@@ -141,9 +141,17 @@ async def portal_evaluations(token: str, db: Session = Depends(get_db)):
     evals = db.query(models.Anthropometric).filter(
         models.Anthropometric.patient_id == patient.id
     ).order_by(models.Anthropometric.date.asc()).all()
+    from pdf_isak import composition_valid
+    last_id = evals[-1].id if evals else None
     return [
         schemas.PortalEvaluationSummary(
-            id=e.id, date=e.date,
-            weight_kg=e.weight_kg, fat_mass_pct=e.fat_mass_pct, lean_mass_kg=e.lean_mass_kg,
+            id=e.id, date=e.date, weight_kg=e.weight_kg,
+            # Composición inválida (pliegues mal digitados) no se muestra al paciente
+            fat_mass_pct=e.fat_mass_pct if composition_valid(e) else None,
+            lean_mass_kg=e.lean_mass_kg if composition_valid(e) else None,
+            sum_6_skinfolds=e.sum_6_skinfolds, waist_cm=e.waist_cm,
+            # Metas solo de la evaluación más reciente
+            goals_text=e.goals_text if e.id == last_id else None,
+            next_eval_date=e.next_eval_date if e.id == last_id else None,
         ) for e in evals
     ]
