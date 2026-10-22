@@ -12,6 +12,7 @@ import auth
 import audit
 import backup
 from database import get_db
+from http_utils import attachment
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -167,4 +168,4 @@ async def export_patient(
     audit.log(db, action="export", resource="patient", nutritionist_id=current_user.id,
               resource_id=patient.id, detail=patient.name)
     filename = f"ficha_paciente_{patient.id}_{date.today().isoformat()}.json"
-    return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    return JSONResponse(data, headers=attachment(filename))

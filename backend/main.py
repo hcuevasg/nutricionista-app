@@ -9,18 +9,22 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from collections import defaultdict
 from datetime import datetime, timedelta
+import logging
 import os
 import re
+import traceback
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, dashboard, plantillas, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
+from routers import auth, errors, patients, anthropometrics, dashboard, plantillas, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
 
 # Import database
 from database import engine, Base
+import error_log
+from routers.errors import user_id_from_token
 
 
 @asynccontextmanager
@@ -292,6 +296,26 @@ origins = list(filter(None, [
     _extra,
 ]))
 
+@app.middleware("http")
+async def error_log_middleware(request: Request, call_next):
+    """Registra los errores no controlados. Se declara antes de CORS para que la
+    respuesta 500 también lleve los headers CORS y el frontend pueda leerla."""
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        logging.getLogger("nutriapp").exception("Error no controlado en %s %s", request.method, request.url.path)
+        header = request.headers.get("authorization", "")
+        ref = error_log.record(
+            "backend",
+            nutritionist_id=user_id_from_token(header[7:] if header.lower().startswith("bearer ") else None),
+            method=request.method, path=request.url.path, error_type=type(exc).__name__, message=str(exc),
+            stack="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+            user_agent=request.headers.get("user-agent"),
+        )
+        detail = "Error interno del servidor" + (f" (ref. {ref})" if ref else "")
+        return JSONResponse(status_code=500, content={"detail": detail})
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -306,6 +330,7 @@ RATE_WINDOW = 60   # seconds
 # (bucket, regex de ruta, máximo de requests por ventana y por IP)
 RATE_LIMIT_RULES = [
     ("auth",   re.compile(r"^/auth/(login|register|2fa/verify)$"), 10),
+    ("errors", re.compile(r"^/errors/report$"), 20),
     ("ai",     re.compile(r"^/pautas/\d+/\d+/(generar-menu|generar-menu-stream|ai-suggest)$"), 10),
     # Portal público: 3 requests por carga de página
     ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations))?$"), 60),
@@ -354,6 +379,7 @@ app.include_router(alimentos.router)
 app.include_router(appointments.router)
 app.include_router(portal.router)
 app.include_router(plantillas.router)
+app.include_router(errors.router)
 
 
 @app.get("/")

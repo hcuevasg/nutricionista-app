@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
+import ErrorLogCard from '../components/ErrorLogCard'
 import { api, apiErrorMessage } from '../api/client'
 
 interface AuditEntry {
@@ -263,6 +264,8 @@ export default function ConfigPage() {
             </table>
           )}
         </div>
+
+        <ErrorLogCard />
 
       </div>
     </Layout>

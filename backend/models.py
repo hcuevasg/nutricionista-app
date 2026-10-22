@@ -201,6 +201,22 @@ class Pauta(Base):
     patient = relationship("Patient", back_populates="pautas")
 
 
+class ErrorLog(Base):
+    """Error no controlado del backend o reportado por el frontend (registro interno)."""
+    __tablename__ = "error_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id", ondelete="CASCADE"), nullable=True, index=True)
+    source = Column(String(20))        # backend | frontend
+    method = Column(String(10), nullable=True)
+    path = Column(String(500), nullable=True)
+    error_type = Column(String(120), nullable=True)
+    message = Column(Text, nullable=True)
+    stack = Column(Text, nullable=True)
+    user_agent = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class AuditLog(Base):
     """Registro de auditoría de acciones."""
     __tablename__ = "audit_logs"
