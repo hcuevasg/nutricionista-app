@@ -8,12 +8,17 @@ interface User {
   clinic_name?: string
   report_tagline?: string
   logo_base64?: string
+  totp_enabled?: boolean
 }
+
+/** Resultado del primer paso del login cuando la cuenta tiene verificación en dos pasos. */
+export interface TwoFactorChallenge { requires2fa: true; challenge: string }
 
 interface AuthContextType {
   user: User | null
   token: string | null
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<TwoFactorChallenge | void>
+  verifyTwoFactor: (challenge: string, code: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
   logout: () => void
   updateUser: (updated: Partial<User>) => void
@@ -56,21 +61,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<TwoFactorChallenge | void> => {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     })
 
-    if (!response.ok) throw new Error('Login failed')
+    if (!response.ok) throw new Error(await errorDetail(response, 'Usuario o contraseña incorrectos'))
 
     const data = await response.json()
-    const profile = await fetchProfile(data.access_token)
-    setToken(data.access_token)
+    if (data.requires_2fa) return { requires2fa: true, challenge: data.challenge_token }
+    await startSession(data.access_token)
+    return undefined
+  }
+
+  const verifyTwoFactor = async (challenge: string, code: string) => {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/2fa/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge_token: challenge, code })
+    })
+    if (!response.ok) throw new Error(await errorDetail(response, 'Código incorrecto'))
+    const data = await response.json()
+    await startSession(data.access_token)
+  }
+
+  const startSession = async (accessToken: string) => {
+    const profile = await fetchProfile(accessToken)
+    setToken(accessToken)
     setUser(profile)
-    localStorage.setItem('token', data.access_token)
+    localStorage.setItem('token', accessToken)
     localStorage.setItem('user', JSON.stringify(profile))
+  }
+
+  const errorDetail = async (response: Response, fallback: string) => {
+    if (response.status === 401) return fallback
+    const body = await response.json().catch(() => ({}))
+    return typeof body.detail === 'string' ? body.detail : fallback
   }
 
   const register = async (username: string, email: string, password: string) => {
@@ -107,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, updateUser, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, verifyTwoFactor, register, logout, updateUser, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   )

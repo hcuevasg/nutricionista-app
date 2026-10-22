@@ -1,5 +1,5 @@
 """SQLAlchemy models for database."""
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, Index, func
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, Index, func, false as sa_false
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -17,6 +17,11 @@ class Nutritionist(Base):
     clinic_name = Column(String(255), nullable=True)
     report_tagline = Column(String(500), nullable=True)
     logo_base64 = Column(Text, nullable=True)
+    # Verificación en dos pasos (TOTP). El secreto se guarda al iniciar la
+    # configuración y solo se exige cuando totp_enabled es True.
+    totp_secret = Column(String(64), nullable=True)
+    totp_enabled = Column(Boolean, default=False, nullable=False, server_default=sa_false())
+    totp_recovery_codes = Column(Text, nullable=True)   # JSON con hashes bcrypt
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

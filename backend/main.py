@@ -305,7 +305,7 @@ _rate_store: dict[str, list[datetime]] = defaultdict(list)
 RATE_WINDOW = 60   # seconds
 # (bucket, regex de ruta, máximo de requests por ventana y por IP)
 RATE_LIMIT_RULES = [
-    ("auth",   re.compile(r"^/auth/(login|register)$"), 10),
+    ("auth",   re.compile(r"^/auth/(login|register|2fa/verify)$"), 10),
     ("ai",     re.compile(r"^/pautas/\d+/\d+/(generar-menu|generar-menu-stream|ai-suggest)$"), 10),
     # Portal público: 3 requests por carga de página
     ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations))?$"), 60),

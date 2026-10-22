@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
+import TwoFactorCard from '../components/TwoFactorCard'
 import { api, apiErrorMessage } from '../api/client'
 
 const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
@@ -238,6 +239,8 @@ export default function ProfilePage() {
             {savingPw ? 'Guardando...' : 'Cambiar contraseña'}
           </button>
         </form>
+
+        <TwoFactorCard />
 
       </div>
     </Layout>

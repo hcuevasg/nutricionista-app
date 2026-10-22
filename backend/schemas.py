@@ -26,9 +26,27 @@ class RegisterRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    access_token: str
+    # Con verificación en dos pasos activa, el login entrega requires_2fa y un
+    # challenge_token (5 min) en vez de access_token.
+    access_token: Optional[str] = None
     token_type: str = "bearer"
-    user: dict
+    user: Optional[dict] = None
+    requires_2fa: bool = False
+    challenge_token: Optional[str] = None
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    challenge_token: str
+    code: str
+
+
+class TwoFactorCodeRequest(BaseModel):
+    code: str
+
+
+class TwoFactorDisableRequest(BaseModel):
+    password: str
+    code: str
 
 
 class UserResponse(BaseModel):
@@ -39,6 +57,7 @@ class UserResponse(BaseModel):
     clinic_name: Optional[str] = None
     report_tagline: Optional[str] = None
     logo_base64: Optional[str] = None
+    totp_enabled: bool = False
 
     class Config:
         from_attributes = True

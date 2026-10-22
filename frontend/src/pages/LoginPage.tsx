@@ -7,7 +7,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const [challenge, setChallenge] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const { login, verifyTwoFactor } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,10 +18,21 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await login(username, password)
+      if (challenge) {
+        await verifyTwoFactor(challenge, code.trim())
+        navigate('/dashboard')
+        return
+      }
+      const result = await login(username, password)
+      if (result?.requires2fa) {
+        setChallenge(result.challenge)
+        return
+      }
       navigate('/dashboard')
     } catch (err) {
-      setError('Invalid credentials')
+      const msg = err instanceof Error ? err.message : 'No se pudo iniciar sesión'
+      if (challenge && msg.includes('expir')) { setChallenge(null); setCode('') }
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -32,6 +45,24 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-center text-primary mb-8">NutriApp</h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {challenge ? (
+              <div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Ingresa el código de 6 dígitos de tu app de autenticación, o uno de tus códigos de recuperación.
+                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Código de verificación</label>
+                <input
+                  type="text" inputMode="numeric" autoComplete="one-time-code" autoFocus
+                  value={code} onChange={(e) => setCode(e.target.value)}
+                  className="w-full px-4 py-2 border border-border rounded-lg tracking-widest text-center text-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="123456" required
+                />
+                <button type="button" onClick={() => { setChallenge(null); setCode(''); setError('') }}
+                  className="mt-2 text-xs text-text-muted hover:text-primary">
+                  ← Volver
+                </button>
+              </div>
+            ) : (<>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Usuario
@@ -57,6 +88,7 @@ export default function LoginPage() {
                 required
               />
             </div>
+            </>)}
 
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -69,7 +101,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-primary hover:bg-primary-dark text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
             >
-              {loading ? 'Ingresando...' : 'Ingresar'}
+              {loading ? 'Verificando...' : challenge ? 'Verificar' : 'Ingresar'}
             </button>
           </form>
 

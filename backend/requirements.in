@@ -19,3 +19,7 @@ httpx>=0.25.0
 
 # Migraciones de esquema
 alembic>=1.13
+
+# Verificación en dos pasos (TOTP) y código QR
+pyotp>=2.9
+segno>=1.6

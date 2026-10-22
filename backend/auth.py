@@ -79,6 +79,9 @@ async def get_current_user(
     """Get current authenticated user."""
     token = credentials.credentials
     payload = decode_token(token)
+    if payload.get("purpose"):
+        # Tokens con propósito (p. ej. desafío de verificación en dos pasos) no son sesión
+        raise HTTPException(status_code=401, detail="Invalid token")
     user_id = int(payload.get("sub"))  # Convert back from string
 
     user = db.query(models.Nutritionist).filter(models.Nutritionist.id == user_id).first()

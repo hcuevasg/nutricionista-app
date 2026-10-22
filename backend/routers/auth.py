@@ -7,6 +7,7 @@ import models
 import schemas
 import auth as auth_module
 import audit
+import two_factor
 from database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -60,9 +61,16 @@ async def login(request: schemas.LoginRequest, req: Request, db: Session = Depen
             detail="Invalid credentials"
         )
 
+    if user.totp_enabled:
+        return {"requires_2fa": True, "challenge_token": two_factor.create_challenge(user.id)}
+
+    return _login_ok(db, user, req, "Login exitoso")
+
+
+def _login_ok(db: Session, user: models.Nutritionist, req: Request, detail: str) -> dict:
     access_token = auth_module.create_access_token(data={"sub": user.id})
     audit.log(db, action="login", resource="auth", nutritionist_id=user.id,
-               detail=f"Login exitoso", request=req)
+               detail=detail, request=req)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -122,3 +130,78 @@ async def change_password(
     current_user.password_hash = auth_module.hash_password(request.new_password)
     db.commit()
     return {"message": "Contraseña actualizada"}
+
+
+# ── Verificación en dos pasos ──────────────────────────────────────────────────
+
+@router.post("/2fa/verify", response_model=schemas.LoginResponse)
+async def verify_two_factor(request: schemas.TwoFactorVerifyRequest, req: Request,
+                            db: Session = Depends(get_db)):
+    """Segundo paso del login: código TOTP o un código de recuperación."""
+    try:
+        user_id = two_factor.read_challenge(request.challenge_token)
+    except (ValueError, HTTPException):
+        raise HTTPException(status_code=401, detail="La verificación expiró. Vuelve a iniciar sesión.")
+    user = db.query(models.Nutritionist).filter(models.Nutritionist.id == user_id).first()
+    if not user or not user.totp_enabled:
+        raise HTTPException(status_code=401, detail="La verificación expiró. Vuelve a iniciar sesión.")
+    if two_factor.verify_totp(user.totp_secret, request.code):
+        return _login_ok(db, user, req, "Login exitoso (verificación en dos pasos)")
+    remaining = two_factor.use_recovery_code(user.totp_recovery_codes, request.code)
+    if remaining is not None:
+        user.totp_recovery_codes = remaining
+        db.commit()
+        return _login_ok(db, user, req, "Login con código de recuperación")
+    audit.log(db, action="login_failed", resource="auth", nutritionist_id=user.id,
+              detail="Código de verificación incorrecto", request=req)
+    raise HTTPException(status_code=401, detail="Código incorrecto")
+
+
+@router.post("/2fa/setup")
+async def setup_two_factor(db: Session = Depends(get_db),
+                           current_user: models.Nutritionist = Depends(auth_module.get_current_user)):
+    """Genera un secreto nuevo (aún no activo) y su código QR."""
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="La verificación en dos pasos ya está activa")
+    current_user.totp_secret = two_factor.new_secret()
+    db.commit()
+    uri = two_factor.provisioning_uri(current_user.totp_secret, current_user.email or current_user.username)
+    return {"secret": current_user.totp_secret, "otpauth_uri": uri, "qr_svg": two_factor.qr_svg(uri)}
+
+
+@router.post("/2fa/enable")
+async def enable_two_factor(request: schemas.TwoFactorCodeRequest, req: Request,
+                            db: Session = Depends(get_db),
+                            current_user: models.Nutritionist = Depends(auth_module.get_current_user)):
+    """Activa la verificación tras comprobar un código; devuelve los códigos de recuperación."""
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="La verificación en dos pasos ya está activa")
+    if not two_factor.verify_totp(current_user.totp_secret, request.code):
+        raise HTTPException(status_code=400, detail="Código incorrecto. Revisa la hora del teléfono e intenta de nuevo.")
+    codes, hashes = two_factor.generate_recovery_codes()
+    current_user.totp_enabled = True
+    current_user.totp_recovery_codes = hashes
+    db.commit()
+    audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
+              detail="Verificación en dos pasos activada", request=req)
+    return {"recovery_codes": codes}
+
+
+@router.post("/2fa/disable")
+async def disable_two_factor(request: schemas.TwoFactorDisableRequest, req: Request,
+                             db: Session = Depends(get_db),
+                             current_user: models.Nutritionist = Depends(auth_module.get_current_user)):
+    """Desactiva la verificación: exige contraseña y un código vigente (o de recuperación)."""
+    if not auth_module.verify_password(request.password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+    ok = two_factor.verify_totp(current_user.totp_secret, request.code) or \
+        two_factor.use_recovery_code(current_user.totp_recovery_codes, request.code) is not None
+    if not ok:
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    current_user.totp_recovery_codes = None
+    db.commit()
+    audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
+              detail="Verificación en dos pasos desactivada", request=req)
+    return {"message": "Verificación en dos pasos desactivada"}
