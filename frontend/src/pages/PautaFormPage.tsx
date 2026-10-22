@@ -195,6 +195,12 @@ function StructuredOpcion({
 
 // ── Small components ───────────────────────────────────────────────────────
 
+interface Plantilla {
+  id: number; nombre: string; tipo_pauta: string; fa_key: string; ajuste_kcal: number | null
+  prot_pct: number; lip_pct: number; porciones_json: string; distribucion_json: string
+  menu_json: string | null; notes: string | null
+}
+
 interface PautaData {
   name: string; date: string; tipo_pauta: string; sexo: string
   edad: number; peso: number; talla: number
@@ -267,6 +273,10 @@ export default function PautaFormPage() {
   const [recetaSearch, setRecetaSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [plantillas, setPlantillas] = useState<Plantilla[]>([])
+  const [plantillaName, setPlantillaName] = useState<string | null>(null)
+  const [savingPlantilla, setSavingPlantilla] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [aiSuggestions, setAiSuggestions] = useState<string | null>(null)
@@ -297,7 +307,11 @@ export default function PautaFormPage() {
           try { if (pauta.menu_json) setMenu(JSON.parse(pauta.menu_json)) } catch {}
         } else {
           const bd = pat.birth_date ? new Date(pat.birth_date) : null
-          const age = bd ? Math.max(0, new Date().getFullYear() - bd.getFullYear()) : 30
+          const now = new Date()
+          const age = bd
+            ? Math.max(0, now.getFullYear() - bd.getFullYear()
+                - ((now.getMonth() < bd.getMonth() || (now.getMonth() === bd.getMonth() && now.getDate() < bd.getDate())) ? 1 : 0))
+            : 30
           setForm(prev => ({
             ...prev, sexo: isMale(pat.sex) ? 'M' : 'F', edad: age,
             peso: pat.weight_kg ?? 65, talla: pat.height_cm ?? 160,
@@ -307,6 +321,55 @@ export default function PautaFormPage() {
       .catch(err => setError(apiErrorMessage(err, 'Error al cargar la pauta')))
       .finally(() => setLoading(false))
   }, [id, pautaId, token])
+
+  useEffect(() => {
+    if (!token || isView || isEdit) return
+    api.get<Plantilla[]>('/plantillas-pauta').then(setPlantillas).catch(() => setPlantillas([]))
+  }, [token, isView, isEdit])
+
+  const applyPlantilla = (pl: Plantilla) => {
+    setForm(prev => ({
+      ...prev, tipo_pauta: pl.tipo_pauta, fa_key: pl.fa_key, ajuste_kcal: pl.ajuste_kcal ?? 0,
+      prot_pct: pl.prot_pct, lip_pct: pl.lip_pct, notes: pl.notes ?? prev.notes,
+      name: prev.name || pl.nombre,
+    }))
+    try { setPorciones(JSON.parse(pl.porciones_json || '{}')) } catch { setPorciones({}) }
+    try { setDistribucion(JSON.parse(pl.distribucion_json || '{}')) } catch { setDistribucion({}) }
+    try { setMenu(pl.menu_json ? JSON.parse(pl.menu_json) : {}) } catch { setMenu({}) }
+    toast.success(`Plantilla "${pl.nombre}" aplicada: revisa las porciones para este paciente`)
+  }
+
+  const saveAsPlantilla = async () => {
+    if (!plantillaName?.trim()) return
+    setSavingPlantilla(true)
+    try {
+      await api.post('/plantillas-pauta', {
+        nombre: plantillaName.trim(), tipo_pauta: form.tipo_pauta, fa_key: form.fa_key,
+        ajuste_kcal: form.ajuste_kcal || null, prot_pct: form.prot_pct, lip_pct: form.lip_pct,
+        porciones_json: JSON.stringify(porciones), distribucion_json: JSON.stringify(distribucion),
+        menu_json: Object.keys(menu).length ? JSON.stringify(menu) : null, notes: form.notes || null,
+      })
+      toast.success('Plantilla guardada')
+      setPlantillaName(null)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudo guardar la plantilla'))
+    } finally {
+      setSavingPlantilla(false)
+    }
+  }
+
+  const duplicar = async () => {
+    setDuplicating(true)
+    try {
+      const copia = await api.post<{ id: number }>(`/pautas/${id}/${pautaId}/duplicar`)
+      toast.success('Pauta duplicada')
+      navigate(`/patients/${id}/pautas/${copia.id}/edit`)
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'No se pudo duplicar la pauta'))
+    } finally {
+      setDuplicating(false)
+    }
+  }
 
   useEffect(() => {
     if (!token) return
@@ -418,6 +481,7 @@ export default function PautaFormPage() {
       cho_pct, cho_g: +calcs.cho_g.toFixed(1), cho_kcal: +calcs.cho_kcal.toFixed(1),
       porciones_json: JSON.stringify(porciones),
       distribucion_json: JSON.stringify(distribucion),
+      ...(!isEdit && Object.keys(menu).length ? { menu_json: JSON.stringify(menu) } : {}),
       notes: form.notes.trim() || null,
     }
 
@@ -571,6 +635,21 @@ export default function PautaFormPage() {
 
         {/* ── Left column: form ─────────────────────────────────────────── */}
         <div className="xl:col-span-2 space-y-6">
+
+          {!isView && !isEdit && plantillas.length > 0 && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg px-5 py-4 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-primary">Partir desde una plantilla</span>
+              <select
+                defaultValue=""
+                onChange={e => { const pl = plantillas.find(p => p.id === Number(e.target.value)); if (pl) applyPlantilla(pl) }}
+                className={`${INPUT} max-w-xs`}
+              >
+                <option value="" disabled>Elegir plantilla…</option>
+                {plantillas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+              <span className="text-xs text-text-muted">Copia tipo, actividad, macros, porciones, distribución y menú.</span>
+            </div>
+          )}
 
           {/* 1. Datos básicos */}
           <div className="bg-white rounded-lg shadow p-6 space-y-4">
@@ -1230,6 +1309,26 @@ export default function PautaFormPage() {
                   className="border border-primary text-primary hover:bg-primary/5 py-3 rounded-lg font-medium text-center text-sm">
                   Editar pauta
                 </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={duplicar} disabled={duplicating}
+                    className="border border-border text-gray-700 hover:bg-bg-light py-2.5 rounded-lg font-medium text-sm disabled:opacity-50">
+                    {duplicating ? 'Duplicando…' : 'Duplicar'}
+                  </button>
+                  <button onClick={() => setPlantillaName(plantillaName === null ? form.name : null)}
+                    className="border border-border text-gray-700 hover:bg-bg-light py-2.5 rounded-lg font-medium text-sm">
+                    Guardar como plantilla
+                  </button>
+                </div>
+                {plantillaName !== null && (
+                  <div className="flex gap-2">
+                    <input value={plantillaName} onChange={e => setPlantillaName(e.target.value)} autoFocus
+                      placeholder="Nombre de la plantilla" className={`${INPUT} flex-1`} />
+                    <button onClick={saveAsPlantilla} disabled={savingPlantilla || !plantillaName.trim()}
+                      className="bg-primary text-white px-3 rounded-lg text-sm font-medium disabled:opacity-50">
+                      {savingPlantilla ? '…' : 'Guardar'}
+                    </button>
+                  </div>
+                )}
                 <button onClick={handleGenerarMenu}
                   disabled={generatingMenu || aiConfigured === null || aiConfigured === false}
                   title={aiConfigured === false ? 'IA no configurada. Configura ANTHROPIC_API_KEY en el servidor.' : undefined}

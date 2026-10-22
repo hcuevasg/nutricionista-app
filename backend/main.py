@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers
-from routers import auth, patients, anthropometrics, dashboard, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
+from routers import auth, patients, anthropometrics, dashboard, plantillas, pautas, settings, antecedentes, recetas, alimentos, appointments, portal
 
 # Import database
 from database import engine, Base
@@ -353,6 +353,7 @@ app.include_router(recetas.router)
 app.include_router(alimentos.router)
 app.include_router(appointments.router)
 app.include_router(portal.router)
+app.include_router(plantillas.router)
 
 
 @app.get("/")

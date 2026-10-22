@@ -39,6 +39,7 @@ export default function ConfigPage() {
   const [loadingLogs, setLoadingLogs] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [plantillas, setPlantillas] = useState<{ id: number; nombre: string; tipo_pauta: string }[]>([])
   const [restoring, setRestoring] = useState(false)
   const [restoreResult, setRestoreResult] = useState<string | null>(null)
   const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; provider: string } | null>(null)
@@ -71,6 +72,21 @@ export default function ConfigPage() {
       setError('No se pudo descargar el backup')
     } finally {
       setDownloading(false)
+    }
+  }
+
+  useEffect(() => {
+    api.get<{ id: number; nombre: string; tipo_pauta: string }[]>('/plantillas-pauta')
+      .then(setPlantillas).catch(() => setPlantillas([]))
+  }, [])
+
+  const deletePlantilla = async (plId: number, nombre: string) => {
+    if (!confirm(`¿Eliminar la plantilla "${nombre}"? Las pautas creadas con ella no cambian.`)) return
+    try {
+      await api.delete(`/plantillas-pauta/${plId}`)
+      setPlantillas(prev => prev.filter(p => p.id !== plId))
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo eliminar la plantilla'))
     }
   }
 
@@ -136,6 +152,28 @@ export default function ConfigPage() {
               Para habilitar la generación de menús con IA, configura la variable de entorno
               <code className="bg-gray-100 px-1 rounded ml-1">ANTHROPIC_API_KEY</code> en el servidor (Railway).
             </p>
+          )}
+        </div>
+
+        {/* Plantillas de pauta */}
+        <div className="bg-white rounded-xl border border-border p-5">
+          <h3 className="font-semibold text-gray-800 mb-1">Plantillas de pautas</h3>
+          <p className="text-xs text-text-muted mb-3">
+            Se crean desde una pauta con "Guardar como plantilla" y se usan al crear una pauta nueva.
+          </p>
+          {plantillas.length === 0 ? (
+            <p className="text-sm text-text-muted">Aún no tienes plantillas.</p>
+          ) : (
+            <ul className="divide-y divide-border border border-border rounded-lg">
+              {plantillas.map(p => (
+                <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span className="text-gray-800">{p.nombre} <span className="text-xs text-text-muted">· {p.tipo_pauta}</span></span>
+                  <button onClick={() => deletePlantilla(p.id, p.nombre)} className="text-xs font-semibold text-red-600 hover:underline">
+                    Eliminar
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 

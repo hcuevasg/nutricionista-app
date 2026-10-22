@@ -211,6 +211,37 @@ async def update_pauta(
     return pauta
 
 
+@router.post("/{patient_id}/{pauta_id}/duplicar", response_model=schemas.PautaResponse, status_code=201)
+async def duplicar_pauta(
+    patient_id: int,
+    pauta_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Nutritionist = Depends(auth.get_current_user),
+):
+    """Copia una pauta del mismo paciente con fecha de hoy (queda inactiva)."""
+    patient = db.query(models.Patient).filter(
+        models.Patient.id == patient_id,
+        models.Patient.nutritionist_id == current_user.id
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    pauta = db.query(models.Pauta).filter(
+        models.Pauta.id == pauta_id,
+        models.Pauta.patient_id == patient_id,
+    ).first()
+    if not pauta:
+        raise HTTPException(status_code=404, detail="Pauta no encontrada")
+    from datetime import date as _date
+    skip = {"id", "created_at", "updated_at", "is_active"}
+    data = {c.name: getattr(pauta, c.name) for c in models.Pauta.__table__.columns if c.name not in skip}
+    data.update(name=f"{pauta.name} (copia)", date=_date.today().isoformat(), is_active=False)
+    copia = models.Pauta(**data)
+    db.add(copia)
+    db.commit()
+    db.refresh(copia)
+    return copia
+
+
 @router.patch("/{patient_id}/{pauta_id}/set-active")
 async def set_active_pauta(
     patient_id: int,

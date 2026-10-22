@@ -180,7 +180,29 @@ class AnthropometricResponse(AnthropometricCreate):
         from_attributes = True
 
 
-# ── Meal Plan Schemas ─────────────────────────────────────────────
+# ── Plantillas de pauta ───────────────────────────────────────────
+class PlantillaPautaCreate(BaseModel):
+    nombre: str
+    tipo_pauta: str
+    fa_key: str
+    ajuste_kcal: Optional[float] = None
+    prot_pct: float
+    lip_pct: float
+    porciones_json: str
+    distribucion_json: str
+    menu_json: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PlantillaPautaResponse(PlantillaPautaCreate):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Pautas ────────────────────────────────────────────────────────
 class PautaCreate(BaseModel):
     name: str
     date: str

@@ -137,6 +137,25 @@ class Anthropometric(Base):
     patient = relationship("Patient", back_populates="anthropometrics")
 
 
+class PlantillaPauta(Base):
+    """Plantilla reutilizable de pauta (sin datos del paciente)."""
+    __tablename__ = "plantillas_pauta"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nutritionist_id = Column(Integer, ForeignKey("nutritionists.id", ondelete="CASCADE"), index=True)
+    nombre = Column(String(255), nullable=False)
+    tipo_pauta = Column(String(50))
+    fa_key = Column(String(50))
+    ajuste_kcal = Column(Float, nullable=True)
+    prot_pct = Column(Float)
+    lip_pct = Column(Float)
+    porciones_json = Column(Text)
+    distribucion_json = Column(Text)
+    menu_json = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Pauta(Base):
     """Pauta de alimentación."""
     __tablename__ = "pautas"
