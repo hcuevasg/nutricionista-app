@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from collections import defaultdict
 from datetime import datetime, timedelta
+import asyncio
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ from routers import auth, errors, patients, anthropometrics, dashboard, plantill
 
 # Import database
 from database import engine, Base
+import backup_r2
 import error_log
 from routers.errors import user_id_from_token
 
@@ -275,7 +277,17 @@ async def lifespan(app: FastAPI):
     finally:
         seed_db.close()
 
+    # Backups automáticos cifrados a Cloudflare R2 (solo si están configurados)
+    backup_task = None
+    if backup_r2.configured():
+        backup_task = asyncio.create_task(backup_r2.scheduler())
+        print("✅ Backups automáticos a R2 activados")
+    else:
+        print("ℹ️ Backups automáticos a R2 desactivados (faltan variables R2_* / BACKUP_ENCRYPTION_KEY)")
+
     yield
+    if backup_task:
+        backup_task.cancel()
     print("🛑 NutriApp Backend Shutting down...")
 
 

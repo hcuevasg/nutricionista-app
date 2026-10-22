@@ -23,3 +23,6 @@ alembic>=1.13
 # Verificación en dos pasos (TOTP) y código QR
 pyotp>=2.9
 segno>=1.6
+
+# Backups automáticos cifrados a Cloudflare R2 (API S3)
+boto3>=1.34
