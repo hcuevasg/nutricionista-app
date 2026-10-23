@@ -1,37 +1,47 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import PrivateRoute from './components/PrivateRoute'
 
-// Pages
+// Páginas: el login se carga de inmediato; el resto bajo demanda para aligerar la primera carga
 import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/DashboardPage'
-import PatientsPage from './pages/PatientsPage'
-import PatientFormPage from './pages/PatientFormPage'
-import PatientDetailPage from './pages/PatientDetailPage'
-import IsAkPage from './pages/IsAkPage'
-import PautasPage from './pages/PautasPage'
-import PautaFormPage from './pages/PautaFormPage'
-import ConfigPage from './pages/ConfigPage'
-import ProfilePage from './pages/ProfilePage'
-import AntecedentesPage from './pages/AntecedentesPage'
-import RecetasPage from './pages/RecetasPage'
-import RecetaFormPage from './pages/RecetaFormPage'
-import IsAkReportPage from './pages/IsAkReportPage'
-import PautaReportPage from './pages/PautaReportPage'
-import AgendaPage from './pages/AgendaPage'
-import PortalPage from './pages/PortalPage'
-import PatientProgressPage from './pages/PatientProgressPage'
-import PrivacyPage from './pages/PrivacyPage'
-import EvolucionPage from './pages/EvolucionPage'
-import LaboratorioPage from './pages/LaboratorioPage'
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const PatientsPage = lazy(() => import('./pages/PatientsPage'))
+const PatientFormPage = lazy(() => import('./pages/PatientFormPage'))
+const PatientDetailPage = lazy(() => import('./pages/PatientDetailPage'))
+const IsAkPage = lazy(() => import('./pages/IsAkPage'))
+const PautasPage = lazy(() => import('./pages/PautasPage'))
+const PautaFormPage = lazy(() => import('./pages/PautaFormPage'))
+const ConfigPage = lazy(() => import('./pages/ConfigPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AntecedentesPage = lazy(() => import('./pages/AntecedentesPage'))
+const RecetasPage = lazy(() => import('./pages/RecetasPage'))
+const RecetaFormPage = lazy(() => import('./pages/RecetaFormPage'))
+const IsAkReportPage = lazy(() => import('./pages/IsAkReportPage'))
+const PautaReportPage = lazy(() => import('./pages/PautaReportPage'))
+const AgendaPage = lazy(() => import('./pages/AgendaPage'))
+const PortalPage = lazy(() => import('./pages/PortalPage'))
+const PatientProgressPage = lazy(() => import('./pages/PatientProgressPage'))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
+const EvolucionPage = lazy(() => import('./pages/EvolucionPage'))
+const LaboratorioPage = lazy(() => import('./pages/LaboratorioPage'))
+
+function PageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg-light">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" role="status" aria-label="Cargando" />
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <Router>
       <AuthProvider>
       <ToastProvider>
+        <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -65,6 +75,7 @@ export default function App() {
           {/* Redirect to dashboard by default */}
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
+        </Suspense>
       </ToastProvider>
       </AuthProvider>
     </Router>
