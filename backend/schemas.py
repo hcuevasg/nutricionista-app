@@ -68,7 +68,15 @@ class ProfileUpdate(BaseModel):
     email: Optional[EmailStr] = None
     clinic_name: Optional[str] = None
     report_tagline: Optional[str] = None
-    logo_base64: Optional[str] = None
+    logo_base64: Optional[str] = Field(None, max_length=800_000)  # "" quita el logo
+
+    @field_validator('logo_base64')
+    @classmethod
+    def valid_logo(cls, v):
+        if not v:
+            return v
+        import image_utils
+        return image_utils.clean_logo(v)
 
 
 class PasswordChange(BaseModel):
@@ -507,3 +515,34 @@ class PortalEvaluationSummary(BaseModel):
     next_eval_date: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Largos máximos ────────────────────────────────────────────────
+# Cada texto que entra al API respeta el largo de su columna en la base
+# (String(n)): un valor más largo se rechaza con 422 en vez de fallar en Postgres.
+def _limit_to_columns() -> None:
+    import annotated_types
+    import models
+    pairs = [
+        (PatientCreate, models.Patient), (ProfileUpdate, models.Nutritionist),
+        (AnthropometricCreate, models.Anthropometric), (PautaCreate, models.Pauta),
+        (AntecedentesCreate, models.Antecedentes), (AppointmentCreate, models.Appointment),
+        (AppointmentUpdate, models.Appointment), (NotaEvolucionCreate, models.NotaEvolucion),
+        (ExamenResultado, models.ExamenLaboratorio), (PlantillaPautaCreate, models.PlantillaPauta),
+        (RecetaCreate, models.Receta), (RecetaUpdate, models.Receta),
+        (RecetaIngredienteCreate, models.RecetaIngrediente),
+    ]
+    for schema, model in pairs:
+        columns = model.__table__.columns
+        changed = False
+        for name, field in schema.model_fields.items():
+            col = columns.get(name)
+            length = getattr(getattr(col, "type", None), "length", None)
+            if length and not any(isinstance(m, annotated_types.MaxLen) for m in field.metadata):
+                field.metadata.append(annotated_types.MaxLen(length))
+                changed = True
+        if changed:
+            schema.model_rebuild(force=True)
+
+
+_limit_to_columns()

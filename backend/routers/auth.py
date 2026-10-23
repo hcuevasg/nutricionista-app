@@ -128,7 +128,7 @@ async def update_profile(
     if request.report_tagline is not None:
         current_user.report_tagline = request.report_tagline
     if request.logo_base64 is not None:
-        current_user.logo_base64 = request.logo_base64
+        current_user.logo_base64 = request.logo_base64 or None
     db.commit()
     db.refresh(current_user)
     return current_user

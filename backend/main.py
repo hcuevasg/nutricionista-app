@@ -27,6 +27,7 @@ from database import engine, Base
 import backup_r2
 import error_log
 from routers.errors import user_id_from_token
+from auth import is_production
 from timeutil import utcnow
 
 
@@ -293,26 +294,29 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI app
+# La documentación interactiva del API solo en desarrollo (ENABLE_API_DOCS=true la habilita)
+_docs = os.getenv("ENABLE_API_DOCS", "").lower() == "true" or not is_production()
 app = FastAPI(
     title="NutriApp API",
     description="Multi-tenant nutrition management platform",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
 )
 
-# CORS configuration — add FRONTEND_URL env var in production
-_extra = os.getenv("FRONTEND_URL", "")
+# CORS: solo el frontend publicado (y localhost en desarrollo). FRONTEND_URL agrega otro dominio.
 origins = list(filter(None, [
-    "http://localhost:3000",
-    "http://localhost:5173",
     "https://nutricionista-app.vercel.app",
-    _extra,
+    os.getenv("FRONTEND_URL", ""),
+    *([] if is_production() else ["http://localhost:3000", "http://localhost:5173"]),
 ]))
 
 @app.middleware("http")
 async def error_log_middleware(request: Request, call_next):
-    """Registra los errores no controlados. Se declara antes de CORS para que la
-    respuesta 500 también lleve los headers CORS y el frontend pueda leerla."""
+    """Registra los errores no controlados. CORS es la capa más externa (se agrega
+    al final), así la respuesta 500 también lleva sus headers y el frontend la lee."""
     try:
         return await call_next(request)
     except Exception as exc:
@@ -328,14 +332,6 @@ async def error_log_middleware(request: Request, call_next):
         detail = "Error interno del servidor" + (f" (ref. {ref})" if ref else "")
         return JSONResponse(status_code=500, content={"detail": detail})
 
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ── Rate limiting (in-memory, per IP) ────────────────────────────────────────
 _rate_store: dict[str, list[datetime]] = defaultdict(list)
@@ -378,6 +374,63 @@ async def rate_limit_middleware(request: Request, call_next):
             _rate_store[key] = hits
             break
     return await call_next(request)
+
+# ── Tamaño máximo de las requests ────────────────────────────────────────────
+MAX_BODY_BYTES = 1024 * 1024                       # 1 MB: formularios, logo (≤500 KB)
+BODY_LIMITS = {"/settings/restore": 25 * 1024 * 1024}  # backup completo de la cuenta
+
+
+class BodySizeLimitMiddleware:
+    """Rechaza cuerpos más grandes que el límite antes de leerlos (413), y los que
+    llegan sin Content-Length (411), para que nadie agote la memoria del servidor."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] in ("POST", "PUT", "PATCH"):
+            headers = dict(scope["headers"])
+            limit = BODY_LIMITS.get(scope["path"], MAX_BODY_BYTES)
+            length = headers.get(b"content-length")
+            status, detail = None, None
+            if length is None:
+                if b"transfer-encoding" in headers:
+                    status, detail = 411, "Falta Content-Length"
+            elif not length.isdigit() or int(length) > limit:
+                status, detail = 413, f"La solicitud supera el máximo de {limit // (1024 * 1024)} MB"
+            if status:
+                response = JSONResponse(status_code=status, content={"detail": detail})
+                return await response(scope, receive, send)
+        return await self.app(scope, receive, send)
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Headers de seguridad en todas las respuestas del API. Las respuestas traen
+    datos de salud: no se guardan en cachés del navegador ni de proxies."""
+    response = await call_next(request)
+    h = response.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Referrer-Policy", "no-referrer")
+    h.setdefault("Cache-Control", "no-store")
+    if not request.url.path.startswith(("/docs", "/redoc")):
+        h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+    if is_production():
+        h.setdefault("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+    return response
+
+
+app.add_middleware(BodySizeLimitMiddleware)
+# Se agrega al final para ser la capa más externa: los 413/429/500 también llevan CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=False,  # la sesión va en el header Authorization, no en cookies
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
+)
 
 # Include routers
 app.include_router(auth.router)

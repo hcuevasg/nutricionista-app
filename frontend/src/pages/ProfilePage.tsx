@@ -52,7 +52,7 @@ export default function ProfilePage() {
       const body: Record<string, string | null> = {
         clinic_name: clinicName || null,
         report_tagline: reportTagline || null,
-        logo_base64: logoBase64 || null,
+        logo_base64: logoBase64,  // '' quita el logo
       }
       const d = await api.put<{ clinic_name?: string; report_tagline?: string; logo_base64?: string }>('/auth/profile', body)
       updateUser({ clinic_name: d.clinic_name, report_tagline: d.report_tagline, logo_base64: d.logo_base64 })
