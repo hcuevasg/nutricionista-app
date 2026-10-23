@@ -1,7 +1,9 @@
 """Authentication routes."""
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from datetime import timedelta
+import hmac
+import os
+from typing import Optional
 
 import models
 import schemas
@@ -13,17 +15,29 @@ from database import get_db
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _registration_allowed(code: Optional[str]) -> bool:
+    """Con REGISTRATION_CODE configurado se exige ese código de invitación; sin él,
+    el registro solo está abierto en desarrollo local (en producción queda cerrado)."""
+    expected = os.getenv("REGISTRATION_CODE", "")
+    if expected:
+        return bool(code) and hmac.compare_digest(code.strip(), expected)
+    return not auth_module.is_production()
+
+
 @router.post("/register", response_model=schemas.LoginResponse)
 async def register(request: schemas.RegisterRequest, req: Request, db: Session = Depends(get_db)):
     """Register a new nutritionist."""
-    # Check if user exists
+    if not _registration_allowed(request.invite_code):
+        raise HTTPException(status_code=403, detail="El registro requiere un código de invitación válido")
+    problem = auth_module.password_problem(request.password, request.username)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
     existing_user = db.query(models.Nutritionist).filter(
-        models.Nutritionist.username == request.username
+        (models.Nutritionist.username == request.username) | (models.Nutritionist.email == request.email)
     ).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="El usuario o el correo ya están registrados")
 
-    # Create user
     user = models.Nutritionist(
         username=request.username,
         email=request.email,
@@ -34,32 +48,34 @@ async def register(request: schemas.RegisterRequest, req: Request, db: Session =
     db.commit()
     db.refresh(user)
 
-    # Create token
-    access_token = auth_module.create_access_token(data={"sub": user.id})
     audit.log(db, action="register", resource="auth", nutritionist_id=user.id,
                detail=f"Nuevo registro: {user.username}", request=req)
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email
-        }
-    }
+    return _session(user)
+
+
+_LOCKED = HTTPException(status_code=429, detail="Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.")
 
 
 @router.post("/login", response_model=schemas.LoginResponse)
 async def login(request: schemas.LoginRequest, req: Request, db: Session = Depends(get_db)):
     """Login nutritionist."""
+    account = db.query(models.Nutritionist).filter(models.Nutritionist.username == request.username).first()
+    if account and auth_module.is_locked(account):
+        raise _LOCKED
     user = auth_module.authenticate_user(db, request.username, request.password)
     if not user:
-        audit.log(db, action="login_failed", resource="auth",
-                   detail=f"Intento fallido: {request.username}", request=req)
+        if account:
+            auth_module.register_failed_login(account)
+            db.commit()
+        audit.log(db, action="login_failed", resource="auth", nutritionist_id=account.id if account else None,
+                   detail=f"Intento fallido: {request.username[:50]}", request=req)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
+    if auth_module.needs_rehash(user.password_hash):
+        user.password_hash = auth_module.hash_password(request.password)
+        db.commit()
 
     if user.totp_enabled:
         return {"requires_2fa": True, "challenge_token": two_factor.create_challenge(user.id)}
@@ -67,19 +83,21 @@ async def login(request: schemas.LoginRequest, req: Request, db: Session = Depen
     return _login_ok(db, user, req, "Login exitoso")
 
 
+def _session(user: models.Nutritionist) -> dict:
+    return {
+        "access_token": auth_module.session_token(user),
+        "token_type": "bearer",
+        "user": {"id": user.id, "username": user.username, "email": user.email},
+    }
+
+
 def _login_ok(db: Session, user: models.Nutritionist, req: Request, detail: str) -> dict:
-    access_token = auth_module.create_access_token(data={"sub": user.id})
+    user.failed_logins = 0
+    user.locked_until = None
+    db.commit()
     audit.log(db, action="login", resource="auth", nutritionist_id=user.id,
                detail=detail, request=req)
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email
-        }
-    }
+    return _session(user)
 
 
 @router.get("/me", response_model=schemas.UserResponse)
@@ -119,17 +137,32 @@ async def update_profile(
 @router.put("/password")
 async def change_password(
     request: schemas.PasswordChange,
+    req: Request,
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth_module.get_current_user),
 ):
-    """Change password."""
+    """Cambia la contraseña y cierra las demás sesiones; devuelve un token nuevo para esta."""
     if not auth_module.verify_password(request.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
-    if len(request.new_password) < 6:
-        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres")
+    problem = auth_module.password_problem(request.new_password, current_user.username)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
     current_user.password_hash = auth_module.hash_password(request.new_password)
+    auth_module.revoke_sessions(current_user)
     db.commit()
-    return {"message": "Contraseña actualizada"}
+    audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
+              detail="Contraseña cambiada (sesiones cerradas)", request=req)
+    return {"message": "Contraseña actualizada", "access_token": auth_module.session_token(current_user)}
+
+
+@router.post("/logout-all", status_code=204)
+async def logout_all(req: Request, db: Session = Depends(get_db),
+                     current_user: models.Nutritionist = Depends(auth_module.get_current_user)):
+    """Cierra la sesión en todos los dispositivos, incluido este."""
+    auth_module.revoke_sessions(current_user)
+    db.commit()
+    audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
+              detail="Sesiones cerradas en todos los dispositivos", request=req)
 
 
 # ── Verificación en dos pasos ──────────────────────────────────────────────────
@@ -145,6 +178,8 @@ async def verify_two_factor(request: schemas.TwoFactorVerifyRequest, req: Reques
     user = db.query(models.Nutritionist).filter(models.Nutritionist.id == user_id).first()
     if not user or not user.totp_enabled:
         raise HTTPException(status_code=401, detail="La verificación expiró. Vuelve a iniciar sesión.")
+    if auth_module.is_locked(user):
+        raise _LOCKED
     if two_factor.accept_totp(user, request.code):
         db.commit()
         return _login_ok(db, user, req, "Login exitoso (verificación en dos pasos)")
@@ -153,6 +188,8 @@ async def verify_two_factor(request: schemas.TwoFactorVerifyRequest, req: Reques
         user.totp_recovery_codes = remaining
         db.commit()
         return _login_ok(db, user, req, "Login con código de recuperación")
+    auth_module.register_failed_login(user)
+    db.commit()
     audit.log(db, action="login_failed", resource="auth", nutritionist_id=user.id,
               detail="Código de verificación incorrecto", request=req)
     raise HTTPException(status_code=401, detail="Código incorrecto")
@@ -182,10 +219,11 @@ async def enable_two_factor(request: schemas.TwoFactorCodeRequest, req: Request,
     codes, hashes = two_factor.generate_recovery_codes()
     current_user.totp_enabled = True
     current_user.totp_recovery_codes = hashes
+    auth_module.revoke_sessions(current_user)
     db.commit()
     audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
               detail="Verificación en dos pasos activada", request=req)
-    return {"recovery_codes": codes}
+    return {"recovery_codes": codes, "access_token": auth_module.session_token(current_user)}
 
 
 @router.post("/2fa/disable")
@@ -203,7 +241,9 @@ async def disable_two_factor(request: schemas.TwoFactorDisableRequest, req: Requ
     current_user.totp_secret = None
     current_user.totp_recovery_codes = None
     current_user.totp_last_step = None
+    auth_module.revoke_sessions(current_user)
     db.commit()
     audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
               detail="Verificación en dos pasos desactivada", request=req)
-    return {"message": "Verificación en dos pasos desactivada"}
+    return {"message": "Verificación en dos pasos desactivada",
+            "access_token": auth_module.session_token(current_user)}

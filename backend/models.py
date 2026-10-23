@@ -24,6 +24,10 @@ class Nutritionist(Base):
     totp_enabled = Column(Boolean, default=False, nullable=False, server_default=sa_false())
     totp_recovery_codes = Column(Text, nullable=True)   # JSON con hashes bcrypt
     totp_last_step = Column(Integer, nullable=True)  # paso TOTP del último código aceptado (anti-reuso)
+    # Seguridad de la cuenta: bloqueo por intentos fallidos y versión de sesión (invalida tokens)
+    failed_logins = Column(Integer, default=0, nullable=False, server_default="0")
+    locked_until = Column(DateTime, nullable=True)
+    token_version = Column(Integer, default=0, nullable=False, server_default="0")
     created_at = Column(DateTime, default=utcnow)
 
     # Relationships

@@ -7,6 +7,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
@@ -23,10 +24,10 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      await register(username, email, password)
+      await register(username, email, password, inviteCode)
       navigate('/dashboard')
     } catch (err) {
-      setError('Error en el registro. Intenta con otro usuario.')
+      setError(err instanceof Error ? err.message : 'No se pudo completar el registro')
     } finally {
       setLoading(false)
     }
@@ -42,10 +43,26 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Código de invitación
+              </label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                autoComplete="off"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-xs text-text-muted mt-1">Lo entrega el administrador de NutriApp.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Usuario
               </label>
               <input
                 type="text"
+                pattern="[A-Za-z0-9._\-]{3,50}"
+                title="3 a 50 caracteres: letras, números, punto, guion o guion bajo"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -72,6 +89,8 @@ export default function RegisterPage() {
               </label>
               <input
                 type="password"
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"

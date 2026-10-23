@@ -15,14 +15,15 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 # ── Auth Schemas ──────────────────────────────────────────────────
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(max_length=100)
+    password: str = Field(max_length=128)
 
 
 class RegisterRequest(BaseModel):
-    username: str
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9._-]+$")
     email: EmailStr
-    password: str
+    password: str = Field(max_length=128)
+    invite_code: Optional[str] = Field(None, max_length=128)
 
 
 class LoginResponse(BaseModel):
@@ -71,8 +72,8 @@ class ProfileUpdate(BaseModel):
 
 
 class PasswordChange(BaseModel):
-    current_password: str
-    new_password: str
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(max_length=128)
 
 
 # ── Patient Schemas ───────────────────────────────────────────────

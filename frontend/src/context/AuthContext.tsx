@@ -19,7 +19,9 @@ interface AuthContextType {
   token: string | null
   login: (username: string, password: string) => Promise<TwoFactorChallenge | void>
   verifyTwoFactor: (challenge: string, code: string) => Promise<void>
-  register: (username: string, email: string, password: string) => Promise<void>
+  register: (username: string, email: string, password: string, inviteCode?: string) => Promise<void>
+  /** Reemplaza el token de esta sesión (el backend emite uno nuevo al cambiar contraseña o 2FA). */
+  setSessionToken: (token: string) => void
   logout: () => void
   updateUser: (updated: Partial<User>) => void
   isAuthenticated: boolean
@@ -101,21 +103,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return typeof body.detail === 'string' ? body.detail : fallback
   }
 
-  const register = async (username: string, email: string, password: string) => {
+  const register = async (username: string, email: string, password: string, inviteCode?: string) => {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
+      body: JSON.stringify({ username, email, password, invite_code: inviteCode || undefined })
     })
 
-    if (!response.ok) throw new Error('Registration failed')
+    if (!response.ok) throw new Error(await errorDetail(response, 'No se pudo completar el registro'))
 
     const data = await response.json()
-    const profile = await fetchProfile(data.access_token)
-    setToken(data.access_token)
-    setUser(profile)
-    localStorage.setItem('token', data.access_token)
-    localStorage.setItem('user', JSON.stringify(profile))
+    await startSession(data.access_token)
+  }
+
+  const setSessionToken = (accessToken: string) => {
+    setToken(accessToken)
+    localStorage.setItem('token', accessToken)
   }
 
   const updateUser = (updated: Partial<User>) => {
@@ -135,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, verifyTwoFactor, register, logout, updateUser, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, verifyTwoFactor, register, setSessionToken, logout, updateUser, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   )

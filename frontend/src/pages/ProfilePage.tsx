@@ -7,7 +7,18 @@ import { api, apiErrorMessage } from '../api/client'
 const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function ProfilePage() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, setSessionToken, logout } = useAuth()
+  const [closingAll, setClosingAll] = useState(false)
+
+  const logoutEverywhere = async () => {
+    if (!window.confirm('¿Cerrar la sesión en todos los dispositivos, incluido este?')) return
+    setClosingAll(true)
+    try {
+      await api.post('/auth/logout-all')
+    } finally {
+      logout()
+    }
+  }
 
   const [name, setName] = useState(user?.name ?? user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -77,8 +88,9 @@ export default function ProfilePage() {
     if (newPw !== confirmPw) { setPwMsg({ ok: false, text: 'Las contraseñas no coinciden' }); return }
     setSavingPw(true); setPwMsg(null)
     try {
-      await api.put('/auth/password', { current_password: currentPw, new_password: newPw })
-      setPwMsg({ ok: true, text: 'Contraseña actualizada correctamente' })
+      const res = await api.put<{ access_token: string }>('/auth/password', { current_password: currentPw, new_password: newPw })
+      setSessionToken(res.access_token)
+      setPwMsg({ ok: true, text: 'Contraseña actualizada. Se cerró la sesión en los demás dispositivos.' })
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
     } catch (err) {
       setPwMsg({ ok: false, text: apiErrorMessage(err, 'Error al cambiar contraseña') })
@@ -241,6 +253,17 @@ export default function ProfilePage() {
         </form>
 
         <TwoFactorCard />
+
+        <div className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-3">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest border-b border-border pb-3">Sesiones</h3>
+          <p className="text-sm text-gray-600">
+            Las sesiones duran 12 horas. Si usaste la app en un computador ajeno o perdiste un dispositivo, cierra todas las sesiones.
+          </p>
+          <button onClick={logoutEverywhere} disabled={closingAll}
+            className="w-full border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-medium disabled:opacity-50">
+            Cerrar sesión en todos los dispositivos
+          </button>
+        </div>
 
       </div>
     </Layout>

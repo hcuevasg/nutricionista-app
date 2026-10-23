@@ -26,6 +26,9 @@ def _enable(client, h):
     assert client.post("/auth/2fa/enable", json={"code": "000000"}, headers=h).status_code == 400
     res = client.post("/auth/2fa/enable", json={"code": totp.now()}, headers=h)
     assert res.status_code == 200
+    # Activar el 2FA cierra las sesiones anteriores: el token viejo deja de servir
+    assert client.get("/auth/me", headers=h).status_code == 401
+    h["Authorization"] = f"Bearer {res.json()['access_token']}"
     return totp, res.json()["recovery_codes"]
 
 

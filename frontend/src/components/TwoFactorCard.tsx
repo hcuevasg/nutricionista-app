@@ -6,7 +6,7 @@ const INPUT = 'w-full px-3 py-2 border border-border rounded-lg text-sm focus:ou
 
 /** Activar / desactivar la verificación en dos pasos (TOTP) del profesional. */
 export default function TwoFactorCard() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, setSessionToken } = useAuth()
   const enabled = !!user?.totp_enabled
   const [setup, setSetup] = useState<{ secret: string; qr_svg: string } | null>(null)
   const [code, setCode] = useState('')
@@ -27,7 +27,8 @@ export default function TwoFactorCard() {
   })
 
   const enable = () => run(async () => {
-    const res = await api.post<{ recovery_codes: string[] }>('/auth/2fa/enable', { code: code.trim() })
+    const res = await api.post<{ recovery_codes: string[]; access_token: string }>('/auth/2fa/enable', { code: code.trim() })
+    setSessionToken(res.access_token)  // las demás sesiones quedaron cerradas
     setRecovery(res.recovery_codes)
     setSetup(null); setCode('')
     updateUser({ totp_enabled: true })
@@ -35,7 +36,8 @@ export default function TwoFactorCard() {
   })
 
   const disable = () => run(async () => {
-    await api.post('/auth/2fa/disable', { password, code: code.trim() })
+    const res = await api.post<{ access_token: string }>('/auth/2fa/disable', { password, code: code.trim() })
+    setSessionToken(res.access_token)
     setPassword(''); setCode(''); setRecovery(null)
     updateUser({ totp_enabled: false })
     setMsg({ ok: true, text: 'Verificación en dos pasos desactivada.' })
