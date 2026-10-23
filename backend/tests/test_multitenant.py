@@ -15,6 +15,34 @@ PAUTA = {
 }
 
 
+NOTA = {"fecha": "2026-03-01", "motivo": "Control", "plan": "Seguir pauta"}
+LAB = {"fecha": "2026-03-01", "resultados": [{"analito": "glicemia", "valor": 90}]}
+
+# Cuerpo válido para cada operación con body: así una respuesta 422 nunca tapa un acceso indebido
+BODIES = {
+    ("PUT", "/patients/{patient_id}"): {"name": "hack", "sex": "F"},
+    ("POST", "/patients/{patient_id}/consent"): {"accepted": True},
+    ("POST", "/anthropometrics"): {"date": "2026-03-02", "weight_kg": 60},
+    ("PUT", "/anthropometrics/{patient_id}/{eval_id}"): {"date": "2026-03-02"},
+    ("POST", "/pautas"): PAUTA,
+    ("PUT", "/pautas/{patient_id}/{pauta_id}"): PAUTA,
+    ("PATCH", "/pautas/{patient_id}/{pauta_id}/menu"): {"menu_json": "{}"},
+    ("POST", "/antecedentes/{patient_id}"): {"motivo_consulta": "hack"},
+    ("PUT", "/recetas/{receta_id}"): {"nombre": "hack"},
+    ("POST", "/appointments"): {"scheduled_at": "2026-12-02T10:00:00"},
+    ("PUT", "/appointments/{appt_id}"): {"scheduled_at": "2026-12-02T10:00:00"},
+    ("POST", "/portal/tokens"): {},
+    ("POST", "/notas/{patient_id}"): NOTA,
+    ("PUT", "/notas/{patient_id}/{nota_id}"): NOTA,
+    ("POST", "/laboratorio/{patient_id}"): LAB,
+}
+PATH_IDS = {"patient_id": "patient", "eval_id": "eval", "pauta_id": "pauta", "receta_id": "receta",
+            "appt_id": "appt", "token_id": "token_id", "plantilla_id": "plantilla", "nota_id": "nota",
+            "examen_id": "examen"}
+# Crean un recurso ligado a un paciente indicado en el body o la query
+PATIENT_REF = {("POST", "/anthropometrics"), ("POST", "/pautas"), ("POST", "/appointments"), ("POST", "/portal/tokens")}
+
+
 def _register(client):
     name = f"u_{uuid.uuid4().hex[:8]}"
     resp = client.post("/auth/register", json={
@@ -45,6 +73,11 @@ def tenants(client):
         "token_id": post("/portal/tokens", {"patient_id": pid})["id"],
     }
     post(f"/antecedentes/{pid}", {"motivo_consulta": "privado"})
+    ids["plantilla"] = post("/plantillas-pauta", {
+        "nombre": "Plantilla A", "tipo_pauta": "omnivoro", "fa_key": "moderada", "prot_pct": 20, "lip_pct": 30,
+        "porciones_json": "{}", "distribucion_json": "{}"})["id"]
+    ids["nota"] = post(f"/notas/{pid}", NOTA)["id"]
+    ids["examen"] = post(f"/laboratorio/{pid}", LAB)[0]["id"]
     return client, a, b, ids
 
 
@@ -171,3 +204,63 @@ def test_portal_progress_summary(tenants):
     assert by_date["2026-04-01"]["goals_text"] is None     # metas solo de la última
     assert by_date["2026-06-01"]["goals_text"] == "Bajar 1 kg"
     assert by_date["2026-06-01"]["sum_6_skinfolds"] == 65
+
+
+def test_every_route_rejects_other_tenant(tenants):
+    """Recorre todas las rutas del API: cualquier operación sobre un registro de A hecha
+    por B debe responder 403/404. Cubre también las rutas que se agreguen en el futuro."""
+    client, _, b, ids = tenants
+    from main import app
+    checked, problems = 0, []
+    for path, ops in app.openapi()["paths"].items():
+        if path.startswith("/portal/{token}"):
+            continue  # públicas por token, se prueban aparte
+        params = [seg[1:-1] for seg in path.split("/") if seg.startswith("{")]
+        for method, op in ops.items():
+            method = method.upper()
+            key = (method, path)
+            if not params and key not in PATIENT_REF:
+                continue  # rutas de la propia cuenta (listados, perfil): ver test de listados
+            unknown = [p for p in params if p not in PATH_IDS]
+            assert not unknown, f"{method} {path}: agrega {unknown} a PATH_IDS"
+            url = path
+            for p in params:
+                url = url.replace("{" + p + "}", str(ids[PATH_IDS[p]]))
+            query = {}
+            if key in {("POST", "/anthropometrics"), ("POST", "/pautas")}:
+                query["patient_id"] = ids["patient"]
+            if key == ("PATCH", "/appointments/{appt_id}/status"):
+                query["status"] = "cancelled"
+            body = None
+            if "requestBody" in op:
+                assert key in BODIES, f"{method} {path}: agrega un cuerpo de ejemplo a BODIES"
+                body = dict(BODIES[key]) if isinstance(BODIES[key], dict) else BODIES[key]
+                if key in {("POST", "/appointments"), ("POST", "/portal/tokens")}:
+                    body["patient_id"] = ids["patient"]
+            resp = client.request(method, url, params=query, json=body, headers=b)
+            checked += 1
+            if resp.status_code not in (403, 404):
+                problems.append(f"{method} {url} → {resp.status_code} {resp.text[:80]}")
+    assert checked >= 40, f"solo se revisaron {checked} operaciones"
+    assert not problems, "Acceso entre cuentas:\n" + "\n".join(problems)
+
+
+def test_cannot_link_own_appointment_to_foreign_patient(tenants):
+    client, a, b, ids = tenants
+    own = client.post("/appointments", json={"scheduled_at": "2026-12-03T10:00:00"}, headers=b).json()
+    resp = client.put(f"/appointments/{own['id']}", json={"patient_id": ids["patient"]}, headers=b)
+    assert resp.status_code == 404
+    assert client.get(f"/appointments/{own['id']}", headers=b).json()["patient_name"] is None
+    assert client.post("/appointments", json={"scheduled_at": "2026-12-03T10:00:00", "status": "hackeado"},
+                       headers=b).status_code == 422
+
+
+def test_server_fields_cannot_be_overridden(tenants):
+    """Campos que controla el servidor se ignoran aunque el cliente los envíe."""
+    client, a, b, ids = tenants
+    created = client.post("/patients", json={"name": "Propio", "sex": "F", "id": ids["patient"],
+                                             "nutritionist_id": 999, "consent_at": "2026-01-01T00:00:00"},
+                          headers=b).json()
+    assert created["id"] != ids["patient"] and created["nutritionist_id"] != 999
+    assert created["consent_at"] is None
+    assert client.get(f"/patients/{ids['patient']}", headers=a).json()["name"] == "Paciente A"

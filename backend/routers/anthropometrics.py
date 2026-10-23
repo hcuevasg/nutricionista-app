@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 import io
+from xml.sax.saxutils import escape
 
 import models
 import schemas
@@ -288,8 +289,8 @@ def _generate_comparativo_pdf(patient, evaluations, nutritionist) -> bytes:
     hdr = Table([[
         Paragraph("NutriApp", S("H1", fontSize=18, textColor=WHITE, fontName="Helvetica-Bold")),
         Paragraph(
-            f"Comparativo ISAK · {patient.name}<br/>"
-            f"Generado: {dt_date.today().strftime('%d/%m/%Y')} · Profesional: {nutritionist.name or nutritionist.username}",
+            f"Comparativo ISAK · {escape(patient.name or '')}<br/>"
+            f"Generado: {dt_date.today().strftime('%d/%m/%Y')} · Profesional: {escape(nutritionist.name or nutritionist.username or '')}",
             S("H2", fontSize=8, textColor=_hex("#d1fae5"), alignment=1)
         ),
     ]])
@@ -305,10 +306,10 @@ def _generate_comparativo_pdf(patient, evaluations, nutritionist) -> bytes:
     story.append(Spacer(1, 0.3*cm))
 
     def make_table(section_rows):
-        header = [Paragraph("", S_THL)] + [Paragraph(d, S_TH) for d in dates]
+        header = [Paragraph("", S_THL)] + [Paragraph(escape(str(d)), S_TH) for d in dates]
         data = [header]
         for label, values in section_rows:
-            data.append([Paragraph(label, S_LBL)] + [Paragraph(str(v), S_VAL) for v in values])
+            data.append([Paragraph(escape(label), S_LBL)] + [Paragraph(escape(str(v)), S_VAL) for v in values])
 
         t = Table(data, colWidths=col_widths)
         t.setStyle(TableStyle([
@@ -398,7 +399,7 @@ def _generate_comparativo_pdf(patient, evaluations, nutritionist) -> bytes:
             return f"{sign}{diff:.1f}{unit}"
 
         story.append(KeepTogether([
-            Paragraph(f"Variación: {first.date} → {last.date}", S_SEC),
+            Paragraph(f"Variación: {escape(str(first.date))} → {escape(str(last.date))}", S_SEC),
             make_table([
                 ("Peso",          [chg(last.weight_kg, first.weight_kg, " kg")]),
                 ("% Masa grasa",  [chg(last.fat_mass_pct, first.fat_mass_pct, "%", invert=True)]),

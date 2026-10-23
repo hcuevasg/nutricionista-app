@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation."""
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
-from typing import Optional, List, Generic, TypeVar
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from typing import Optional, List, Generic, Literal, TypeVar
 from datetime import datetime
 
 T = TypeVar('T')
@@ -439,19 +439,22 @@ class RecetaListItem(RecetaCreate):
 
 
 # ── Appointment Schemas ────────────────────────────────────────────
+AppointmentStatus = Literal["scheduled", "completed", "cancelled"]
+
+
 class AppointmentCreate(BaseModel):
     patient_id: Optional[int] = None
     scheduled_at: datetime
-    duration_minutes: int = 45
+    duration_minutes: int = Field(45, ge=5, le=480)
     notes: Optional[str] = None
-    status: str = "scheduled"
+    status: AppointmentStatus = "scheduled"
 
 class AppointmentUpdate(BaseModel):
     patient_id: Optional[int] = None
     scheduled_at: Optional[datetime] = None
-    duration_minutes: Optional[int] = None
+    duration_minutes: Optional[int] = Field(None, ge=5, le=480)
     notes: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[AppointmentStatus] = None
 
 class AppointmentResponse(BaseModel):
     id: int

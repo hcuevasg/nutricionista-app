@@ -25,6 +25,17 @@ def _to_response(appt: models.Appointment) -> schemas.AppointmentResponse:
     )
 
 
+def _check_patient(db: Session, patient_id, user: models.Nutritionist) -> None:
+    """Una cita solo puede asociarse a un paciente propio."""
+    if patient_id is None:
+        return
+    exists = db.query(models.Patient.id).filter(
+        models.Patient.id == patient_id, models.Patient.nutritionist_id == user.id
+    ).first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+
 @router.get("", response_model=List[schemas.AppointmentResponse])
 async def list_appointments(
     date_from: Optional[date] = Query(None),
@@ -59,13 +70,7 @@ async def create_appointment(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
-    if request.patient_id:
-        patient = db.query(models.Patient).filter(
-            models.Patient.id == request.patient_id,
-            models.Patient.nutritionist_id == current_user.id
-        ).first()
-        if not patient:
-            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    _check_patient(db, request.patient_id, current_user)
     appt = models.Appointment(**request.model_dump(), nutritionist_id=current_user.id)
     db.add(appt)
     db.commit()
@@ -101,7 +106,10 @@ async def update_appointment(
     ).first()
     if not appt:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
-    for field, value in request.model_dump(exclude_unset=True).items():
+    changes = request.model_dump(exclude_unset=True)
+    if "patient_id" in changes:
+        _check_patient(db, changes["patient_id"], current_user)
+    for field, value in changes.items():
         setattr(appt, field, value)
     appt.updated_at = utcnow()
     db.commit()
