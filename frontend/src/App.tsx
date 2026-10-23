@@ -25,6 +25,7 @@ import PortalPage from './pages/PortalPage'
 import PatientProgressPage from './pages/PatientProgressPage'
 import PrivacyPage from './pages/PrivacyPage'
 import EvolucionPage from './pages/EvolucionPage'
+import LaboratorioPage from './pages/LaboratorioPage'
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/patients/:id/antecedentes" element={<PrivateRoute><AntecedentesPage /></PrivateRoute>} />
           <Route path="/patients/:id/progress" element={<PrivateRoute><PatientProgressPage /></PrivateRoute>} />
           <Route path="/patients/:id/evolucion" element={<PrivateRoute><EvolucionPage /></PrivateRoute>} />
+          <Route path="/patients/:id/laboratorio" element={<PrivateRoute><LaboratorioPage /></PrivateRoute>} />
           <Route path="/recetas" element={<PrivateRoute><RecetasPage /></PrivateRoute>} />
           <Route path="/recetas/new" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />
           <Route path="/recetas/:recetaId/edit" element={<PrivateRoute><RecetaFormPage /></PrivateRoute>} />

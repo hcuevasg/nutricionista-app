@@ -111,7 +111,7 @@ export default function ConfigPage() {
       const c = await api.post<Record<string, number>>('/settings/restore', data)
       const omitidos = c.pacientes_omitidos + c.recetas_omitidas
       setRestoreResult(
-        `Restaurados: ${c.pacientes} pacientes, ${c.evaluaciones} evaluaciones, ${c.pautas} pautas, ${c.notas ?? 0} notas, ` +
+        `Restaurados: ${c.pacientes} pacientes, ${c.evaluaciones} evaluaciones, ${c.pautas} pautas, ${c.notas ?? 0} notas, ${c.examenes ?? 0} exámenes, ` +
         `${c.recetas} recetas y ${c.citas} citas.` + (omitidos ? ` Omitidos por ya existir: ${omitidos}.` : '')
       )
     } catch (err) {

@@ -147,6 +147,39 @@ class NotaEvolucionResponse(NotaEvolucionCreate):
         from_attributes = True
 
 
+class ExamenResultado(BaseModel):
+    analito: str
+    valor: float
+    ref_min: Optional[float] = None
+    ref_max: Optional[float] = None
+    notas: Optional[str] = None
+
+
+class ExamenesCreate(BaseModel):
+    fecha: str
+    resultados: List[ExamenResultado]
+
+    @field_validator('fecha')
+    @classmethod
+    def iso_date(cls, v):
+        datetime.strptime(v[:10], '%Y-%m-%d')
+        return v[:10]
+
+
+class ExamenResponse(BaseModel):
+    id: int
+    fecha: str
+    analito: str
+    nombre: str
+    grupo: str
+    valor: float
+    unidad: Optional[str] = None
+    ref_min: Optional[float] = None
+    ref_max: Optional[float] = None
+    estado: str
+    notas: Optional[str] = None
+
+
 class PatientConsentRequest(BaseModel):
     accepted: bool
 

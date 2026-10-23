@@ -58,6 +58,8 @@ def export_patient(db: Session, user: models.Nutritionist, p: models.Patient) ->
     pd["pautas"] = [_row(x) for x in db.query(models.Pauta).filter(models.Pauta.patient_id == p.id).all()]
     pd["notas_evolucion"] = [_row(n) for n in db.query(models.NotaEvolucion)
                              .filter(models.NotaEvolucion.patient_id == p.id).all()]
+    pd["examenes_laboratorio"] = [_row(e) for e in db.query(models.ExamenLaboratorio)
+                                  .filter(models.ExamenLaboratorio.patient_id == p.id).all()]
     ant = db.query(models.Antecedentes).filter(models.Antecedentes.patient_id == p.id).first()
     pd["antecedentes"] = _row(ant) if ant else None
     pd["appointments"] = [_row(a) for a in db.query(models.Appointment).filter(
@@ -106,7 +108,7 @@ def restore_data(db: Session, user: models.Nutritionist, data: Dict[str, Any]) -
     if version > BACKUP_VERSION:
         raise BackupError("El backup es de una versión más nueva de NutriApp")
 
-    counts = {k: 0 for k in ("pacientes", "pacientes_omitidos", "evaluaciones", "pautas", "notas",
+    counts = {k: 0 for k in ("pacientes", "pacientes_omitidos", "evaluaciones", "pautas", "notas", "examenes",
                              "antecedentes", "citas", "recetas", "recetas_omitidas")}
     existing = {(p.name or "", p.birth_date or "") for p in
                 db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()}
@@ -130,6 +132,9 @@ def restore_data(db: Session, user: models.Nutritionist, data: Dict[str, Any]) -
             for n in pd.get("notas_evolucion") or []:
                 db.add(_build(models.NotaEvolucion, n, patient_id=patient.id))
                 counts["notas"] += 1
+            for e in pd.get("examenes_laboratorio") or []:
+                db.add(_build(models.ExamenLaboratorio, e, patient_id=patient.id))
+                counts["examenes"] += 1
             if pd.get("antecedentes"):
                 db.add(_build(models.Antecedentes, pd["antecedentes"], patient_id=patient.id))
                 counts["antecedentes"] += 1

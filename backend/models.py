@@ -61,6 +61,7 @@ class Patient(Base):
     anthropometrics = relationship("Anthropometric", back_populates="patient", cascade="all, delete-orphan")
     pautas = relationship("Pauta", back_populates="patient", cascade="all, delete-orphan")
     notas_evolucion = relationship("NotaEvolucion", cascade="all, delete-orphan")
+    examenes_laboratorio = relationship("ExamenLaboratorio", cascade="all, delete-orphan")
     antecedentes = relationship("Antecedentes", back_populates="patient", uselist=False)
 
 
@@ -235,6 +236,22 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     nutritionist = relationship("Nutritionist")
+
+
+class ExamenLaboratorio(Base):
+    """Resultado de un examen de laboratorio (un analito en una fecha)."""
+    __tablename__ = "examenes_laboratorio"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    fecha = Column(String(10), nullable=False)
+    analito = Column(String(50), nullable=False)   # clave de lab_catalog.CATALOG
+    valor = Column(Float, nullable=False)
+    unidad = Column(String(20), nullable=True)
+    ref_min = Column(Float, nullable=True)         # rango usado al registrar (el del laboratorio)
+    ref_max = Column(Float, nullable=True)
+    notas = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class NotaEvolucion(Base):
