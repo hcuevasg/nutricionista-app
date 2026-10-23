@@ -25,6 +25,7 @@ from routers import auth, errors, laboratorio, notas, patients, anthropometrics,
 # Import database
 from database import engine, Base
 import backup_r2
+import crypto_fields
 import error_log
 from routers.errors import user_id_from_token
 from auth import is_production
@@ -265,6 +266,16 @@ async def lifespan(app: FastAPI):
         print("✅ Alembic: esquema en la última versión")
     except Exception as e:
         print(f"⚠️ Alembic no pudo actualizar el esquema: {e}")
+
+    # Cifrado de datos de salud: cifra lo que aún esté en texto plano
+    if crypto_fields.enabled():
+        try:
+            n = crypto_fields.encrypt_existing(engine, Base)
+            print(f"✅ Datos sensibles cifrados{f' ({n} valores existentes)' if n else ''}")
+        except Exception as e:
+            print(f"⚠️ No se pudieron cifrar los datos existentes: {e}")
+    elif is_production():
+        print("⚠️ DATA_ENCRYPTION_KEY no configurada: los datos de salud se guardan sin cifrar")
 
     # Catálogo de alimentos integrado (solo si la tabla está vacía)
     from database import SessionLocal

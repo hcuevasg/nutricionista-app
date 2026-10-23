@@ -61,3 +61,10 @@ def auth_client(client):
     token = resp.json()["access_token"]
     client.headers.update({"Authorization": f"Bearer {token}"})
     return client
+
+
+@pytest.fixture(autouse=True)
+def _error_log_to_test_db(monkeypatch):
+    """Los errores que provocan los tests se registran en la base de pruebas, no en la de desarrollo."""
+    import error_log
+    monkeypatch.setattr(error_log, "SessionLocal", TestingSessionLocal)

@@ -537,7 +537,9 @@ def _limit_to_columns() -> None:
         changed = False
         for name, field in schema.model_fields.items():
             col = columns.get(name)
-            length = getattr(getattr(col, "type", None), "length", None)
+            # EncryptedText guarda más caracteres que el texto en claro: vale max_chars
+            length = getattr(getattr(col, "type", None), "max_chars", None) or \
+                getattr(getattr(col, "type", None), "length", None)
             if length and not any(isinstance(m, annotated_types.MaxLen) for m in field.metadata):
                 field.metadata.append(annotated_types.MaxLen(length))
                 changed = True

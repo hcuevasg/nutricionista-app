@@ -1,4 +1,5 @@
 """SQLAlchemy models for database."""
+from crypto_fields import EncryptedText
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, ForeignKey, Index, func, false as sa_false
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -20,7 +21,7 @@ class Nutritionist(Base):
     logo_base64 = Column(Text, nullable=True)
     # Verificación en dos pasos (TOTP). El secreto se guarda al iniciar la
     # configuración y solo se exige cuando totp_enabled es True.
-    totp_secret = Column(String(64), nullable=True)
+    totp_secret = Column(EncryptedText(64), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False, server_default=sa_false())
     totp_recovery_codes = Column(Text, nullable=True)   # JSON con hashes bcrypt
     totp_last_step = Column(Integer, nullable=True)  # paso TOTP del último código aceptado (anti-reuso)
@@ -49,10 +50,10 @@ class Patient(Base):
     weight_kg = Column(Float, nullable=True)
     phone = Column(String(20), nullable=True)
     email = Column(String(255), nullable=True)
-    address = Column(String(255), nullable=True)
-    occupation = Column(String(255), nullable=True)
-    notes = Column(Text, nullable=True)
-    allergies = Column(Text, nullable=True)  # JSON array: ["gluten", "lacteos", ...]
+    address = Column(EncryptedText(255), nullable=True)
+    occupation = Column(EncryptedText(255), nullable=True)
+    notes = Column(EncryptedText(), nullable=True)
+    allergies = Column(EncryptedText(), nullable=True)  # JSON array: ["gluten", "lacteos", ...]
     # Consentimiento informado para tratar datos de salud (Ley 19.628 / 21.719)
     consent_at = Column(DateTime, nullable=True)
     consent_version = Column(String(20), nullable=True)
@@ -146,7 +147,7 @@ class Anthropometric(Base):
     isak_level = Column(String(20), default="ISAK 1")
 
     # Metas para la próxima evaluación (una por línea) y fecha estimada
-    goals_text = Column(Text, nullable=True)
+    goals_text = Column(EncryptedText(), nullable=True)
     next_eval_date = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=utcnow)
@@ -255,7 +256,7 @@ class ExamenLaboratorio(Base):
     unidad = Column(String(20), nullable=True)
     ref_min = Column(Float, nullable=True)         # rango usado al registrar (el del laboratorio)
     ref_max = Column(Float, nullable=True)
-    notas = Column(String(255), nullable=True)
+    notas = Column(EncryptedText(255), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
 
@@ -266,11 +267,11 @@ class NotaEvolucion(Base):
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
     fecha = Column(String(10), nullable=False)  # YYYY-MM-DD, como el resto de las fechas
-    motivo = Column(String(255), nullable=True)
-    subjetivo = Column(Text, nullable=True)     # S: lo que relata el paciente
-    objetivo = Column(Text, nullable=True)      # O: mediciones y hallazgos
-    analisis = Column(Text, nullable=True)      # A: evaluación/diagnóstico nutricional
-    plan = Column(Text, nullable=True)          # P: indicaciones y acuerdos
+    motivo = Column(EncryptedText(255), nullable=True)
+    subjetivo = Column(EncryptedText(), nullable=True)     # S: lo que relata el paciente
+    objetivo = Column(EncryptedText(), nullable=True)      # O: mediciones y hallazgos
+    analisis = Column(EncryptedText(), nullable=True)      # A: evaluación/diagnóstico nutricional
+    plan = Column(EncryptedText(), nullable=True)          # P: indicaciones y acuerdos
     proximo_control = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -287,64 +288,64 @@ class Antecedentes(Base):
     patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), unique=True, nullable=False)
 
     # Tab 1 - Identificación
-    identidad_genero = Column(String, nullable=True)
-    estado_civil = Column(String, nullable=True)
-    prevision = Column(String, nullable=True)
-    horario_trabajo = Column(String, nullable=True)
-    tipo_traslado = Column(String, nullable=True)
+    identidad_genero = Column(EncryptedText(), nullable=True)
+    estado_civil = Column(EncryptedText(), nullable=True)
+    prevision = Column(EncryptedText(), nullable=True)
+    horario_trabajo = Column(EncryptedText(), nullable=True)
+    tipo_traslado = Column(EncryptedText(), nullable=True)
     nutricionista_previo = Column(Boolean, nullable=True)
-    observacion_nutricionista_previo = Column(Text, nullable=True)
-    motivo_consulta = Column(Text, nullable=True)
-    tipo_alimentacion = Column(String, nullable=True)
+    observacion_nutricionista_previo = Column(EncryptedText(), nullable=True)
+    motivo_consulta = Column(EncryptedText(), nullable=True)
+    tipo_alimentacion = Column(EncryptedText(), nullable=True)
 
     # Tab 2 - Historial peso
     peso_habitual = Column(Float, nullable=True)
     peso_maximo = Column(Float, nullable=True)
     peso_minimo = Column(Float, nullable=True)
-    peso_oscilaciones = Column(Text, nullable=True)
+    peso_oscilaciones = Column(EncryptedText(), nullable=True)
 
     # Tab 3 - Anamnesis remota
-    enfermedades_preexistentes = Column(Text, nullable=True)
-    antecedentes_familiares = Column(Text, nullable=True)
-    farmacos_suplementos = Column(Text, nullable=True)
-    suplementacion_b12 = Column(Text, nullable=True)
-    cirugias = Column(Text, nullable=True)
-    dietas_moda = Column(Text, nullable=True)
-    tabaco_alcohol = Column(Text, nullable=True)
-    ejercicio_frecuencia = Column(String, nullable=True)
-    ejercicio_duracion = Column(String, nullable=True)
-    ejercicio_intensidad = Column(String, nullable=True)
-    ejercicio_objetivo = Column(Text, nullable=True)
-    observacion_actividad_fisica = Column(Text, nullable=True)
+    enfermedades_preexistentes = Column(EncryptedText(), nullable=True)
+    antecedentes_familiares = Column(EncryptedText(), nullable=True)
+    farmacos_suplementos = Column(EncryptedText(), nullable=True)
+    suplementacion_b12 = Column(EncryptedText(), nullable=True)
+    cirugias = Column(EncryptedText(), nullable=True)
+    dietas_moda = Column(EncryptedText(), nullable=True)
+    tabaco_alcohol = Column(EncryptedText(), nullable=True)
+    ejercicio_frecuencia = Column(EncryptedText(), nullable=True)
+    ejercicio_duracion = Column(EncryptedText(), nullable=True)
+    ejercicio_intensidad = Column(EncryptedText(), nullable=True)
+    ejercicio_objetivo = Column(EncryptedText(), nullable=True)
+    observacion_actividad_fisica = Column(EncryptedText(), nullable=True)
 
     # Tab 4 - Antecedentes sociales
-    con_quien_vive = Column(String, nullable=True)
-    mascotas = Column(String, nullable=True)
-    relacion_familiar = Column(Text, nullable=True)
-    quien_cocina = Column(String, nullable=True)
+    con_quien_vive = Column(EncryptedText(), nullable=True)
+    mascotas = Column(EncryptedText(), nullable=True)
+    relacion_familiar = Column(EncryptedText(), nullable=True)
+    quien_cocina = Column(EncryptedText(), nullable=True)
     gusta_cocinar = Column(Boolean, nullable=True)
     sale_fines_semana = Column(Boolean, nullable=True)
 
     # Tab 5 - Anamnesis alimentaria
-    transito_intestinal = Column(Text, nullable=True)
-    sintomas_gi = Column(Text, nullable=True)
-    evento_traumatico = Column(Text, nullable=True)
-    intolerancias = Column(Text, nullable=True)
-    aversiones = Column(Text, nullable=True)
-    alimentos_gustados = Column(Text, nullable=True)
-    comida_emocional = Column(Text, nullable=True)
-    tiempo_comidas = Column(String, nullable=True)
+    transito_intestinal = Column(EncryptedText(), nullable=True)
+    sintomas_gi = Column(EncryptedText(), nullable=True)
+    evento_traumatico = Column(EncryptedText(), nullable=True)
+    intolerancias = Column(EncryptedText(), nullable=True)
+    aversiones = Column(EncryptedText(), nullable=True)
+    alimentos_gustados = Column(EncryptedText(), nullable=True)
+    comida_emocional = Column(EncryptedText(), nullable=True)
+    tiempo_comidas = Column(EncryptedText(), nullable=True)
     come_distracciones = Column(Boolean, nullable=True)
     calificacion_alimentacion = Column(Integer, nullable=True)
 
     # Tab 6 - Recordatorio 24hrs (JSON stored as Text)
-    recordatorio_semana = Column(Text, nullable=True)  # JSON string
-    recordatorio_finde = Column(Text, nullable=True)   # JSON string
+    recordatorio_semana = Column(EncryptedText(), nullable=True)  # JSON string
+    recordatorio_finde = Column(EncryptedText(), nullable=True)   # JSON string
 
     # Tab 7 - Metas + signos
-    metas_corto_plazo = Column(Text, nullable=True)
-    metas_largo_plazo = Column(Text, nullable=True)
-    signos_carenciales = Column(Text, nullable=True)   # JSON string
+    metas_corto_plazo = Column(EncryptedText(), nullable=True)
+    metas_largo_plazo = Column(EncryptedText(), nullable=True)
+    signos_carenciales = Column(EncryptedText(), nullable=True)   # JSON string
 
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -441,7 +442,7 @@ class Appointment(Base):
     patient_id = Column(Integer, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True, index=True)
     scheduled_at = Column(DateTime, nullable=False, index=True)
     duration_minutes = Column(Integer, default=45)
-    notes = Column(Text, nullable=True)
+    notes = Column(EncryptedText(), nullable=True)
     status = Column(String(20), default="scheduled")  # scheduled/completed/cancelled
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

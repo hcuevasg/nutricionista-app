@@ -7,9 +7,20 @@ from database import Base, engine
 target_metadata = Base.metadata
 
 
+def _compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    """Una columna cifrada (EncryptedText) vive en cualquier columna de texto de la
+    base: no es una diferencia de esquema. El resto usa la comparación por defecto."""
+    from crypto_fields import EncryptedText
+    from sqlalchemy import String
+    if isinstance(metadata_type, EncryptedText):
+        return not isinstance(inspected_type, String)
+    return None
+
+
 def run_migrations_offline() -> None:
     context.configure(url=str(engine.url), target_metadata=target_metadata,
-                      literal_binds=True, render_as_batch=engine.dialect.name == "sqlite")
+                      literal_binds=True, render_as_batch=engine.dialect.name == "sqlite",
+                      compare_type=_compare_type)
     with context.begin_transaction():
         context.run_migrations()
 
@@ -26,7 +37,7 @@ def run_migrations_online() -> None:
 def _run(connection) -> None:
     # render_as_batch: SQLite no soporta ALTER COLUMN; Alembic recrea la tabla
     context.configure(connection=connection, target_metadata=target_metadata,
-                      render_as_batch=connection.dialect.name == "sqlite")
+                      render_as_batch=connection.dialect.name == "sqlite", compare_type=_compare_type)
     with context.begin_transaction():
         context.run_migrations()
 
