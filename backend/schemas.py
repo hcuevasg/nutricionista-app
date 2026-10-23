@@ -1,5 +1,5 @@
 """Pydantic schemas for request/response validation."""
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from typing import Optional, List, Generic, TypeVar
 from datetime import datetime
 
@@ -59,8 +59,7 @@ class UserResponse(BaseModel):
     logo_base64: Optional[str] = None
     totp_enabled: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfileUpdate(BaseModel):
@@ -104,8 +103,7 @@ class PatientResponse(PatientCreate):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator('allergies', mode='before')
     @classmethod
@@ -143,8 +141,7 @@ class NotaEvolucionResponse(NotaEvolucionCreate):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ExamenResultado(BaseModel):
@@ -263,8 +260,7 @@ class AnthropometricResponse(AnthropometricCreate):
     patient_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Plantillas de pauta ───────────────────────────────────────────
@@ -285,8 +281,7 @@ class PlantillaPautaResponse(PlantillaPautaCreate):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Pautas ────────────────────────────────────────────────────────
@@ -324,8 +319,7 @@ class PautaResponse(PautaCreate):
     is_active: bool = False
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Antecedentes Schemas ───────────────────────────────────────────
@@ -388,8 +382,7 @@ class AntecedentesResponse(AntecedentesBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Receta Schemas ─────────────────────────────────────────────────
@@ -407,8 +400,7 @@ class RecetaIngredienteCreate(BaseModel):
 class RecetaIngredienteResponse(RecetaIngredienteCreate):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RecetaEquivalenciaItem(BaseModel):
@@ -436,16 +428,14 @@ class RecetaResponse(RecetaCreate):
     ingredientes: List[RecetaIngredienteResponse] = []
     equivalencias: List[RecetaEquivalenciaItem] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RecetaListItem(RecetaCreate):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Appointment Schemas ────────────────────────────────────────────
@@ -474,8 +464,7 @@ class AppointmentResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Portal Schemas ─────────────────────────────────────────────────
@@ -492,8 +481,7 @@ class ShareTokenResponse(BaseModel):
     revoked: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PortalInfo(BaseModel):
     patient_name: str
@@ -514,5 +502,4 @@ class PortalEvaluationSummary(BaseModel):
     goals_text: Optional[str] = None
     next_eval_date: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

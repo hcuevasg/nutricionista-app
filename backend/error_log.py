@@ -12,6 +12,7 @@ from typing import Optional
 
 import models
 from database import SessionLocal
+from timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def record(source: str, *, nutritionist_id: Optional[int] = None, method: Option
         )
         db.add(entry)
         db.query(models.ErrorLog).filter(
-            models.ErrorLog.created_at < datetime.utcnow() - timedelta(days=RETENTION_DAYS)
+            models.ErrorLog.created_at < utcnow() - timedelta(days=RETENTION_DAYS)
         ).delete(synchronize_session=False)
         db.commit()
         return entry.id

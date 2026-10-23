@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 
 import models
 from tests.test_ai import PAUTA
+from timeutil import utcnow
 
 
 def _register(client, name):
@@ -33,7 +34,7 @@ def test_alerts_cover_each_case(client, db):
     con_cita = _patient(client, h, "ConCita")
     _eval(client, h, con_cita, today - timedelta(weeks=12))
     client.post("/appointments", json={"patient_id": con_cita,
-                                       "scheduled_at": (datetime.utcnow() + timedelta(days=3)).isoformat()},
+                                       "scheduled_at": (utcnow() + timedelta(days=3)).isoformat()},
                 headers=h)
     al_dia = _patient(client, h, "AlDia")
     _eval(client, h, al_dia, today - timedelta(days=10))
@@ -41,7 +42,7 @@ def test_alerts_cover_each_case(client, db):
     client.patch(f"/pautas/{al_dia}/{pauta['id']}/set-active", headers=h)
     nueva = _patient(client, h, "Nueva")
     db.query(models.Patient).filter(models.Patient.id == nueva).update(
-        {"created_at": datetime.utcnow() - timedelta(days=30)})
+        {"created_at": utcnow() - timedelta(days=30)})
     db.commit()
 
     alerts = client.get("/dashboard/alerts", headers=h).json()

@@ -14,6 +14,7 @@ import backup
 import consent
 from database import get_db
 from http_utils import attachment
+from timeutil import utcnow
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -158,7 +159,7 @@ async def export_patient(
     """Ficha completa del paciente en JSON (derecho de acceso y portabilidad)."""
     patient = _owned_patient(db, patient_id, current_user)
     data = {
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": utcnow().isoformat(),
         "profesional": {"name": current_user.name, "clinic_name": current_user.clinic_name,
                         "email": current_user.email},
         "paciente": backup.export_patient(db, current_user, patient),

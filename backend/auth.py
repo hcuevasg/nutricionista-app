@@ -10,6 +10,7 @@ from os import getenv
 import models
 import schemas
 from database import get_db
+from timeutil import utcnow
 
 # Configuration
 _INSECURE_DEFAULT_KEY = "your-secret-key-change-in-production"
@@ -51,9 +52,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         to_encode["sub"] = str(to_encode["sub"])
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        expire = utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

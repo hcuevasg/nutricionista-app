@@ -15,6 +15,7 @@ from sqlalchemy import Date, DateTime
 from sqlalchemy.orm import Session
 
 import models
+from timeutil import utcnow
 
 BACKUP_VERSION = 2
 _SKIP = {"id", "nutritionist_id", "patient_id", "receta_id"}
@@ -71,7 +72,7 @@ def export_data(db: Session, user: models.Nutritionist) -> Dict[str, Any]:
     patients = db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()
     data: Dict[str, Any] = {
         "version": BACKUP_VERSION,
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": utcnow().isoformat(),
         "nutritionist": {
             "id": user.id, "username": user.username, "email": user.email, "name": user.name,
             "clinic_name": user.clinic_name, "report_tagline": user.report_tagline,

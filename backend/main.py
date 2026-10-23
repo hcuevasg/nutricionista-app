@@ -27,6 +27,7 @@ from database import engine, Base
 import backup_r2
 import error_log
 from routers.errors import user_id_from_token
+from timeutil import utcnow
 
 
 @asynccontextmanager
@@ -367,7 +368,7 @@ async def rate_limit_middleware(request: Request, call_next):
             if not pattern.match(path):
                 continue
             key = f"{bucket}:{_client_ip(request)}"
-            now = datetime.utcnow()
+            now = utcnow()
             window_start = now - timedelta(seconds=RATE_WINDOW)
             hits = [t for t in _rate_store[key] if t > window_start]
             if len(hits) >= max_requests:

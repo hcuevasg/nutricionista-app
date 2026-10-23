@@ -1,11 +1,12 @@
 """Dashboard routes — stats and recent activity."""
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 import models
 import auth
 from database import get_db
+from timeutil import utcnow
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -16,11 +17,7 @@ async def get_stats(
     current_user: models.Nutritionist = Depends(auth.get_current_user),
 ):
     """Counts for stat cards."""
-    patient_ids = (
-        db.query(models.Patient.id)
-        .filter(models.Patient.nutritionist_id == current_user.id)
-        .subquery()
-    )
+    patient_ids = select(models.Patient.id).where(models.Patient.nutritionist_id == current_user.id)
 
     total_patients = db.query(func.count(models.Patient.id)).filter(
         models.Patient.nutritionist_id == current_user.id
@@ -92,7 +89,7 @@ async def get_alerts(
     from datetime import date, datetime, timedelta
 
     today = date.today()
-    now = datetime.utcnow()
+    now = utcnow()
     patients = db.query(models.Patient).filter(models.Patient.nutritionist_id == current_user.id).all()
     ids = [p.id for p in patients]
     if not ids:

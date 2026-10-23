@@ -6,6 +6,7 @@ from datetime import datetime, date
 
 import models, schemas, auth
 from database import get_db
+from timeutil import utcnow
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -102,7 +103,7 @@ async def update_appointment(
         raise HTTPException(status_code=404, detail="Cita no encontrada")
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(appt, field, value)
-    appt.updated_at = datetime.utcnow()
+    appt.updated_at = utcnow()
     db.commit()
     db.refresh(appt)
     return _to_response(appt)
@@ -122,7 +123,7 @@ async def update_appointment_status(
     if not appt:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
     appt.status = status
-    appt.updated_at = datetime.utcnow()
+    appt.updated_at = utcnow()
     db.commit()
     db.refresh(appt)
     return _to_response(appt)

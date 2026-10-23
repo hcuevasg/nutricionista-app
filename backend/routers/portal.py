@@ -1,11 +1,12 @@
 """Patient portal — share token based read-only access."""
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 import models, schemas, auth
+from timeutil import utcnow
 import audit
 import consent
 from database import get_db
@@ -13,16 +14,11 @@ from database import get_db
 router = APIRouter(prefix="/portal", tags=["portal"])
 
 
-def _utcnow() -> datetime:
-    """UTC sin zona horaria: expires_at es una columna DateTime sin tz."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
 def _get_patient_by_token(token: str, db: Session) -> models.Patient:
     record = db.query(models.PatientShareToken).filter(
         models.PatientShareToken.token == token,
         models.PatientShareToken.revoked == False,
-        models.PatientShareToken.expires_at > _utcnow(),
+        models.PatientShareToken.expires_at > utcnow(),
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="Token no válido o expirado")
@@ -45,7 +41,7 @@ async def create_share_token(
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
     token_str = secrets.token_urlsafe(48)
-    expires = _utcnow() + timedelta(days=request.days_valid)
+    expires = utcnow() + timedelta(days=request.days_valid)
     record = models.PatientShareToken(
         token=token_str,
         patient_id=patient.id,
@@ -75,7 +71,7 @@ async def list_share_tokens(
     query = db.query(models.PatientShareToken).filter(
         models.PatientShareToken.nutritionist_id == current_user.id,
         models.PatientShareToken.revoked == False,
-        models.PatientShareToken.expires_at > _utcnow(),
+        models.PatientShareToken.expires_at > utcnow(),
     )
     if patient_id is not None:
         query = query.filter(models.PatientShareToken.patient_id == patient_id)

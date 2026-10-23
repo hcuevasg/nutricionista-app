@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import Request
 
 import models
+from timeutil import utcnow
 
 # Versión vigente de la política de privacidad (frontend: /privacidad)
 CONSENT_VERSION = "2026-10"
@@ -22,7 +23,7 @@ def client_ip(request: Optional[Request]) -> Optional[str]:
 
 def set_consent(patient: models.Patient, accepted: bool, source: str, request: Optional[Request] = None) -> None:
     """Registra o revoca el consentimiento; `source` es "profesional" o "portal". El llamador hace commit."""
-    patient.consent_at = datetime.utcnow() if accepted else None
+    patient.consent_at = utcnow() if accepted else None
     patient.consent_version = CONSENT_VERSION if accepted else None
     patient.consent_source = source if accepted else None
     patient.consent_ip = client_ip(request) if accepted else None

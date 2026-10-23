@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean, 
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
+from timeutil import utcnow
 
 
 class Nutritionist(Base):
@@ -23,7 +24,7 @@ class Nutritionist(Base):
     totp_enabled = Column(Boolean, default=False, nullable=False, server_default=sa_false())
     totp_recovery_codes = Column(Text, nullable=True)   # JSON con hashes bcrypt
     totp_last_step = Column(Integer, nullable=True)  # paso TOTP del último código aceptado (anti-reuso)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Relationships
     patients = relationship("Patient", back_populates="nutritionist", cascade="all, delete-orphan")
@@ -53,8 +54,8 @@ class Patient(Base):
     consent_version = Column(String(20), nullable=True)
     consent_source = Column(String(20), nullable=True)   # profesional | portal
     consent_ip = Column(String(45), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     nutritionist = relationship("Nutritionist", back_populates="patients")
@@ -144,7 +145,7 @@ class Anthropometric(Base):
     goals_text = Column(Text, nullable=True)
     next_eval_date = Column(String, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Relationship
     patient = relationship("Patient", back_populates="anthropometrics")
@@ -166,7 +167,7 @@ class PlantillaPauta(Base):
     distribucion_json = Column(Text)
     menu_json = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class Pauta(Base):
@@ -201,7 +202,7 @@ class Pauta(Base):
     menu_json = Column(Text, nullable=True)
     is_active = Column(Boolean, default=False) # JSON: {tiempo: {opcion1: str, opcion2: str}}
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     patient = relationship("Patient", back_populates="pautas")
 
@@ -219,7 +220,7 @@ class ErrorLog(Base):
     message = Column(Text, nullable=True)
     stack = Column(Text, nullable=True)
     user_agent = Column(String(300), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
 
 
 class AuditLog(Base):
@@ -233,7 +234,7 @@ class AuditLog(Base):
     resource_id = Column(Integer, nullable=True)
     detail = Column(String(500), nullable=True)
     ip_address = Column(String(45), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
 
     nutritionist = relationship("Nutritionist")
 
@@ -251,7 +252,7 @@ class ExamenLaboratorio(Base):
     ref_min = Column(Float, nullable=True)         # rango usado al registrar (el del laboratorio)
     ref_max = Column(Float, nullable=True)
     notas = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class NotaEvolucion(Base):
@@ -267,8 +268,8 @@ class NotaEvolucion(Base):
     analisis = Column(Text, nullable=True)      # A: evaluación/diagnóstico nutricional
     plan = Column(Text, nullable=True)          # P: indicaciones y acuerdos
     proximo_control = Column(String(10), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Antecedentes(Base):
@@ -374,8 +375,8 @@ class Receta(Base):
     categoria = Column(String(100), default="General")
     porciones_rinde = Column(Integer, default=1)
     notas = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     nutritionist = relationship("Nutritionist", back_populates="recetas")
     ingredientes = relationship("RecetaIngrediente", back_populates="receta", cascade="all, delete-orphan")
@@ -421,7 +422,7 @@ class PatientShareToken(Base):
     patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), index=True)
     nutritionist_id = Column(Integer, ForeignKey("nutritionists.id"), index=True)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     revoked = Column(Boolean, default=False)
     patient = relationship("Patient")
     nutritionist = relationship("Nutritionist")
@@ -438,8 +439,8 @@ class Appointment(Base):
     duration_minutes = Column(Integer, default=45)
     notes = Column(Text, nullable=True)
     status = Column(String(20), default="scheduled")  # scheduled/completed/cancelled
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     nutritionist = relationship("Nutritionist")
     patient = relationship("Patient")

@@ -10,6 +10,7 @@ import models
 import auth
 from database import get_db
 from http_utils import attachment
+from timeutil import utcnow
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -64,7 +65,7 @@ async def download_backup(
     import audit
     audit.log(db, action="export", resource="backup", nutritionist_id=current_user.id,
               detail=f"{len(data['patients'])} pacientes, {len(data['recetas'])} recetas exportados")
-    filename = f"nutriapp_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    filename = f"nutriapp_backup_{utcnow().strftime('%Y%m%d_%H%M%S')}.json"
     return JSONResponse(content=data, headers=attachment(filename))
 
 
