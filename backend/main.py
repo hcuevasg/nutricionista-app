@@ -336,14 +336,19 @@ async def error_log_middleware(request: Request, call_next):
 # ── Rate limiting (in-memory, per IP) ────────────────────────────────────────
 _rate_store: dict[str, list[datetime]] = defaultdict(list)
 RATE_WINDOW = 60   # seconds
-# (bucket, regex de ruta, máximo de requests por ventana y por IP)
+# (bucket, regex de ruta, máximo de requests por ventana y por IP). Se aplica la
+# primera regla que calce y, además, el límite general.
 RATE_LIMIT_RULES = [
     ("auth",   re.compile(r"^/auth/(login|register|2fa/verify)$"), 10),
+    # Acciones sensibles de la cuenta y descargas/cargas completas de datos
+    ("sensitive", re.compile(r"^/(auth/(password|logout-all|2fa/(setup|enable|disable))"
+                             r"|settings/(backup|restore)|patients/\d+/export)$"), 10),
     ("errors", re.compile(r"^/errors/report$"), 20),
     ("ai",     re.compile(r"^/pautas/\d+/\d+/(generar-menu|generar-menu-stream|ai-suggest)$"), 10),
     # Portal público: 3 requests por carga de página
     ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations|consent))?$"), 60),
 ]
+GLOBAL_RATE_LIMIT = 300   # cualquier ruta, por IP y minuto: frena scrapers y bots
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
 
 
@@ -356,23 +361,42 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _hit(key: str, max_requests: int) -> bool:
+    """Registra una request en la ventana; False si supera el máximo."""
+    now = utcnow()
+    hits = [t for t in _rate_store[key] if t > now - timedelta(seconds=RATE_WINDOW)]
+    if len(hits) >= max_requests:
+        _rate_store[key] = hits
+        return False
+    hits.append(now)
+    _rate_store[key] = hits
+    return True
+
+
+def _purge_rate_store() -> None:
+    """Olvida las IPs sin actividad reciente para que la memoria no crezca sin límite."""
+    if len(_rate_store) < 5000:
+        return
+    cutoff = utcnow() - timedelta(seconds=RATE_WINDOW)
+    for key in [k for k, v in _rate_store.items() if not v or v[-1] <= cutoff]:
+        del _rate_store[key]
+
+
+_TOO_MANY = {"detail": "Demasiadas solicitudes. Espera un momento."}
+
+
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    if RATE_LIMIT_ENABLED and request.method != "OPTIONS":
-        path = request.url.path
+    if RATE_LIMIT_ENABLED and request.method != "OPTIONS" and request.url.path != "/health":
+        _purge_rate_store()
+        path, ip = request.url.path, _client_ip(request)
         for bucket, pattern, max_requests in RATE_LIMIT_RULES:
-            if not pattern.match(path):
-                continue
-            key = f"{bucket}:{_client_ip(request)}"
-            now = utcnow()
-            window_start = now - timedelta(seconds=RATE_WINDOW)
-            hits = [t for t in _rate_store[key] if t > window_start]
-            if len(hits) >= max_requests:
-                _rate_store[key] = hits
-                return JSONResponse(status_code=429, content={"detail": "Demasiadas solicitudes. Espera un momento."})
-            hits.append(now)
-            _rate_store[key] = hits
-            break
+            if pattern.match(path):
+                if not _hit(f"{bucket}:{ip}", max_requests):
+                    return JSONResponse(status_code=429, content=_TOO_MANY)
+                break
+        if not _hit(f"global:{ip}", GLOBAL_RATE_LIMIT):
+            return JSONResponse(status_code=429, content=_TOO_MANY)
     return await call_next(request)
 
 # ── Tamaño máximo de las requests ────────────────────────────────────────────
