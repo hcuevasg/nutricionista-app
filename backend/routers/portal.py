@@ -137,7 +137,7 @@ async def portal_consent(token: str, req: schemas.PatientConsentRequest, request
     return await portal_info(token, db)
 
 
-@router.get("/{token}/pautas", response_model=List[schemas.PautaResponse])
+@router.get("/{token}/pautas", response_model=List[schemas.PortalPauta])
 async def portal_pautas(token: str, db: Session = Depends(get_db)):
     patient = _get_patient_by_token(token, db)
     # Prefer active pauta, fallback to most recent

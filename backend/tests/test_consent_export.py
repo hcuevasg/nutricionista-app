@@ -51,3 +51,14 @@ def test_patient_accepts_consent_from_portal(client):
         assert s.get(models.Patient, pid).consent_ip == "200.1.2.3"
     logs = client.get("/settings/audit-logs", headers=a).json()["logs"]
     assert any(e["action"] == "consent" and "portal" in (e["detail"] or "") for e in logs)
+
+
+def test_portal_returns_only_what_the_patient_needs(client):
+    from tests.test_ai import PAUTA
+    a = _register(client, "portal_min")
+    pid = client.post("/patients", json={"name": "Mínimo", "sex": "F"}, headers=a).json()["id"]
+    client.post(f"/pautas?patient_id={pid}", json={**PAUTA, "notes": "nota interna"}, headers=a)
+    token = client.post("/portal/tokens", json={"patient_id": pid}, headers=a).json()["token"]
+    pauta = client.get(f"/portal/{token}/pautas").json()[0]
+    assert set(pauta) == {"id", "name", "date", "tipo_pauta", "kcal_objetivo", "prot_pct", "lip_pct",
+                          "cho_pct", "menu_json"}

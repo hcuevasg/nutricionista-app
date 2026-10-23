@@ -503,6 +503,21 @@ class PortalInfo(BaseModel):
     consent_version: Optional[str] = None
     current_consent_version: str
 
+class PortalPauta(BaseModel):
+    """Lo que ve el paciente de su pauta: sin cálculos internos ni notas del profesional."""
+    id: int
+    name: str
+    date: str
+    tipo_pauta: Optional[str] = None
+    kcal_objetivo: Optional[float] = None
+    prot_pct: Optional[float] = None
+    lip_pct: Optional[float] = None
+    cho_pct: Optional[float] = None
+    menu_json: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PortalEvaluationSummary(BaseModel):
     id: int
     date: str
