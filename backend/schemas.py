@@ -100,6 +100,7 @@ class PatientResponse(PatientCreate):
     nutritionist_id: int
     consent_at: Optional[datetime] = None
     consent_version: Optional[str] = None
+    consent_source: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -465,6 +466,9 @@ class PortalInfo(BaseModel):
     patient_name: str
     nutritionist_name: Optional[str] = None
     clinic_name: Optional[str] = None
+    consent_at: Optional[datetime] = None
+    consent_version: Optional[str] = None
+    current_consent_version: str
 
 class PortalEvaluationSummary(BaseModel):
     id: int

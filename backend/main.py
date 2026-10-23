@@ -345,7 +345,7 @@ RATE_LIMIT_RULES = [
     ("errors", re.compile(r"^/errors/report$"), 20),
     ("ai",     re.compile(r"^/pautas/\d+/\d+/(generar-menu|generar-menu-stream|ai-suggest)$"), 10),
     # Portal público: 3 requests por carga de página
-    ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations))?$"), 60),
+    ("portal", re.compile(r"^/portal/(?!tokens(/|$))[^/]+(/(pautas|evaluations|consent))?$"), 60),
 ]
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
 

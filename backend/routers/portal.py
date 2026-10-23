@@ -1,11 +1,13 @@
 """Patient portal — share token based read-only access."""
 import secrets
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 import models, schemas, auth
+import audit
+import consent
 from database import get_db
 
 router = APIRouter(prefix="/portal", tags=["portal"])
@@ -116,7 +118,27 @@ async def portal_info(token: str, db: Session = Depends(get_db)):
         patient_name=patient.name,
         nutritionist_name=nutritionist.name if nutritionist else None,
         clinic_name=nutritionist.clinic_name if nutritionist else None,
+        consent_at=patient.consent_at,
+        consent_version=patient.consent_version,
+        current_consent_version=consent.CONSENT_VERSION,
     )
+
+
+@router.post("/{token}/consent", response_model=schemas.PortalInfo)
+async def portal_consent(token: str, req: schemas.PatientConsentRequest, request: Request,
+                         db: Session = Depends(get_db)):
+    """El propio paciente acepta la política de privacidad desde su portal.
+
+    Solo se puede aceptar: revocarlo se pide al profesional, que lo registra en la ficha.
+    """
+    if not req.accepted:
+        raise HTTPException(status_code=400, detail="Para revocar el consentimiento contacta a tu nutricionista")
+    patient = _get_patient_by_token(token, db)
+    consent.set_consent(patient, True, "portal", request)
+    db.commit()
+    audit.log(db, action="consent", resource="patient", nutritionist_id=patient.nutritionist_id,
+              resource_id=patient.id, detail=f"{patient.name} (desde el portal)")
+    return await portal_info(token, db)
 
 
 @router.get("/{token}/pautas", response_model=List[schemas.PautaResponse])

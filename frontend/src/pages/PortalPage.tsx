@@ -7,6 +7,54 @@ interface PortalInfo {
   patient_name: string
   nutritionist_name?: string
   clinic_name?: string
+  consent_at?: string | null
+  consent_version?: string | null
+  current_consent_version: string
+}
+
+/** El paciente acepta la política de privacidad vigente desde su portal. */
+function ConsentCard({ token, info, onAccepted }: { token: string; info: PortalInfo; onAccepted: (i: PortalInfo) => void }) {
+  const [checked, setChecked] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const renewal = !!info.consent_at
+
+  const accept = async () => {
+    setBusy(true); setError(null)
+    try {
+      onAccepted(await api.post<PortalInfo>(`/portal/${token}/consent`, { accepted: true }))
+    } catch {
+      setError('No se pudo registrar tu aceptación. Intenta de nuevo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border-2 border-[#4b7c60]/30 rounded-xl p-5 mb-6 space-y-3">
+      <h2 className="font-bold text-gray-900">
+        {renewal ? 'Actualizamos la política de privacidad' : 'Autorización para tratar tus datos de salud'}
+      </h2>
+      <p className="text-sm text-gray-600">
+        {info.nutritionist_name ?? 'Tu nutricionista'} registra tus datos personales y de salud (mediciones,
+        antecedentes y pautas) para tu atención nutricional. Puedes pedir acceder a ellos, corregirlos, recibir una
+        copia o que se eliminen cuando la ley lo permita.
+      </p>
+      <label className="flex items-start gap-2 text-sm text-gray-800 cursor-pointer">
+        <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} className="mt-0.5 accent-[#4b7c60]" />
+        <span>
+          Leí la{' '}
+          <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-[#4b7c60] font-semibold underline">política de privacidad</a>
+          {' '}y autorizo el tratamiento de mis datos de salud para mi atención nutricional.
+        </span>
+      </label>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <button onClick={accept} disabled={!checked || busy}
+        className="bg-[#4b7c60] text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
+        {busy ? 'Registrando…' : 'Acepto'}
+      </button>
+    </div>
+  )
 }
 
 interface Pauta {
@@ -168,6 +216,10 @@ export default function PortalPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
+        {info.consent_version !== info.current_consent_version && token && (
+          <ConsentCard token={token} info={info} onAccepted={setInfo} />
+        )}
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-white border border-[#E5EAE7] rounded-xl p-1 w-fit">
           <button

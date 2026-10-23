@@ -35,6 +35,7 @@ interface Patient {
   notes?: string
   allergies?: string[]
   consent_at?: string | null
+  consent_source?: string | null
   created_at: string
 }
 
@@ -291,7 +292,7 @@ export default function PatientDetailPage() {
                     : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
                 >
                   {patient.consent_at
-                    ? `✓ Consentimiento ${new Date(patient.consent_at + (patient.consent_at.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-CL')}`
+                    ? `✓ Consentimiento ${new Date(patient.consent_at + (patient.consent_at.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-CL')}${patient.consent_source === 'portal' ? ' · firmado en el portal' : ''}`
                     : 'Sin consentimiento · registrar'}
                 </button>
                 {patient.allergies && patient.allergies.length > 0 && patient.allergies.map((key) => (

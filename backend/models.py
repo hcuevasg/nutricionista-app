@@ -51,6 +51,8 @@ class Patient(Base):
     # Consentimiento informado para tratar datos de salud (Ley 19.628 / 21.719)
     consent_at = Column(DateTime, nullable=True)
     consent_version = Column(String(20), nullable=True)
+    consent_source = Column(String(20), nullable=True)   # profesional | portal
+    consent_ip = Column(String(45), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
