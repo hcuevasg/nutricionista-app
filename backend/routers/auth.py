@@ -145,7 +145,8 @@ async def verify_two_factor(request: schemas.TwoFactorVerifyRequest, req: Reques
     user = db.query(models.Nutritionist).filter(models.Nutritionist.id == user_id).first()
     if not user or not user.totp_enabled:
         raise HTTPException(status_code=401, detail="La verificación expiró. Vuelve a iniciar sesión.")
-    if two_factor.verify_totp(user.totp_secret, request.code):
+    if two_factor.accept_totp(user, request.code):
+        db.commit()
         return _login_ok(db, user, req, "Login exitoso (verificación en dos pasos)")
     remaining = two_factor.use_recovery_code(user.totp_recovery_codes, request.code)
     if remaining is not None:
@@ -176,7 +177,7 @@ async def enable_two_factor(request: schemas.TwoFactorCodeRequest, req: Request,
     """Activa la verificación tras comprobar un código; devuelve los códigos de recuperación."""
     if current_user.totp_enabled:
         raise HTTPException(status_code=400, detail="La verificación en dos pasos ya está activa")
-    if not two_factor.verify_totp(current_user.totp_secret, request.code):
+    if not two_factor.accept_totp(current_user, request.code):
         raise HTTPException(status_code=400, detail="Código incorrecto. Revisa la hora del teléfono e intenta de nuevo.")
     codes, hashes = two_factor.generate_recovery_codes()
     current_user.totp_enabled = True
@@ -194,13 +195,14 @@ async def disable_two_factor(request: schemas.TwoFactorDisableRequest, req: Requ
     """Desactiva la verificación: exige contraseña y un código vigente (o de recuperación)."""
     if not auth_module.verify_password(request.password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Contraseña incorrecta")
-    ok = two_factor.verify_totp(current_user.totp_secret, request.code) or \
+    ok = two_factor.accept_totp(current_user, request.code) or \
         two_factor.use_recovery_code(current_user.totp_recovery_codes, request.code) is not None
     if not ok:
         raise HTTPException(status_code=400, detail="Código incorrecto")
     current_user.totp_enabled = False
     current_user.totp_secret = None
     current_user.totp_recovery_codes = None
+    current_user.totp_last_step = None
     db.commit()
     audit.log(db, action="update", resource="auth", nutritionist_id=current_user.id,
               detail="Verificación en dos pasos desactivada", request=req)

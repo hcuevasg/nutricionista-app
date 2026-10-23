@@ -1,8 +1,9 @@
 """Verificación en dos pasos con TOTP (RFC 6238) y códigos de recuperación."""
 import io
 import json
+import hmac
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import pyotp
@@ -29,10 +30,27 @@ def qr_svg(uri: str) -> str:
     return buf.getvalue().decode()
 
 
-def verify_totp(secret: str, code: str) -> bool:
+def accept_totp(user, code: str) -> bool:
+    """Valida el código TOTP del usuario y lo marca como usado.
+
+    Cada código vale una sola vez: se guarda el paso de 30 s del último código
+    aceptado y se rechaza cualquiera de ese paso o anterior, así un código
+    interceptado no se puede reutilizar dentro de su ventana. El llamador hace
+    el commit.
+    """
     code = (code or "").replace(" ", "")
-    # valid_window=1 tolera ±30 s de diferencia de reloj
-    return bool(secret) and code.isdigit() and pyotp.TOTP(secret).verify(code, valid_window=1)
+    if not user.totp_secret or not code.isdigit():
+        return False
+    totp = pyotp.TOTP(user.totp_secret)
+    now_step = totp.timecode(datetime.now(timezone.utc))
+    # ±1 paso tolera 30 s de diferencia de reloj
+    for step in (now_step - 1, now_step, now_step + 1):
+        if hmac.compare_digest(totp.generate_otp(step), code):
+            if user.totp_last_step is not None and step <= user.totp_last_step:
+                return False
+            user.totp_last_step = step
+            return True
+    return False
 
 
 def generate_recovery_codes():

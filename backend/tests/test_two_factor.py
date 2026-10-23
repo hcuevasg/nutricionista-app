@@ -1,5 +1,12 @@
 """Verificación en dos pasos (TOTP) en el login."""
+import time
+
 import pyotp
+
+
+def _next(totp):
+    """Código del siguiente paso de 30 s: el actual ya se usó al activar (uso único)."""
+    return totp.at(time.time() + 30)
 
 
 def _register(client, name):
@@ -36,8 +43,13 @@ def test_login_requires_code_after_enabling(client):
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {challenge}"}).status_code == 401
     bad = client.post("/auth/2fa/verify", json={"challenge_token": challenge, "code": "123456"})
     assert bad.status_code == 401
-    ok = client.post("/auth/2fa/verify", json={"challenge_token": challenge, "code": totp.now()}).json()
+    # El código que se usó para activar ya no sirve
+    assert client.post("/auth/2fa/verify", json={"challenge_token": challenge, "code": totp.now()}).status_code == 401
+    ok = client.post("/auth/2fa/verify", json={"challenge_token": challenge, "code": _next(totp)}).json()
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {ok['access_token']}"}).status_code == 200
+    # Ni se puede reutilizar el que se acaba de aceptar
+    challenge = _login(client, "tfa_user")["challenge_token"]
+    assert client.post("/auth/2fa/verify", json={"challenge_token": challenge, "code": _next(totp)}).status_code == 401
 
 
 def test_recovery_code_is_single_use(client):
@@ -54,5 +66,5 @@ def test_disable_requires_password_and_code(client):
     totp, _ = _enable(client, h)
     assert client.post("/auth/2fa/disable", json={"password": "mala", "code": totp.now()}, headers=h).status_code == 400
     assert client.post("/auth/2fa/disable", json={"password": "test1234", "code": "000000"}, headers=h).status_code == 400
-    assert client.post("/auth/2fa/disable", json={"password": "test1234", "code": totp.now()}, headers=h).status_code == 200
+    assert client.post("/auth/2fa/disable", json={"password": "test1234", "code": _next(totp)}, headers=h).status_code == 200
     assert _login(client, "tfa_off")["access_token"]
