@@ -118,6 +118,34 @@ class PatientResponse(PatientCreate):
         return v or []
 
 
+class NotaEvolucionCreate(BaseModel):
+    fecha: str
+    motivo: Optional[str] = None
+    subjetivo: Optional[str] = None
+    objetivo: Optional[str] = None
+    analisis: Optional[str] = None
+    plan: Optional[str] = None
+    proximo_control: Optional[str] = None
+
+    @field_validator('fecha', 'proximo_control')
+    @classmethod
+    def iso_date(cls, v):
+        if v in (None, ''):
+            return None
+        datetime.strptime(v[:10], '%Y-%m-%d')
+        return v[:10]
+
+
+class NotaEvolucionResponse(NotaEvolucionCreate):
+    id: int
+    patient_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class PatientConsentRequest(BaseModel):
     accepted: bool
 

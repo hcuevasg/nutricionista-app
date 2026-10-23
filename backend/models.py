@@ -58,6 +58,7 @@ class Patient(Base):
     nutritionist = relationship("Nutritionist", back_populates="patients")
     anthropometrics = relationship("Anthropometric", back_populates="patient", cascade="all, delete-orphan")
     pautas = relationship("Pauta", back_populates="patient", cascade="all, delete-orphan")
+    notas_evolucion = relationship("NotaEvolucion", cascade="all, delete-orphan")
     antecedentes = relationship("Antecedentes", back_populates="patient", uselist=False)
 
 
@@ -232,6 +233,23 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     nutritionist = relationship("Nutritionist")
+
+
+class NotaEvolucion(Base):
+    """Nota de evolución de una consulta (formato SOAP)."""
+    __tablename__ = "notas_evolucion"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    fecha = Column(String(10), nullable=False)  # YYYY-MM-DD, como el resto de las fechas
+    motivo = Column(String(255), nullable=True)
+    subjetivo = Column(Text, nullable=True)     # S: lo que relata el paciente
+    objetivo = Column(Text, nullable=True)      # O: mediciones y hallazgos
+    analisis = Column(Text, nullable=True)      # A: evaluación/diagnóstico nutricional
+    plan = Column(Text, nullable=True)          # P: indicaciones y acuerdos
+    proximo_control = Column(String(10), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Antecedentes(Base):
