@@ -48,6 +48,7 @@ GROUP_COLORS = {
     "carnes_bg": "#d07a6c", "otros_proteicos": "#c4677e", "aceite_grasas": "#c9a94a",
     "alim_ricos_lipidos": "#d08860", "leches_vegetales": "#8fb3a8", "lacteos_soya": "#6f8fc9",
     "semillas_chia": "#6b7a4f", "azucares": "#b9a3c9",
+    "omega_3": "#5b8a8f", "suplemento_proteico": "#a8746b",
 }
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
@@ -355,14 +356,26 @@ def generate_pauta_pdf(patient, pauta, nutritionist, grupos_macros) -> bytes:
                if any(float(p or 0) > 0 for p in (distribucion.get(k) or {}).values()) or menu.get(k)]
     if tiempos:
         story += [P("Tu día a día", S("h2", 17, C_INK, "head", leading=22)), Spacer(1, 2),
-                  P("Elige <b>una sola opción</b> en cada comida. Las dos opciones son equivalentes en tu plan.",
+                  P("Elige <b>una sola opción</b> en cada comida. Las opciones son equivalentes en tu plan.",
                     S("h2s", 9.5, C_MUTED)), Spacer(1, 10)]
 
-    def option_box(n, items, width):
+    def option_box(n, items, width, plato=None):
         inner = width - 18
         rows = [[P(f"OPCIÓN {n}", S("on", 7.5, C_GREEN_SOFT, "bold", charSpace=1))]]
+        if plato:
+            rows.append([P(escape(plato), S("opl", 8.5, C_INK, "semi", leading=11))])
         if isinstance(items, str):
             rows.append([P(escape(items), S("ostr", 8.5, C_TEXT))])
+        elif items and isinstance(items[0], dict) and "texto" in items[0]:
+            # Menú de planilla: alimento en texto con medida casera y la porción a la derecha
+            porc_w = 1.55 * cm
+            for it in items:
+                if str(it.get("texto") or "").strip():
+                    rows.append([plain_table(
+                        [[P(escape(str(it["texto"])), S("otx", 8, C_TEXT, leading=10)),
+                          P(escape(str(it.get("porcion") or "")), S("opo", 6.5, C_MUTED, align=TA_RIGHT, leading=8))]],
+                        [inner - porc_w, porc_w],
+                        extra=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5)])])
         else:
             for it in items or []:
                 nombre = str(it.get("nombre") or it.get("alimento") or "")
@@ -427,15 +440,26 @@ def generate_pauta_pdf(patient, pauta, nutritionist, grupos_macros) -> bytes:
             chip_flows.append(Spacer(1, 4))
 
         entry = menu.get(key) or {}
-        opt_w = (inner_w - 8) / 2
-        if entry.get("opcion1") or entry.get("opcion2"):
-            options = plain_table([[option_box(1, entry.get("opcion1"), opt_w), "",
-                                    option_box(2, entry.get("opcion2"), opt_w)]],
-                                  [opt_w, 8, opt_w], extra=[("VALIGN", (0, 0), (-1, -1), "TOP")])
+        if isinstance(entry.get("opciones"), list):
+            opciones = [(o.get("plato"), o.get("lineas") or []) for o in entry["opciones"] if isinstance(o, dict)]
+        else:
+            opciones = [(None, entry[k]) for k in ("opcion1", "opcion2") if entry.get(k)]
+        if opciones:
+            per_row = 3 if len(opciones) >= 3 else 2
+            opt_w = (inner_w - 8 * (per_row - 1)) / per_row
+            rows = []
+            for start in range(0, len(opciones), per_row):
+                cells, widths = [], []
+                for i, (plato, items) in enumerate(opciones[start:start + per_row], start=start + 1):
+                    if cells:
+                        cells.append(""); widths.append(8)
+                    cells.append(option_box(i, items, opt_w, plato)); widths.append(opt_w)
+                rows += [plain_table([cells], widths, extra=[("VALIGN", (0, 0), (-1, -1), "TOP")]), Spacer(1, 6)]
+            options = rows[:-1]
         else:
             options = P("Las opciones de menú para esta comida se definirán con tu nutricionista.",
                         S("nom", 8.5, C_MUTED))
-        body = chip_flows + [Spacer(1, 2), options]
+        body = chip_flows + [Spacer(1, 2)] + (options if isinstance(options, list) else [options])
         receta = entry.get("receta")
         if isinstance(receta, dict) and receta.get("nombre"):
             body += [Spacer(1, 6), P(f"Receta sugerida: <b>{escape(receta['nombre'])}</b>",

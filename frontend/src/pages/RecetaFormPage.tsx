@@ -23,6 +23,9 @@ const GRUPOS_MACROS: Record<string, { kcal: number; cho: number; lip: number; pr
   leches_vegetales:   { kcal: 80,  cho: 10,  lip: 2,   prot: 1 },
   lacteos_soya:       { kcal: 80,  cho: 9,   lip: 4,   prot: 6 },
   semillas_chia:      { kcal: 37,  cho: 2,   lip: 2,   prot: 1.5 },
+  // De las planillas de la nutricionista: ~10 g de linaza/chía/nueces y 1 scoop (~30 g) de proteína
+  omega_3:            { kcal: 50,  cho: 1,   lip: 4,   prot: 2 },
+  suplemento_proteico:{ kcal: 120, cho: 2.5, lip: 1.5, prot: 24 },
   azucares:           { kcal: 20,  cho: 5,   lip: 0,   prot: 0 },
 }
 
@@ -33,6 +36,7 @@ const NOMBRES_GRUPOS: Record<string, string> = {
   carnes_bg: 'Carnes BG', otros_proteicos: 'Otros Proteicos', aceite_grasas: 'Aceite y Grasas',
   alim_ricos_lipidos: 'Ricos en Lípidos', leches_vegetales: 'Leches Vegetales',
   lacteos_soya: 'Lácteos de Soya', semillas_chia: 'Semillas Chía', azucares: 'Azúcares',
+  omega_3: 'Omega 3', suplemento_proteico: 'Suplemento Proteico',
 }
 
 const CATEGORIAS = ['General', 'Desayuno', 'Almuerzo', 'Cena', 'Colación', 'Postre', 'Snack', 'Bebida', 'Vegetariano', 'Vegano']

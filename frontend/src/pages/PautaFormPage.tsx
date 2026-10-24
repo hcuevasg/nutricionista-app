@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api, apiErrorMessage } from '../api/client'
+import { isPlanillaEntry, isPlanillaMenu, type OpcionPlanilla } from '../utils/menuOpciones'
 import { useToast } from '../context/ToastContext'
 import Layout from '../components/Layout'
 import { isMale } from '../utils/calculations'
@@ -25,14 +26,17 @@ const GRUPOS_MACROS: Record<string, { kcal: number; cho: number; lip: number; pr
   leches_vegetales:   { kcal: 80,  cho: 10,  lip: 2,   prot: 1 },
   lacteos_soya:       { kcal: 80,  cho: 9,   lip: 4,   prot: 6 },
   semillas_chia:      { kcal: 37,  cho: 2,   lip: 2,   prot: 1.5 },
+  // De las planillas de la nutricionista: ~10 g de linaza/chía/nueces y 1 scoop (~30 g) de proteína
+  omega_3:            { kcal: 50,  cho: 1,   lip: 4,   prot: 2 },
+  suplemento_proteico:{ kcal: 120, cho: 2.5, lip: 1.5, prot: 24 },
   azucares:           { kcal: 20,  cho: 5,   lip: 0,   prot: 0 },
 }
 
 const GRUPOS_POR_PAUTA: Record<string, string[]> = {
-  omnivoro:    ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','carnes_ag','carnes_bg','aceite_grasas','alim_ricos_lipidos','azucares'],
-  ovolacto:   ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','lacteos_soya','semillas_chia','azucares'],
-  vegano:      ['cereales','verduras_cg','verduras_lc','frutas','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','lacteos_soya','semillas_chia','azucares'],
-  vegetariano: ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','azucares'],
+  omnivoro:    ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','carnes_ag','carnes_bg','otros_proteicos','aceite_grasas','alim_ricos_lipidos','omega_3','suplemento_proteico','azucares'],
+  ovolacto:   ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','lacteos_soya','semillas_chia','omega_3','suplemento_proteico','azucares'],
+  vegano:      ['cereales','verduras_cg','verduras_lc','frutas','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','lacteos_soya','semillas_chia','omega_3','suplemento_proteico','azucares'],
+  vegetariano: ['cereales','verduras_cg','verduras_lc','frutas','lacteos_ag','lacteos_mg','lacteos_bg','legumbres','otros_proteicos','aceite_grasas','alim_ricos_lipidos','leches_vegetales','omega_3','suplemento_proteico','azucares'],
   renal:       ['cereales','verduras_cg','verduras_lc','frutas','lacteos_bg','carnes_bg','aceite_grasas','azucares'],
   diabetico:   ['cereales','verduras_cg','verduras_lc','frutas','lacteos_mg','lacteos_bg','legumbres','carnes_bg','otros_proteicos','aceite_grasas','alim_ricos_lipidos'],
   hipocalorico:['cereales','verduras_cg','verduras_lc','frutas','lacteos_bg','legumbres','carnes_bg','otros_proteicos','aceite_grasas'],
@@ -45,6 +49,7 @@ const NOMBRES_GRUPOS: Record<string, string> = {
   carnes_bg: 'Carnes BG', otros_proteicos: 'Otros Proteicos', aceite_grasas: 'Aceite y Grasas',
   alim_ricos_lipidos: 'Ricos en Lípidos', leches_vegetales: 'Leches Vegetales',
   lacteos_soya: 'Lácteos de Soya', semillas_chia: 'Semillas Chía', azucares: 'Azúcares',
+  omega_3: 'Omega 3', suplemento_proteico: 'Suplemento Proteico',
 }
 
 const TIEMPOS_COMIDA = [
@@ -133,6 +138,56 @@ function opcionTotals(items: MenuOpcion) {
       return { kcal: +(acc.kcal + m.kcal).toFixed(1), prot: +(acc.prot + m.prot).toFixed(1), cho: +(acc.cho + m.cho).toFixed(1), lip: +(acc.lip + m.lip).toFixed(1) }
     },
     { kcal: 0, prot: 0, cho: 0, lip: 0 }
+  )
+}
+
+/** Editor del menú importado de las planillas: N opciones con plato y alimentos en texto. */
+function PlanillaMenuEditor({ menu, tiempos, onChange }: {
+  menu: Record<string, unknown>
+  tiempos: { key: string; label: string }[]
+  onChange: (tiempo: string, opciones: OpcionPlanilla[]) => void
+}) {
+  const styles = [
+    { box: 'bg-primary/5 border border-primary/10', label: 'text-primary' },
+    { box: 'bg-terracotta/5 border border-terracotta/10', label: 'text-terracotta' },
+    { box: 'bg-gray-50 border border-gray-200', label: 'text-gray-600' },
+  ]
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      <p className="text-xs text-text-muted">Menú de la planilla: ajusta el plato o los alimentos y guarda los cambios.</p>
+      {tiempos.filter(({ key }) => isPlanillaEntry(menu[key])).map(({ key, label }) => {
+        const opciones = (menu[key] as { opciones: OpcionPlanilla[] }).opciones
+        const update = (i: number, change: Partial<OpcionPlanilla>) =>
+          onChange(key, opciones.map((o, j) => (j === i ? { ...o, ...change } : o)))
+        return (
+          <div key={key} className="border border-border rounded-lg overflow-hidden">
+            <div className="bg-primary/5 px-3 py-2">
+              <span className="text-sm font-bold text-primary">{label}</span>
+            </div>
+            <div className={`p-3 grid gap-3 ${opciones.length >= 3 ? 'lg:grid-cols-3' : 'md:grid-cols-2'}`}>
+              {opciones.map((op, i) => (
+                <div key={i} className={`rounded-lg p-2 space-y-1 ${styles[i % 3].box}`}>
+                  <span className={`text-xs font-bold block ${styles[i % 3].label}`}>Opción {i + 1}</span>
+                  <input value={op.plato ?? ''} onChange={e => update(i, { plato: e.target.value })}
+                    placeholder="Nombre del plato"
+                    className="w-full text-xs font-semibold uppercase text-gray-800 bg-transparent border border-transparent focus:border-border focus:bg-white rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary" />
+                  {op.lineas.map((l, j) => (
+                    <div key={j} className="flex items-start gap-1">
+                      {l.porcion && <span className="text-[10px] leading-tight text-text-muted pt-1 w-20 flex-shrink-0">{l.porcion}</span>}
+                      <textarea value={l.texto} rows={Math.max(1, Math.ceil(l.texto.length / 30))}
+                        onChange={e => update(i, {
+                          lineas: op.lineas.map((x, k) => (k === j ? { ...x, texto: e.target.value } : x)),
+                        })}
+                        className="flex-1 min-w-0 resize-none text-xs leading-snug text-gray-700 bg-transparent border border-transparent focus:border-border focus:bg-white rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -1031,7 +1086,7 @@ export default function PautaFormPage() {
           {(isView || isEdit) && (Object.keys(menu).length > 0 || generatingMenu) && (
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <h3 className="text-sm font-bold text-primary uppercase tracking-wide">Ideas de Menú — IA</h3>
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wide">{isPlanillaMenu(menu) ? 'Menú' : 'Ideas de Menú — IA'}</h3>
                 <div className="flex items-center gap-3">
                   <button onClick={handleSaveMenu} disabled={savingMenu || generatingMenu}
                     className="text-xs text-white bg-primary hover:bg-primary-dark px-3 py-1 rounded disabled:opacity-50">
@@ -1055,6 +1110,14 @@ export default function PautaFormPage() {
                   </svg>
                   {sseStatus || 'Consultando IA...'}
                 </div>
+              ) : isPlanillaMenu(menu) ? (
+                <PlanillaMenuEditor
+                  menu={menu as Record<string, unknown>}
+                  tiempos={TIEMPOS_COMIDA}
+                  onChange={(tiempo, opciones) => setMenu(prev => ({
+                    ...prev, [tiempo]: { ...(prev[tiempo] ?? {}), opciones } as unknown as typeof prev[string],
+                  }))}
+                />
               ) : isStructuredMenu(menu) ? (
                 <div className="grid grid-cols-1 gap-4">
                   <p className="text-xs text-text-muted">Edita las cantidades (g/ml) directamente y guarda los cambios.</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { opcionesParaMostrar } from '../utils/menuOpciones'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 interface PortalInfo {
@@ -281,7 +282,7 @@ export default function PortalPage() {
 
         {activeTab === 'menu' && (() => {
           const menuRaw = latestPauta?.menu_json
-          let menuData: Record<string, { opcion1?: string; opcion2?: string }> = {}
+          let menuData: Record<string, unknown> = {}
           try { if (menuRaw) menuData = JSON.parse(menuRaw) } catch {}
           const tiempos = ['desayuno','colacion1','almuerzo','colacion2','once','cena']
           const labels: Record<string, string> = { desayuno:'Desayuno', colacion1:'Colación 1', almuerzo:'Almuerzo', colacion2:'Colación 2', once:'Once', cena:'Cena' }
@@ -294,17 +295,21 @@ export default function PortalPage() {
             <div className="space-y-3">
               {entries.map(t => {
                 const entry = menuData[t] as Record<string, unknown>
-                const fmt = (op: unknown) => {
-                  if (!op || op === '') return null
-                  if (typeof op === 'string') return op
-                  if (Array.isArray(op)) return op.map((item: Record<string, unknown>) => `${item.nombre ?? item.alimento ?? ''} ${item.cantidad ?? ''}${item.unidad ? ' (' + item.unidad + ')' : item.medida ? ' (' + item.medida + ')' : ''}`).filter(Boolean).join(', ')
-                  return null
-                }
+                const opciones = opcionesParaMostrar(entry)
                 return (
                   <div key={t} className="bg-white rounded-xl border border-[#E5EAE7] p-4">
                     <h4 className="font-bold text-[#4b7c60] mb-2">{labels[t]}</h4>
-                    {fmt(entry.opcion1) && <p className="text-sm text-gray-700 mb-1"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 1:</span>{fmt(entry.opcion1)}</p>}
-                    {fmt(entry.opcion2) && <p className="text-sm text-gray-700"><span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción 2:</span>{fmt(entry.opcion2)}</p>}
+                    <div className="space-y-2">
+                      {opciones.map((op, i) => (
+                        <div key={i} className="text-sm text-gray-700">
+                          <span className="font-semibold text-[#6b7280] text-xs uppercase mr-1">Opción {i + 1}{op.titulo ? ':' : ''}</span>
+                          {op.titulo && <span className="font-semibold text-gray-800">{op.titulo}</span>}
+                          <p className={op.titulo ? 'text-gray-600 mt-0.5' : 'inline'}>
+                            {op.lineas.map(l => l.derecha && !op.titulo ? `${l.izquierda} ${l.derecha}` : l.izquierda).join(op.titulo ? ' · ' : ', ')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                     {!!entry.receta && <p className="text-sm text-[#c06c52] mt-1">🍳 {(entry.receta as Record<string, unknown>).nombre as string}</p>}
                   </div>
                 )

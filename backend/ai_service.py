@@ -35,6 +35,7 @@ NOMBRES_GRUPOS = {
     "aceite_grasas": "Aceite y Grasas", "alim_ricos_lipidos": "Ricos en Lípidos",
     "leches_vegetales": "Leches Vegetales", "lacteos_soya": "Lácteos de Soya",
     "semillas_chia": "Semillas Chía", "azucares": "Azúcares",
+    "omega_3": "Omega 3", "suplemento_proteico": "Suplemento Proteico",
 }
 
 TIPO_LABELS = {

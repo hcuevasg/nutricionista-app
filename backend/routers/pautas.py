@@ -35,6 +35,9 @@ _GRUPOS_MACROS = {
     "leches_vegetales":   {"kcal": 80,  "cho": 10,  "lip": 2,   "prot": 1},
     "lacteos_soya":       {"kcal": 80,  "cho": 9,   "lip": 4,   "prot": 6},
     "semillas_chia":      {"kcal": 37,  "cho": 2,   "lip": 2,   "prot": 1.5},
+    # De las planillas de la nutricionista: ~10 g de linaza/chía/nueces y 1 scoop (~30 g) de proteína
+    "omega_3":            {"kcal": 50,  "cho": 1,   "lip": 4,   "prot": 2},
+    "suplemento_proteico": {"kcal": 120, "cho": 2.5, "lip": 1.5, "prot": 24},
     "azucares":           {"kcal": 20,  "cho": 5,   "lip": 0,   "prot": 0},
 }
 

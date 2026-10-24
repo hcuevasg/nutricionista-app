@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { api, apiErrorMessage } from '../api/client'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import { opcionesParaMostrar } from '../utils/menuOpciones'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,16 +45,6 @@ interface Pauta {
   notes?: string
 }
 
-interface MenuItem {
-  nombre: string
-  cantidad: number
-  unidad: string
-  kcal_100?: number
-  prot_100?: number
-  cho_100?: number
-  lip_100?: number
-}
-
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const C_PRIMARY = '#4b7c60'
@@ -86,6 +77,7 @@ const NOMBRES_GRUPOS: Record<string, string> = {
   carnes_bg: 'Carnes BG', otros_proteicos: 'Otros Proteicos', aceite_grasas: 'Aceite/Grasas',
   alim_ricos_lipidos: 'Ricos en Lípidos', leches_vegetales: 'Leches Vegetales',
   lacteos_soya: 'Lácteos Soya', semillas_chia: 'Semillas Chía', azucares: 'Azúcares',
+  omega_3: 'Omega 3', suplemento_proteico: 'Suplemento Proteico',
 }
 
 const SEX_LABELS: Record<string, string> = { M: 'Masculino', F: 'Femenino' }
@@ -206,7 +198,7 @@ export default function PautaReportPage() {
     lacteos_ag: 110, lacteos_mg: 85, lacteos_bg: 70, legumbres: 170,
     carnes_ag: 120, carnes_bg: 65, otros_proteicos: 75, aceite_grasas: 180,
     alim_ricos_lipidos: 175, leches_vegetales: 80, lacteos_soya: 80,
-    semillas_chia: 37, azucares: 20,
+    semillas_chia: 37, azucares: 20, omega_3: 50, suplemento_proteico: 120,
   }
   const kcalPorTiempo: Record<string, number> = {}
   let totalKcalDistribuida = 0
@@ -375,47 +367,31 @@ export default function PautaReportPage() {
                 <div className="space-y-4">
                   {TIEMPOS.filter(({ key }) => menu[key]).map(({ key, label }) => {
                     const entry = menu[key] as Record<string, unknown>
-                    const op1 = entry?.opcion1
-                    const op2 = entry?.opcion2
+                    const opciones = opcionesParaMostrar(entry)
                     const receta = entry?.receta as { nombre: string; categoria?: string } | undefined
                     return (
                       <div key={key} className="border border-slate-100 rounded-xl overflow-hidden">
                         <div className="px-4 py-2" style={{ backgroundColor: `${C_PRIMARY}10` }}>
                           <span className="text-sm font-bold" style={{ color: C_PRIMARY }}>{label}</span>
                         </div>
-                        <div className="p-4 grid grid-cols-2 gap-4">
-                          {/* Opción 1 */}
-                          <div className="rounded-lg p-3" style={{ backgroundColor: `${C_PRIMARY}08`, border: `1px solid ${C_PRIMARY}20` }}>
-                            <p className="text-xs font-bold mb-2" style={{ color: C_PRIMARY }}>Opción 1</p>
-                            {Array.isArray(op1) ? (
-                              <div className="space-y-1">
-                                {(op1 as MenuItem[]).map((item, i) => (
-                                  <div key={i} className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-700 truncate flex-1">{item.nombre}</span>
-                                    <span className="text-slate-400 ml-2 flex-shrink-0">{item.cantidad}{item.unidad}</span>
-                                  </div>
-                                ))}
+                        <div className={`p-4 grid gap-4 ${opciones.length >= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          {opciones.map((op, i) => {
+                            const color = [C_PRIMARY, C_TERRA, C_SAGE][i % 3]
+                            return (
+                              <div key={i} className="rounded-lg p-3" style={{ backgroundColor: `${color}08`, border: `1px solid ${color}20` }}>
+                                <p className="text-xs font-bold mb-1" style={{ color }}>Opción {i + 1}</p>
+                                {op.titulo && <p className="text-xs font-semibold text-slate-800 mb-2 uppercase tracking-wide">{op.titulo}</p>}
+                                <div className="space-y-1">
+                                  {op.lineas.map((l, j) => (
+                                    <div key={j} className="flex items-start justify-between gap-2 text-xs">
+                                      <span className="text-slate-700 flex-1">{l.izquierda}</span>
+                                      {l.derecha && <span className="text-slate-400 flex-shrink-0">{l.derecha}</span>}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            ) : (
-                              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{String(op1 ?? '')}</p>
-                            )}
-                          </div>
-                          {/* Opción 2 */}
-                          <div className="rounded-lg p-3" style={{ backgroundColor: `${C_TERRA}08`, border: `1px solid ${C_TERRA}20` }}>
-                            <p className="text-xs font-bold mb-2" style={{ color: C_TERRA }}>Opción 2</p>
-                            {Array.isArray(op2) ? (
-                              <div className="space-y-1">
-                                {(op2 as MenuItem[]).map((item, i) => (
-                                  <div key={i} className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-700 truncate flex-1">{item.nombre}</span>
-                                    <span className="text-slate-400 ml-2 flex-shrink-0">{item.cantidad}{item.unidad}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{String(op2 ?? '')}</p>
-                            )}
-                          </div>
+                            )
+                          })}
                         </div>
                         {/* Receta asignada */}
                         {receta && (
