@@ -52,7 +52,7 @@ async def update_nota(patient_id: int, nota_id: int, req: schemas.NotaEvolucionC
                       current_user: models.Nutritionist = Depends(auth.get_current_user)):
     patient = _owned_patient(db, patient_id, current_user)
     nota = _nota(db, patient_id, nota_id)
-    for key, value in req.model_dump().items():
+    for key, value in req.model_dump(exclude_unset=True).items():
         setattr(nota, key, value)
     db.commit()
     db.refresh(nota)

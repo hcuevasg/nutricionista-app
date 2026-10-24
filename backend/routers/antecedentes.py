@@ -46,7 +46,7 @@ async def create_or_update_antecedentes(
         models.Antecedentes.patient_id == patient_id
     ).first()
     if ant:
-        for key, value in request.model_dump(exclude_unset=False).items():
+        for key, value in request.model_dump(exclude_unset=True).items():
             setattr(ant, key, value)
     else:
         ant = models.Antecedentes(**request.model_dump(), patient_id=patient_id)

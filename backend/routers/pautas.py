@@ -204,7 +204,8 @@ async def update_pauta(
     ).first()
     if not pauta:
         raise HTTPException(status_code=404, detail="Pauta not found")
-    for key, value in request.model_dump().items():
+    # Solo los campos enviados: editar la pauta no borra el menú generado (menu_json)
+    for key, value in request.model_dump(exclude_unset=True).items():
         setattr(pauta, key, value)
     db.commit()
     db.refresh(pauta)

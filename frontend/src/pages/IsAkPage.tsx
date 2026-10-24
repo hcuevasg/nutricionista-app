@@ -279,27 +279,30 @@ export default function IsAkPage() {
       next_eval_date: form.next_eval_date || null,
     }
 
-    if (form.isak_level === 'ISAK 2') {
-      Object.assign(payload, {
-        pectoral_mm: pf(form.pectoral_mm), axillary_mm: pf(form.axillary_mm),
-        front_thigh_mm: pf(form.front_thigh_mm),
-        head_cm: pf(form.head_cm), neck_cm: pf(form.neck_cm),
-        chest_cm: pf(form.chest_cm), ankle_min_cm: pf(form.ankle_min_cm),
-        biacromial_cm: pf(form.biacromial_cm), biiliocrestal_cm: pf(form.biiliocrestal_cm),
-        ap_chest_cm: pf(form.ap_chest_cm), transv_chest_cm: pf(form.transv_chest_cm),
-        foot_length_cm: pf(form.foot_length_cm),
-        ankle_bimalleolar_cm: pf(form.ankle_bimalleolar_cm),
-        acromion_radial_cm: pf(form.acromion_radial_cm),
-        radial_styloid_cm: pf(form.radial_styloid_cm),
-        iliospinal_height_cm: pf(form.iliospinal_height_cm),
-        trochanter_tibial_cm: pf(form.trochanter_tibial_cm),
-        tibiale_height_cm: pf(form.tibiale_height_cm),
-        arm_span_cm: pf(form.arm_span_cm),
-        somatotype_endo: soma?.endo ?? null,
-        somatotype_meso: soma?.meso ?? null,
-        somatotype_ecto: soma?.ecto ?? null,
-      })
+    const isak2Fields = {
+      pectoral_mm: pf(form.pectoral_mm), axillary_mm: pf(form.axillary_mm),
+      front_thigh_mm: pf(form.front_thigh_mm),
+      head_cm: pf(form.head_cm), neck_cm: pf(form.neck_cm),
+      chest_cm: pf(form.chest_cm), ankle_min_cm: pf(form.ankle_min_cm),
+      biacromial_cm: pf(form.biacromial_cm), biiliocrestal_cm: pf(form.biiliocrestal_cm),
+      ap_chest_cm: pf(form.ap_chest_cm), transv_chest_cm: pf(form.transv_chest_cm),
+      foot_length_cm: pf(form.foot_length_cm),
+      ankle_bimalleolar_cm: pf(form.ankle_bimalleolar_cm),
+      acromion_radial_cm: pf(form.acromion_radial_cm),
+      radial_styloid_cm: pf(form.radial_styloid_cm),
+      iliospinal_height_cm: pf(form.iliospinal_height_cm),
+      trochanter_tibial_cm: pf(form.trochanter_tibial_cm),
+      tibiale_height_cm: pf(form.tibiale_height_cm),
+      arm_span_cm: pf(form.arm_span_cm),
+      somatotype_endo: soma?.endo ?? null,
+      somatotype_meso: soma?.meso ?? null,
+      somatotype_ecto: soma?.ecto ?? null,
     }
+    // El backend solo actualiza los campos enviados: en ISAK 1 se mandan en null
+    // para limpiar mediciones ISAK 2 de una evaluación que cambió de nivel
+    Object.assign(payload, form.isak_level === 'ISAK 2'
+      ? isak2Fields
+      : Object.fromEntries(Object.keys(isak2Fields).map(k => [k, null])))
 
     try {
       const saved = editingEvalId

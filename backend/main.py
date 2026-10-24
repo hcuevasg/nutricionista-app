@@ -32,20 +32,41 @@ from auth import is_production
 from timeutil import utcnow
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    print("🚀 NutriApp Backend Starting...")
+DB_WAIT_SECONDS = 60
+
+
+def _database_ready() -> bool:
     from sqlalchemy import text
-    # Si la base no responde, no se intentan las ~70 migraciones una por una:
-    # el arranque se demoraría más que el healthcheck de Railway.
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-    except Exception as e:
-        print(f"⚠️ Base de datos no disponible, se omiten tablas y migraciones: {e}")
-        yield
-        return
+        return True
+    except Exception:
+        return False
+
+
+async def _wait_for_database(seconds: float) -> bool:
+    """Railway puede levantar el backend antes de que Postgres acepte conexiones:
+    se reintenta en vez de arrancar sin migraciones ni cifrado."""
+    deadline = asyncio.get_running_loop().time() + seconds
+    while True:
+        if await asyncio.to_thread(_database_ready):
+            return True
+        if asyncio.get_running_loop().time() >= deadline:
+            return False
+        await asyncio.sleep(3)
+
+
+async def _prepare_when_database_returns() -> None:
+    """Si la base no estaba al arrancar, prepara el esquema apenas vuelva."""
+    while not await _wait_for_database(30):
+        print("⚠️ La base de datos sigue sin responder; se reintenta")
+    await asyncio.to_thread(_prepare_database)
+
+
+def _prepare_database() -> None:
+    """Tablas, migraciones (heredadas + Alembic), cifrado de datos y catálogo de alimentos."""
+    from sqlalchemy import text
     try:
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
@@ -290,6 +311,18 @@ async def lifespan(app: FastAPI):
     finally:
         seed_db.close()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("🚀 NutriApp Backend Starting...")
+    prepare_task = None
+    if await _wait_for_database(DB_WAIT_SECONDS):
+        await asyncio.to_thread(_prepare_database)
+    else:
+        print("⚠️ Base de datos no disponible: el esquema se preparará cuando vuelva")
+        prepare_task = asyncio.create_task(_prepare_when_database_returns())
+
     # Backups automáticos cifrados a Cloudflare R2 (solo si están configurados)
     backup_task = None
     if backup_r2.configured():
@@ -299,8 +332,9 @@ async def lifespan(app: FastAPI):
         print("ℹ️ Backups automáticos a R2 desactivados (faltan variables R2_* / BACKUP_ENCRYPTION_KEY)")
 
     yield
-    if backup_task:
-        backup_task.cancel()
+    for task in (backup_task, prepare_task):
+        if task:
+            task.cancel()
     print("🛑 NutriApp Backend Shutting down...")
 
 

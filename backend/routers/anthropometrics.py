@@ -119,7 +119,8 @@ async def update_anthropometric(
     if not anthropometric:
         raise HTTPException(status_code=404, detail="Evaluation not found")
 
-    for key, value in request.model_dump().items():
+    # Solo los campos enviados: un campo que el cliente no manda nunca se borra
+    for key, value in request.model_dump(exclude_unset=True).items():
         setattr(anthropometric, key, value)
 
     db.commit()

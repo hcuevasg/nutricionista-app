@@ -78,12 +78,10 @@ def update_receta(
 ):
     receta = _get_receta_or_404(receta_id, current_user.id, db)
 
-    # Update basic fields
-    receta.nombre = data.nombre
-    receta.descripcion = data.descripcion
-    receta.categoria = data.categoria
-    receta.porciones_rinde = data.porciones_rinde
-    receta.notas = data.notas
+    # Update basic fields (solo los enviados)
+    for field in ("nombre", "descripcion", "categoria", "porciones_rinde", "notas"):
+        if field in data.model_fields_set:
+            setattr(receta, field, getattr(data, field))
 
     # Replace ingredientes if provided
     if data.ingredientes is not None:

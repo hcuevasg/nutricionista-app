@@ -21,7 +21,8 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 
 def _serialize(data: dict) -> dict:
     """Serialize list fields to JSON strings for DB storage."""
-    data['allergies'] = _json.dumps(data.get('allergies') or [])
+    if 'allergies' in data:
+        data['allergies'] = _json.dumps(data.get('allergies') or [])
     return data
 
 
@@ -92,7 +93,8 @@ async def update_patient(
     ).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-    data = _serialize(request.model_dump())
+    # Solo los campos enviados: un campo que el cliente no manda nunca se borra
+    data = _serialize(request.model_dump(exclude_unset=True))
     for key, value in data.items():
         setattr(patient, key, value)
     db.commit()
