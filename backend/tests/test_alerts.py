@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 import models
 from tests.test_ai import PAUTA
 from timeutil import utcnow
+from tests.conftest import next_rut
 
 
 def _register(client, name):
@@ -13,7 +14,7 @@ def _register(client, name):
 
 
 def _patient(client, h, name):
-    return client.post("/patients", json={"name": name, "sex": "F"}, headers=h).json()["id"]
+    return client.post("/patients", json={"rut": next_rut(), "name": name, "sex": "F"}, headers=h).json()["id"]
 
 
 def _eval(client, h, pid, d, nxt=None):

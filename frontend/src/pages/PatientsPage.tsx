@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { SkeletonTableRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
+import { formatRut } from '../utils/rut'
 import { api } from '../api/client'
 
 interface Patient {
   id: number
   name: string
+  rut?: string | null
   birth_date?: string
   sex?: string
   email?: string
@@ -81,7 +83,7 @@ export default function PatientsPage() {
         <div className="relative w-full sm:w-72">
           <input
             type="text"
-            placeholder="Buscar por nombre, email o teléfono..."
+            placeholder="Buscar por nombre, RUT, email o teléfono..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="pl-9 pr-4 py-2 w-full border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -143,7 +145,10 @@ export default function PatientsPage() {
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
                           {p.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-800">{p.name}</span>
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">{p.name}</span>
+                          {p.rut && <div className="text-xs text-text-muted">{formatRut(p.rut)}</div>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-text-muted">

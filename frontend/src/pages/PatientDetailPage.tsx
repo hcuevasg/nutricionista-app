@@ -7,6 +7,7 @@ import Layout from '../components/Layout'
 import IsAkEvolutionChart from '../components/IsAkEvolutionChart'
 import PautasEvolutionChart from '../components/PautasEvolutionChart'
 import { bmiRaw, bmiCategory, calcBmi } from '../utils/calculations'
+import { formatRut } from '../utils/rut'
 
 const ALLERGY_LABELS: Record<string, string> = {
   gluten:       'Gluten',
@@ -34,6 +35,7 @@ interface Patient {
   occupation?: string
   notes?: string
   allergies?: string[]
+  rut?: string | null
   consent_at?: string | null
   consent_source?: string | null
   created_at: string
@@ -269,6 +271,7 @@ export default function PatientDetailPage() {
                 </span>
               </div>
               <p className="text-text-muted font-medium mt-1">
+                {patient.rut ? `RUT ${formatRut(patient.rut)} · ` : ''}
                 {age != null ? `${age} años` : '—'} · {patient.sex}
                 {patient.id != null ? ` · ID: #PT-${String(patient.id).padStart(5, '0')}` : ''}
               </p>

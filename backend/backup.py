@@ -2,7 +2,7 @@
 
 La restauración nunca borra ni sobrescribe: crea registros nuevos con IDs
 nuevos y omite pacientes y recetas que ya existen (mismo nombre, y para
-pacientes también misma fecha de nacimiento), así importar dos veces el mismo
+pacientes también misma fecha de nacimiento o mismo RUT), así importar dos veces el mismo
 archivo no duplica datos. Los enlaces del portal no se exportan: restaurarlos
 podría reactivar accesos que el profesional ya revocó. Los planes
 alimenticios ("meal_plans") de backups antiguos se ignoran: el módulo se
@@ -111,18 +111,21 @@ def restore_data(db: Session, user: models.Nutritionist, data: Dict[str, Any]) -
 
     counts = {k: 0 for k in ("pacientes", "pacientes_omitidos", "evaluaciones", "pautas", "notas", "examenes",
                              "antecedentes", "citas", "recetas", "recetas_omitidas")}
-    existing = {(p.name or "", p.birth_date or "") for p in
-                db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()}
+    own = db.query(models.Patient).filter(models.Patient.nutritionist_id == user.id).all()
+    existing = {(p.name or "", p.birth_date or "") for p in own}
+    existing_ruts = {p.rut for p in own if p.rut}
     try:
         for pd in data["patients"]:
             key = (pd.get("name") or "", pd.get("birth_date") or "")
-            if key in existing:
+            if key in existing or (pd.get("rut") and pd["rut"] in existing_ruts):
                 counts["pacientes_omitidos"] += 1
                 continue
             patient = _build(models.Patient, pd, nutritionist_id=user.id)
             db.add(patient)
             db.flush()
             existing.add(key)
+            if patient.rut:
+                existing_ruts.add(patient.rut)
             counts["pacientes"] += 1
             for a in pd.get("anthropometrics") or []:
                 db.add(_build(models.Anthropometric, a, patient_id=patient.id))

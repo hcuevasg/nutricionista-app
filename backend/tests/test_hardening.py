@@ -5,6 +5,7 @@ import io
 from PIL import Image
 
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 
 def _png(size=(300, 120)):
@@ -26,9 +27,9 @@ def test_request_body_size_limit(client):
 
 def test_text_longer_than_column_is_rejected(client):
     h = _register(client, "hard_len")
-    assert client.post("/patients", json={"name": "N" * 256, "sex": "F"}, headers=h).status_code == 422
-    assert client.post("/patients", json={"name": "Ana", "sex": "F", "phone": "9" * 21}, headers=h).status_code == 422
-    assert client.post("/patients", json={"name": "Ana", "sex": "F", "phone": "+56 9 1234 5678"}, headers=h).status_code == 200
+    assert client.post("/patients", json={"rut": next_rut(), "name": "N" * 256, "sex": "F"}, headers=h).status_code == 422
+    assert client.post("/patients", json={"rut": next_rut(), "name": "Ana", "sex": "F", "phone": "9" * 21}, headers=h).status_code == 422
+    assert client.post("/patients", json={"rut": next_rut(), "name": "Ana", "sex": "F", "phone": "+56 9 1234 5678"}, headers=h).status_code == 200
 
 
 def test_logo_is_validated_and_reencoded(client):
@@ -58,6 +59,6 @@ def test_security_headers_and_cors(client):
 
 
 def test_unhandled_error_keeps_cors_headers(client):
-    r = client.post("/patients", json={"name": "A" * 300, "sex": "F"},
+    r = client.post("/patients", json={"rut": next_rut(), "name": "A" * 300, "sex": "F"},
                     headers={"Origin": "https://nutricionista-app.vercel.app"})
     assert r.headers.get("access-control-allow-origin") == "https://nutricionista-app.vercel.app"

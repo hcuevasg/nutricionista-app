@@ -39,10 +39,13 @@ class Nutritionist(Base):
 class Patient(Base):
     """Paciente."""
     __tablename__ = "patients"
+    # Un RUT no se repite dentro de la cuenta de un profesional (varios NULL sí)
+    __table_args__ = (Index("uq_patients_nutritionist_rut", "nutritionist_id", "rut", unique=True),)
 
     id = Column(Integer, primary_key=True, index=True)
     nutritionist_id = Column(Integer, ForeignKey("nutritionists.id"), index=True)
     name = Column(String(255))
+    rut = Column(String(12), nullable=True)  # normalizado: 12345678-K (módulo 11 validado)
     birth_date = Column(String)
     age = Column(Integer, nullable=True)
     sex = Column(String(20))  # M/F or Masculino/Femenino

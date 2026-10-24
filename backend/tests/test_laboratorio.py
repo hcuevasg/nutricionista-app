@@ -1,10 +1,11 @@
 """Exámenes de laboratorio."""
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 
 def test_examenes_rangos_estado_y_aislamiento(client):
     a, b = _register(client, "lab_a"), _register(client, "lab_b")
-    pid = client.post("/patients", json={"name": "Con exámenes", "sex": "Femenino"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Con exámenes", "sex": "Femenino"}, headers=a).json()["id"]
     cat = {c["key"]: c for c in client.get(f"/laboratorio/{pid}/catalogo", headers=a).json()}
     assert cat["hdl"]["ref_min"] == 50 and cat["ferritina"]["ref_max"] == 150   # rangos de mujer
     assert client.get(f"/laboratorio/{pid}/catalogo", headers=b).status_code == 404

@@ -3,6 +3,7 @@ recursos de otro en ningún router."""
 import uuid
 
 import pytest
+from tests.conftest import next_rut
 
 PAUTA = {
     "name": "Pauta A", "date": "2026-03-01", "tipo_pauta": "omnivoro",
@@ -62,7 +63,7 @@ def tenants(client):
         assert resp.status_code in (200, 201), f"{url}: {resp.status_code} {resp.text}"
         return resp.json()
 
-    pid = post("/patients", {"name": "Paciente A", "sex": "F", "height_cm": 160, "weight_kg": 60})["id"]
+    pid = post("/patients", {"name": "Paciente A", "rut": next_rut(), "sex": "F", "height_cm": 160, "weight_kg": 60})["id"]
     ids = {
         "patient": pid,
         "eval": post(f"/anthropometrics?patient_id={pid}",
@@ -146,7 +147,7 @@ def test_other_tenant_listings_exclude_foreign_data(tenants):
 def test_portal_links_list_filter_and_revoke(tenants):
     client, a, b, ids = tenants
     pid = ids["patient"]
-    other = client.post("/patients", json={"name": "Otro", "sex": "F"}, headers=a).json()["id"]
+    other = client.post("/patients", json={"rut": next_rut(), "name": "Otro", "sex": "F"}, headers=a).json()["id"]
     client.post("/portal/tokens", json={"patient_id": other}, headers=a)
     links = client.get("/portal/tokens", params={"patient_id": pid}, headers=a).json()
     assert [l["patient_id"] for l in links] == [pid]
@@ -258,7 +259,7 @@ def test_cannot_link_own_appointment_to_foreign_patient(tenants):
 def test_server_fields_cannot_be_overridden(tenants):
     """Campos que controla el servidor se ignoran aunque el cliente los envíe."""
     client, a, b, ids = tenants
-    created = client.post("/patients", json={"name": "Propio", "sex": "F", "id": ids["patient"],
+    created = client.post("/patients", json={"rut": next_rut(), "name": "Propio", "sex": "F", "id": ids["patient"],
                                              "nutritionist_id": 999, "consent_at": "2026-01-01T00:00:00"},
                           headers=b).json()
     assert created["id"] != ids["patient"] and created["nutritionist_id"] != 999

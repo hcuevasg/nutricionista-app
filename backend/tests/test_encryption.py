@@ -7,6 +7,7 @@ import crypto_fields
 from database import Base
 from tests.conftest import engine_test
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 KEY = Fernet.generate_key().decode()
 
@@ -23,7 +24,7 @@ def _raw(sql, **params):
 
 def test_health_data_is_stored_encrypted(client, encryption_on):
     h = _register(client, "enc_user")
-    pid = client.post("/patients", json={"name": "Cifrada", "sex": "F", "notes": "Diabetes tipo 2",
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Cifrada", "sex": "F", "notes": "Diabetes tipo 2",
                                          "address": "Calle Falsa 123"}, headers=h).json()["id"]
     client.post(f"/notas/{pid}", json={"fecha": "2026-10-01", "subjetivo": "Refiere ansiedad"}, headers=h)
     client.post(f"/antecedentes/{pid}", json={"enfermedades_preexistentes": "Hipotiroidismo"}, headers=h)
@@ -62,7 +63,7 @@ def test_existing_plaintext_is_encrypted_on_startup(tmp_path, monkeypatch):
 def test_key_rotation(client, db, monkeypatch):
     monkeypatch.setenv("DATA_ENCRYPTION_KEY", KEY)
     h = _register(client, "enc_rot")
-    pid = client.post("/patients", json={"name": "Rotada", "sex": "F", "notes": "secreto"}, headers=h).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Rotada", "sex": "F", "notes": "secreto"}, headers=h).json()["id"]
     monkeypatch.setenv("DATA_ENCRYPTION_KEY", f"{Fernet.generate_key().decode()},{KEY}")
     db.expire_all()   # releer desde la base con la clave nueva primero
     assert client.get(f"/patients/{pid}", headers=h).json()["notes"] == "secreto"

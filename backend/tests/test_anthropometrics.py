@@ -1,4 +1,5 @@
 """Tests for anthropometrics endpoints."""
+from tests.conftest import next_rut
 
 PATIENT = {"name": "Test ISAK", "birth_date": "1985-01-01", "sex": "M"}
 
@@ -21,7 +22,7 @@ ISAK1 = {
 
 
 def _create_patient(auth_client):
-    return auth_client.post("/patients", json=PATIENT).json()
+    return auth_client.post("/patients", json={**PATIENT, "rut": next_rut()}).json()
 
 
 def test_create_anthropometric(auth_client):
@@ -75,7 +76,7 @@ def test_age_at_evaluation_date():
 
 
 def test_isak_pdf_with_implausible_values(auth_client):
-    p = auth_client.post("/patients", json={"name": "Datos <raros> & Co", "birth_date": "1990-05-10",
+    p = auth_client.post("/patients", json={"rut": next_rut(), "name": "Datos <raros> & Co", "birth_date": "1990-05-10",
                                             "sex": "Masculino"}).json()
     bad = {**ISAK1, "triceps_mm": 1.0, "hip_glute_cm": 1.0, "fat_mass_pct": -3.8,
            "fat_mass_kg": -3.0, "lean_mass_kg": 83.0}
@@ -100,7 +101,7 @@ def test_four_components_and_somatotype_category():
 
 
 def test_isak_pdf_compares_with_previous(auth_client):
-    p = auth_client.post("/patients", json={"name": "Comparación", "birth_date": "1997-03-02",
+    p = auth_client.post("/patients", json={"rut": next_rut(), "name": "Comparación", "birth_date": "1997-03-02",
                                             "sex": "Masculino"}).json()
     first = auth_client.post(f"/anthropometrics?patient_id={p['id']}", json={**ISAK1, "date": "2026-04-12"}).json()
     second = auth_client.post(f"/anthropometrics?patient_id={p['id']}",

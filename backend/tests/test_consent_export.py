@@ -1,10 +1,11 @@
 """Consentimiento del paciente y exportación de la ficha."""
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 
 def test_consent_register_and_revoke(client):
     a, b = _register(client, "cons_a"), _register(client, "cons_b")
-    pid = client.post("/patients", json={"name": "Consentida", "sex": "F"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Consentida", "sex": "F"}, headers=a).json()["id"]
     assert client.get(f"/patients/{pid}", headers=a).json()["consent_at"] is None
     assert client.post(f"/patients/{pid}/consent", json={"accepted": True}, headers=b).status_code == 404
     r = client.post(f"/patients/{pid}/consent", json={"accepted": True}, headers=a).json()
@@ -18,7 +19,7 @@ def test_consent_register_and_revoke(client):
 
 def test_export_patient_record(client):
     a, b = _register(client, "exp_a"), _register(client, "exp_b")
-    pid = client.post("/patients", json={"name": "Exportable", "sex": "M"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Exportable", "sex": "M"}, headers=a).json()["id"]
     client.post(f"/patients/{pid}/antecedentes", json={"diagnosticos": "HTA"}, headers=a)
     assert client.get(f"/patients/{pid}/export", headers=b).status_code == 404
     r = client.get(f"/patients/{pid}/export", headers=a)
@@ -34,7 +35,7 @@ def test_export_patient_record(client):
 
 def test_patient_accepts_consent_from_portal(client):
     a = _register(client, "cons_portal")
-    pid = client.post("/patients", json={"name": "Desde portal", "sex": "F"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Desde portal", "sex": "F"}, headers=a).json()["id"]
     token = client.post("/portal/tokens", json={"patient_id": pid, "days_valid": 30}, headers=a).json()["token"]
     info = client.get(f"/portal/{token}").json()
     assert info["consent_at"] is None and info["current_consent_version"]
@@ -56,7 +57,7 @@ def test_patient_accepts_consent_from_portal(client):
 def test_portal_returns_only_what_the_patient_needs(client):
     from tests.test_ai import PAUTA
     a = _register(client, "portal_min")
-    pid = client.post("/patients", json={"name": "Mínimo", "sex": "F"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Mínimo", "sex": "F"}, headers=a).json()["id"]
     client.post(f"/pautas?patient_id={pid}", json={**PAUTA, "notes": "nota interna"}, headers=a)
     token = client.post("/portal/tokens", json={"patient_id": pid}, headers=a).json()["token"]
     pauta = client.get(f"/portal/{token}/pautas").json()[0]

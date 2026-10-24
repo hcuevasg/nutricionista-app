@@ -19,6 +19,18 @@ from timeutil import utcnow
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 
+def _check_rut_free(db: Session, user: models.Nutritionist, rut_value: str, exclude_id: Optional[int] = None) -> None:
+    """Un mismo RUT no puede estar en dos pacientes de la misma cuenta."""
+    query = db.query(models.Patient.id).filter(
+        models.Patient.nutritionist_id == user.id, models.Patient.rut == rut_value
+    )
+    if exclude_id is not None:
+        query = query.filter(models.Patient.id != exclude_id)
+    if query.first():
+        import rut
+        raise HTTPException(status_code=400, detail=f"Ya existe un paciente con el RUT {rut.format_rut(rut_value)}")
+
+
 def _serialize(data: dict) -> dict:
     """Serialize list fields to JSON strings for DB storage."""
     if 'allergies' in data:
@@ -28,7 +40,7 @@ def _serialize(data: dict) -> dict:
 
 @router.get("", response_model=schemas.PaginatedResponse[schemas.PatientResponse])
 async def list_patients(
-    q: Optional[str] = Query(None, description="Filtrar por nombre, email o teléfono"),
+    q: Optional[str] = Query(None, description="Filtrar por nombre, RUT, email o teléfono"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
@@ -39,8 +51,11 @@ async def list_patients(
     )
     if q:
         like = f"%{q}%"
+        # El RUT se guarda sin puntos: "12.345" también encuentra "12345678-5"
+        rut_like = f"%{q.replace('.', '').strip()}%"
         query = query.filter(
             models.Patient.name.ilike(like) |
+            models.Patient.rut.ilike(rut_like) |
             models.Patient.email.ilike(like) |
             models.Patient.phone.ilike(like)
         )
@@ -55,6 +70,9 @@ async def create_patient(
     db: Session = Depends(get_db),
     current_user: models.Nutritionist = Depends(auth.get_current_user)
 ):
+    if not request.rut:
+        raise HTTPException(status_code=422, detail="El RUT es obligatorio")
+    _check_rut_free(db, current_user, request.rut)
     data = _serialize(request.model_dump())
     patient = models.Patient(**data, nutritionist_id=current_user.id)
     db.add(patient)
@@ -95,6 +113,8 @@ async def update_patient(
         raise HTTPException(status_code=404, detail="Patient not found")
     # Solo los campos enviados: un campo que el cliente no manda nunca se borra
     data = _serialize(request.model_dump(exclude_unset=True))
+    if data.get("rut"):
+        _check_rut_free(db, current_user, data["rut"], exclude_id=patient.id)
     for key, value in data.items():
         setattr(patient, key, value)
     db.commit()

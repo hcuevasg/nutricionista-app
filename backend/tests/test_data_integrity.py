@@ -4,10 +4,11 @@ import asyncio
 import main
 from tests.test_ai import PAUTA
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 
 def _patient(client, h, **extra):
-    return client.post("/patients", json={"name": "Íntegra", "sex": "F", "phone": "+56 9 1111 2222",
+    return client.post("/patients", json={"rut": next_rut(), "name": "Íntegra", "sex": "F", "phone": "+56 9 1111 2222",
                                           "notes": "Hipotiroidismo", "allergies": ["gluten"], **extra},
                        headers=h).json()["id"]
 

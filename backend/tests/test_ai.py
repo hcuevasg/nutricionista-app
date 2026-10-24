@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import ai_service
+from tests.conftest import next_rut
 
 ITEM = {"nombre": "Avena cocida", "cantidad": 180, "unidad": "g",
         "kcal_100": 71, "prot_100": 2.5, "cho_100": 12.0, "lip_100": 1.4}
@@ -149,7 +150,7 @@ def test_model_configurable(monkeypatch):
 
 @pytest.fixture
 def pauta_ids(auth_client):
-    pid = auth_client.post("/patients", json={"name": "IA", "sex": "F"}).json()["id"]
+    pid = auth_client.post("/patients", json={"rut": next_rut(), "name": "IA", "sex": "F"}).json()["id"]
     pauta_id = auth_client.post(f"/pautas?patient_id={pid}", json=PAUTA).json()["id"]
     return pid, pauta_id
 

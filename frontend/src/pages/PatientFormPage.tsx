@@ -3,9 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import { api, apiErrorMessage } from '../api/client'
+import { formatRut, isValidRut } from '../utils/rut'
 
 interface PatientFormData {
   name: string
+  rut: string
   birth_date: string
   sex: string
   height_cm: string
@@ -33,6 +35,7 @@ const ALERGIAS_OPCIONES = [
 
 const EMPTY_FORM: PatientFormData = {
   name: '',
+  rut: '',
   birth_date: '',
   sex: 'Masculino',
   height_cm: '',
@@ -73,14 +76,17 @@ export default function PatientFormPage() {
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [initialRut, setInitialRut] = useState('')
 
   // Load patient data when editing
   useEffect(() => {
     if (!isEditing || !token) return
     api.get<Record<string, any>>(`/patients/${id}`)
       .then((data) => {
+        setInitialRut(data.rut ?? '')
         setForm({
           name: data.name ?? '',
+          rut: data.rut ? formatRut(data.rut) : '',
           birth_date: data.birth_date ?? '',
           sex: data.sex ?? 'Masculino',
           height_cm: data.height_cm != null ? String(data.height_cm) : '',
@@ -102,6 +108,10 @@ export default function PatientFormPage() {
     setAge(calcAge(form.birth_date))
   }, [form.birth_date])
 
+  // Obligatorio al crear; al editar, los pacientes antiguos pueden seguir sin RUT
+  const rutRequired = !isEditing || !!initialRut
+  const rutInvalid = form.rut.length >= 8 && !isValidRut(form.rut)
+
   const set = (field: keyof PatientFormData, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
@@ -119,11 +129,20 @@ export default function PatientFormPage() {
       setError('El nombre es obligatorio')
       return
     }
+    if (rutRequired && !form.rut.trim()) {
+      setError('El RUT es obligatorio')
+      return
+    }
+    if (form.rut.trim() && !isValidRut(form.rut)) {
+      setError('El RUT no es válido: revisa el número y el dígito verificador')
+      return
+    }
     setSaving(true)
     setError(null)
 
     const payload = {
       name: form.name.trim(),
+      rut: form.rut.trim() || null,
       birth_date: form.birth_date || null,
       sex: form.sex,
       height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
@@ -187,6 +206,25 @@ export default function PatientFormPage() {
                 placeholder="Ej: Maria Gonzalez"
                 required
               />
+            </div>
+            <div>
+              <label className={LABEL}>
+                RUT {rutRequired && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="text"
+                inputMode="text"
+                value={form.rut}
+                onChange={(e) => set('rut', formatRut(e.target.value))}
+                className={`${INPUT} ${rutInvalid ? 'border-red-400 focus:ring-red-200' : ''}`}
+                placeholder="12.345.678-5"
+                maxLength={12}
+                required={rutRequired}
+                aria-invalid={rutInvalid}
+              />
+              {rutInvalid && (
+                <p className="text-xs text-red-600 mt-1">RUT inválido: revisa el dígito verificador</p>
+              )}
             </div>
             <div>
               <label className={LABEL}>Fecha de nacimiento</label>

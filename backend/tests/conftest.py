@@ -68,3 +68,13 @@ def _error_log_to_test_db(monkeypatch):
     """Los errores que provocan los tests se registran en la base de pruebas, no en la de desarrollo."""
     import error_log
     monkeypatch.setattr(error_log, "SessionLocal", TestingSessionLocal)
+
+
+_rut_seq = iter(range(10_000_000, 99_999_999))
+
+
+def next_rut() -> str:
+    """RUT válido (módulo 11) y distinto en cada llamada, para crear pacientes en los tests."""
+    import rut
+    body = str(next(_rut_seq))
+    return f"{body}-{rut.compute_dv(body)}"

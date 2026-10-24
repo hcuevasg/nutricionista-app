@@ -2,6 +2,7 @@
 import json
 
 from tests.test_ai import PAUTA
+from tests.conftest import next_rut
 
 PLANTILLA = {
     "nombre": "Hipocalórica 1800", "tipo_pauta": "hipocalorico", "fa_key": "liviana", "ajuste_kcal": -300,
@@ -31,7 +32,7 @@ def test_plantillas_crud_and_isolation(client):
 
 def test_duplicar_pauta(client):
     a, b = _register(client, "dup_a"), _register(client, "dup_b")
-    pid = client.post("/patients", json={"name": "Dup", "sex": "F"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Dup", "sex": "F"}, headers=a).json()["id"]
     pauta = client.post(f"/pautas?patient_id={pid}", json={**PAUTA, "menu_json": '{"x": 1}'}, headers=a).json()
     client.patch(f"/pautas/{pid}/{pauta['id']}/set-active", headers=a)
     assert client.post(f"/pautas/{pid}/{pauta['id']}/duplicar", headers=b).status_code == 404

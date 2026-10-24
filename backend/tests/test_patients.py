@@ -1,4 +1,5 @@
 """Tests for patients endpoints."""
+from tests.conftest import next_rut
 
 PATIENT = {
     "name": "María González",
@@ -19,7 +20,7 @@ def test_list_patients_paginated(auth_client):
 
 
 def test_create_patient(auth_client):
-    resp = auth_client.post("/patients", json=PATIENT)
+    resp = auth_client.post("/patients", json={**PATIENT, "rut": next_rut()})
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == PATIENT["name"]
@@ -27,14 +28,14 @@ def test_create_patient(auth_client):
 
 
 def test_get_patient(auth_client):
-    created = auth_client.post("/patients", json=PATIENT).json()
+    created = auth_client.post("/patients", json={**PATIENT, "rut": next_rut()}).json()
     resp = auth_client.get(f"/patients/{created['id']}")
     assert resp.status_code == 200
     assert resp.json()["name"] == PATIENT["name"]
 
 
 def test_update_patient(auth_client):
-    created = auth_client.post("/patients", json=PATIENT).json()
+    created = auth_client.post("/patients", json={**PATIENT, "rut": next_rut()}).json()
     updated = {**PATIENT, "name": "María González Actualizada"}
     resp = auth_client.put(f"/patients/{created['id']}", json=updated)
     assert resp.status_code == 200
@@ -42,7 +43,7 @@ def test_update_patient(auth_client):
 
 
 def test_delete_patient(auth_client):
-    created = auth_client.post("/patients", json=PATIENT).json()
+    created = auth_client.post("/patients", json={**PATIENT, "rut": next_rut()}).json()
     resp = auth_client.delete(f"/patients/{created['id']}")
     assert resp.status_code == 200
     # Verify gone
@@ -63,7 +64,7 @@ def test_patient_isolation(client):
     headersB = {"Authorization": f"Bearer {tokenB}"}
 
     # A creates a patient
-    p = client.post("/patients", json=PATIENT, headers=headersA).json()
+    p = client.post("/patients", json={**PATIENT, "rut": next_rut()}, headers=headersA).json()
     # B tries to access it
     resp = client.get(f"/patients/{p['id']}", headers=headersB)
     assert resp.status_code == 404

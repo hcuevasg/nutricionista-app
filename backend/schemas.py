@@ -87,6 +87,7 @@ class PasswordChange(BaseModel):
 # ── Patient Schemas ───────────────────────────────────────────────
 class PatientCreate(BaseModel):
     name: str
+    rut: Optional[str] = None
     birth_date: Optional[str] = None
     sex: str
     height_cm: Optional[float] = None
@@ -98,9 +99,23 @@ class PatientCreate(BaseModel):
     notes: Optional[str] = None
     allergies: Optional[List[str]] = []
 
+    @field_validator('rut')
+    @classmethod
+    def valid_rut(cls, v):
+        """Acepta '12.345.678-5', '12345678-5' o '123456785' y guarda '12345678-5'.
+        Solo RUT con dígito verificador correcto (módulo 11)."""
+        if v is None or not str(v).strip():
+            return None
+        import rut
+        normalized = rut.normalize(str(v))
+        if not normalized:
+            raise ValueError("RUT inválido: revisa el número y el dígito verificador")
+        return normalized
+
 
 class PatientUpdate(PatientCreate):
     pass
+
 
 
 class PatientResponse(PatientCreate):

@@ -9,6 +9,7 @@ import backup_r2
 import models
 from tests.conftest import engine_test
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 KEY = Fernet.generate_key().decode()
 
@@ -44,7 +45,7 @@ def r2_env(monkeypatch):
 
 def test_dump_encrypt_restore_roundtrip(client, tmp_path):
     h = _register(client, "bk_user")
-    pid = client.post("/patients", json={"name": "Ñandú Pérez", "sex": "F", "birth_date": "1990-01-02"},
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Ñandú Pérez", "sex": "F", "birth_date": "1990-01-02"},
                       headers=h).json()["id"]
     data = backup_r2.dump_database(engine_test)
     blob = backup_r2.encrypt(data, KEY)

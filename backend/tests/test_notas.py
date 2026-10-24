@@ -1,5 +1,6 @@
 """Notas de evolución SOAP."""
 from tests.test_plantillas import _register
+from tests.conftest import next_rut
 
 NOTA = {"fecha": "2026-10-20", "motivo": "Control mensual", "subjetivo": "Refiere buena adherencia",
         "objetivo": "Peso 70,5 kg", "analisis": "Baja de 1 kg", "plan": "Mantener pauta",
@@ -8,7 +9,7 @@ NOTA = {"fecha": "2026-10-20", "motivo": "Control mensual", "subjetivo": "Refier
 
 def test_notas_crud_isolation_and_order(client):
     a, b = _register(client, "nota_a"), _register(client, "nota_b")
-    pid = client.post("/patients", json={"name": "Con notas", "sex": "F"}, headers=a).json()["id"]
+    pid = client.post("/patients", json={"rut": next_rut(), "name": "Con notas", "sex": "F"}, headers=a).json()["id"]
     assert client.post(f"/notas/{pid}", json=NOTA, headers=b).status_code == 404
     n1 = client.post(f"/notas/{pid}", json=NOTA, headers=a)
     assert n1.status_code == 201
