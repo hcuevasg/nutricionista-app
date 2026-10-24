@@ -1,32 +1,33 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import PrivateRoute from './components/PrivateRoute'
+import { lazyPage } from './utils/lazyPage'
 
 // Páginas: el login se carga de inmediato; el resto bajo demanda para aligerar la primera carga
 import LoginPage from './pages/LoginPage'
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const PatientsPage = lazy(() => import('./pages/PatientsPage'))
-const PatientFormPage = lazy(() => import('./pages/PatientFormPage'))
-const PatientDetailPage = lazy(() => import('./pages/PatientDetailPage'))
-const IsAkPage = lazy(() => import('./pages/IsAkPage'))
-const PautasPage = lazy(() => import('./pages/PautasPage'))
-const PautaFormPage = lazy(() => import('./pages/PautaFormPage'))
-const ConfigPage = lazy(() => import('./pages/ConfigPage'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const AntecedentesPage = lazy(() => import('./pages/AntecedentesPage'))
-const RecetasPage = lazy(() => import('./pages/RecetasPage'))
-const RecetaFormPage = lazy(() => import('./pages/RecetaFormPage'))
-const IsAkReportPage = lazy(() => import('./pages/IsAkReportPage'))
-const PautaReportPage = lazy(() => import('./pages/PautaReportPage'))
-const AgendaPage = lazy(() => import('./pages/AgendaPage'))
-const PortalPage = lazy(() => import('./pages/PortalPage'))
-const PatientProgressPage = lazy(() => import('./pages/PatientProgressPage'))
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
-const EvolucionPage = lazy(() => import('./pages/EvolucionPage'))
-const LaboratorioPage = lazy(() => import('./pages/LaboratorioPage'))
+const RegisterPage = lazyPage(() => import('./pages/RegisterPage'))
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage'))
+const PatientsPage = lazyPage(() => import('./pages/PatientsPage'))
+const PatientFormPage = lazyPage(() => import('./pages/PatientFormPage'))
+const PatientDetailPage = lazyPage(() => import('./pages/PatientDetailPage'))
+const IsAkPage = lazyPage(() => import('./pages/IsAkPage'))
+const PautasPage = lazyPage(() => import('./pages/PautasPage'))
+const PautaFormPage = lazyPage(() => import('./pages/PautaFormPage'))
+const ConfigPage = lazyPage(() => import('./pages/ConfigPage'))
+const ProfilePage = lazyPage(() => import('./pages/ProfilePage'))
+const AntecedentesPage = lazyPage(() => import('./pages/AntecedentesPage'))
+const RecetasPage = lazyPage(() => import('./pages/RecetasPage'))
+const RecetaFormPage = lazyPage(() => import('./pages/RecetaFormPage'))
+const IsAkReportPage = lazyPage(() => import('./pages/IsAkReportPage'))
+const PautaReportPage = lazyPage(() => import('./pages/PautaReportPage'))
+const AgendaPage = lazyPage(() => import('./pages/AgendaPage'))
+const PortalPage = lazyPage(() => import('./pages/PortalPage'))
+const PatientProgressPage = lazyPage(() => import('./pages/PatientProgressPage'))
+const PrivacyPage = lazyPage(() => import('./pages/PrivacyPage'))
+const EvolucionPage = lazyPage(() => import('./pages/EvolucionPage'))
+const LaboratorioPage = lazyPage(() => import('./pages/LaboratorioPage'))
 
 function PageLoading() {
   return (

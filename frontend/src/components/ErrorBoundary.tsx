@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { reportError } from '../utils/errorReporter'
+import { isChunkLoadError, reloadForNewVersion } from '../utils/lazyPage'
 
 /** Muestra un aviso en vez de una pantalla en blanco y reporta el error. */
 export default class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -10,6 +11,8 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // Versión nueva publicada mientras la app estaba abierta: recargar en vez de reportar
+    if (isChunkLoadError(error) && reloadForNewVersion()) return
     reportError(error.message, `${error.stack ?? ''}\n\nComponentes:${info.componentStack ?? ''}`)
   }
 
